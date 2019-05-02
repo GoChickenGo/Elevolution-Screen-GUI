@@ -50,35 +50,54 @@ class ImageAnalysis():
         ax.imshow(Ratio) #fig 3 
         return Ratio
     
-    def ShowLabel(self, smallest_size, theMask, original_intensity):
+    def ShowLabel(self, smallest_size, theMask, original_intensity, i, j):
         # remove artifacts connected to image border
         self.Labelmask = theMask
         self.OriginImag = original_intensity
+        self.row_num = i
+        self.column_num = j
+        
         cleared = self.Labelmask.copy()
         clear_border(cleared)
-        
-        # label image regions
+                # label image regions
         label_image = label(cleared)
         #image_label_overlay = label2rgb(label_image, image=image)
         
         fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         ax.imshow(label_image)
         
+        dtype = [('Row index', 'i4'), ('Column index', 'i4'), ('Ratio', float)]
+        
+        region_mean_intensity_list = []
+        loopmun = 0
+        dirforcellprp={}
         for region in regionprops(label_image,intensity_image=self.OriginImag):
         
+            
             # skip small images
-            if region.area < smallest_size:
-                continue
+            if region.area > smallest_size:
+                               
+                # draw rectangle around segmented coins
+                minr, minc, maxr, maxc = region.bbox
+                rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr,
+                                          fill=False, edgecolor='red', linewidth=2)
+                ax.add_patch(rect)
+                centroidint1 = int(region.centroid[0])
+                centroidint2 = int(region.centroid[1])
+                ax.text(centroidint1+50, centroidint2+55, round(region.mean_intensity,3),fontsize=15,
+                                style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':10})
+                region_mean_intensity = region.mean_intensity
+
+                print(region_mean_intensity)
+                region_mean_intensity_list.append(region_mean_intensity)
+                dirforcellprp[loopmun] = (i, j, region_mean_intensity)
+                
+                loopmun = loopmun+1
         
-            # draw rectangle around segmented coins
-            minr, minc, maxr, maxc = region.bbox
-            rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr,
-                                      fill=False, edgecolor='red', linewidth=2)
-            ax.add_patch(rect)
-            centroidint1 = int(region.centroid[0])
-            centroidint2 = int(region.centroid[1])
-            ax.text(centroidint1+50, centroidint2+55, round(region.mean_intensity,3),fontsize=15,
-                            style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':10})
-            print(region.mean_intensity)
+        cell_properties = np.zeros(len(region_mean_intensity_list), dtype = dtype)
+        for p in range(loopmun):
+            cell_properties[p] = dirforcellprp[p]
+                
+        return region_mean_intensity_list, cell_properties
         
         plt.show() # fig 5

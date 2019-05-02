@@ -17,6 +17,7 @@ from skimage.measure import label
 from skimage.morphology import closing, square
 from skimage.measure import regionprops
 from skimage.color import label2rgb
+from MageAnalysis import ImageAnalysis
 
 Rawimgbef = cv2.imread('E:\\Delft\\Code\\python\\Python_test\\Archon2.tif',0)
 Rawimgaft = cv2.imread('E:\\Delft\\Code\\python\\Python_test\\Archon1.tif',0)
@@ -25,6 +26,14 @@ Rawimgaft = cv2.imread('E:\\Delft\\Code\\python\\Python_test\\Archon1.tif',0)
 img_before = Rawimgbef[483:483+600,690:690+600]  #crop image
 img_after = Rawimgaft[483:483+600,690:690+600]
 
+S = ImageAnalysis(img_before, img_after)
+v1, v2, bw = S.ApplyMask()
+R = S.Ratio(v1, v2)
+L, cp = S.ShowLabel(1000, bw, R, -1500, -1500)
+print (L)
+print (cp)
+
+'''
 fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
 ax.imshow(img_before)# fig 1
 
@@ -77,3 +86,4 @@ for region in regionprops(label_image,intensity_image=Ratio):
     print(region.mean_intensity)
 
 plt.show() # fig 5
+'''
