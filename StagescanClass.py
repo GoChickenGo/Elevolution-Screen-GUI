@@ -14,9 +14,10 @@ from nidaqmx.stream_readers import AnalogSingleChannelReader
 import wavegenerator
 import matplotlib.pyplot as plt
 from PIL import Image
+from MageAnalysis import ImageAnalysis
 
 class Stagescan():
-    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12):
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13):
         # Settings for stage scan
         self.ludlStage = Stage("COM7")
         self.UI_row_start_stagescan = value1
@@ -31,6 +32,7 @@ class Stagescan():
         self.UI_voltYMax_stagescan = value10
         self.UI_Value_xPixels_stagescan = value11
         self.UI_Value_yPixels_stagescan = value12
+        self.UI_Value_averagenum_stagescan = value13
         
     def start(self):
         # settings for scanning index
@@ -53,14 +55,15 @@ class Stagescan():
         Value_voltYMax = self.UI_voltYMax_stagescan
         Value_xPixels = self.UI_Value_xPixels_stagescan
         Value_yPixels = self.UI_Value_yPixels_stagescan
+        averagenum =self.UI_Value_averagenum_stagescan
         #Generate galvo samples
         samples_1, samples_2= wavegenerator.waveRecPic(sampleRate = Daq_sample_rate, imAngle = 0, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, 
                          voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
                          sawtooth = True)
         #ScanArrayX = wavegenerator.xValuesSingleSawtooth(sampleRate = Daq_sample_rate, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, xPixels = Value_xPixels, sawtooth = True)
-        Totalscansamples = len(samples_1) # Calculate number of samples to feed to scanner, by default it's one frame 
+        Totalscansamples = len(samples_1)*averagenum # Calculate number of samples to feed to scanner, by default it's one frame 
         ScanArrayXnum = int (len(samples_1)/Value_yPixels)
-        Galvo_samples = np.vstack((samples_1,samples_2))
+        Galvo_samples = np.vstack((samples_1,samples_2)) #
         
             
             
@@ -122,14 +125,15 @@ class Stagescan():
                     slave_Task3.start()
                     slave_Task2.start()
                     reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamples, timeout=16.0)
-                    data1 = np.reshape(Dataholder, (Value_yPixels, ScanArrayXnum))
+                    Dataholder_average = np.mean(Dataholder.reshape(-1, averagenum), axis=1)
+                    data1 = np.reshape(Dataholder_average, (Value_yPixels, ScanArrayXnum))
                     
                     slave_Task3.wait_until_done()
                     slave_Task2.wait_until_done()
                     master_Task.wait_until_done()
                     
                     Pic_name =str(i)+str(j)
-                    print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
+                    print('Piicture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                     Data_dict_0[Pic_name] = data1[:,:Value_yPixels]*-1
                     Localimg = Image.fromarray(Data_dict_0[Pic_name]) #generate an image object
                     #Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
@@ -180,7 +184,8 @@ class Stagescan():
                     slave_Task3.start()
                     slave_Task2.start()
                     reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamples, timeout=16.0)
-                    data1 = np.reshape(Dataholder, (Value_yPixels, ScanArrayXnum))
+                    Dataholder_average = np.mean(Dataholder.reshape(-1, averagenum), axis=1)
+                    data1 = np.reshape(Dataholder_average, (Value_yPixels, ScanArrayXnum))
                     
                     slave_Task3.wait_until_done()
                     slave_Task2.wait_until_done()
@@ -191,15 +196,20 @@ class Stagescan():
                     Data_dict_1[Pic_name] = data1[:,:Value_yPixels]*-1
                     Localimg = Image.fromarray(Data_dict_1[Pic_name]) #generate an image object
                     #Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
-                    
-                    # Image processing
-                    kkk = Data_dict_1[Pic_name]/Data_dict_0[Pic_name]
-                    
-                    
                     plt.figure(loopnum)
                     plt.imshow(Data_dict_1[Pic_name], cmap = plt.cm.gray)
                     plt.show()
-                    
+                    time.sleep(1)
+                    # Image processing
+                    #kkk = Data_dict_1[Pic_name]/Data_dict_0[Pic_name]
+                    S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
+                    v1, v2, bw = S.ApplyMask()
+                    R = S.Ratio(v1, v2)
+                    L, cp = S.Getproperties(150, bw, R, i, j)
+                    S.Showlabel(150, bw, R, i, j)
+                    #print (L)
+                    print (cp)
+                    time.sleep(2)
                     
                     slave_Task3.stop()
                     master_Task.stop()

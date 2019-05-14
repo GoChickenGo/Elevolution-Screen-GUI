@@ -90,13 +90,18 @@ class MainWindow(QWidget):
         self.textboxL.addItems(['500','256'])
         Layout.addWidget(self.textboxL, 5, 3)
         Layout.addWidget(QLabel("Y pixel number"), 5, 2)
+        
+        self.textboxM = QComboBox()
+        self.textboxM.addItems(['1','2','3','4','5'])
+        Layout.addWidget(self.textboxM, 6, 1)
+        Layout.addWidget(QLabel("average over:"), 6, 0)
 
         # Create a button in the window
         self.button1 = QPushButton('Show text', self)
-        Layout.addWidget(self.button1, 6, 0)
+        Layout.addWidget(self.button1, 7, 0)
         
         self.button2 = QPushButton('Start', self)
-        Layout.addWidget(self.button2, 6, 1)
+        Layout.addWidget(self.button2, 7, 1)
         
          
         # connect button to function on_click
@@ -151,7 +156,10 @@ class MainWindow(QWidget):
         textboxValue12 = self.textboxL.currentText()
         UI_Value_yPixels = int(textboxValue12)
         
-        self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, UI_Daq_sample_rate, UI_voltXMin, UI_voltXMax, UI_voltYMin, UI_voltYMax, UI_Value_xPixels, UI_Value_yPixels)
+        textboxValue13 = self.textboxM.currentText()
+        UI_averagenum = int(textboxValue13)
+        
+        self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, UI_Daq_sample_rate, UI_voltXMin, UI_voltXMax, UI_voltYMin, UI_voltYMax, UI_Value_xPixels, UI_Value_yPixels, UI_averagenum)
         self.S.start()
             
 if __name__ == "__main__":
