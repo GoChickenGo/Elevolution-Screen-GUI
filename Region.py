@@ -19,17 +19,20 @@ from skimage.measure import regionprops
 from skimage.color import label2rgb
 from MageAnalysis import ImageAnalysis
 
-Rawimgbef = cv2.imread('E:\\Delft\\Code\\python\\Python_test\\Archon2.tif',0)
-Rawimgaft = cv2.imread('E:\\Delft\\Code\\python\\Python_test\\Archon1.tif',0)
+Rawimgbef = cv2.imread('M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\Data\\Xin\\2019-5-14 Archon2p and screen\\single cell image\\cell5.tif',0)
+Rawimgaft = cv2.imread('M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\Data\\Xin\\2019-5-14 Archon2p and screen\\single cell image\\cell5.tif',0)
 
 
-img_before = Rawimgbef[483:483+600,690:690+600]  #crop image
-img_after = Rawimgaft[483:483+600,690:690+600]
+img_before = Rawimgbef
+#[483:483+600,690:690+600]  #crop image
+img_after = Rawimgaft
+#[483:483+600,690:690+600]
 
 S = ImageAnalysis(img_before, img_after)
-v1, v2, bw = S.ApplyMask()
-R = S.Ratio(v1, v2)
-L, cp = S.ShowLabel(1000, bw, R, -1500, -1500)
+v1, v2, bw, thres = S.applyMask()
+R = S.ratio(v1, v2)
+L, cp = S.getproperties(1000, bw, img_after, thres, -1500, -1500)
+S.showlabel(1000, bw, img_after, thres, -1500, -1500)
 print (L)
 print (cp)
 
