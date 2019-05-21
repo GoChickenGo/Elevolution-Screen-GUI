@@ -19,23 +19,20 @@ from skimage.measure import regionprops
 from skimage.color import label2rgb
 from MageAnalysis import ImageAnalysis
 
-Rawimgbef = cv2.imread('M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\Data\\Xin\\2019-5-14 Archon2p and screen\\single cell image\\cell5.tif',0)
-Rawimgaft = cv2.imread('M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\Data\\Xin\\2019-5-14 Archon2p and screen\\single cell image\\cell5.tif',0)
+Rawimgbef = cv2.imread('O:\\Delft\\Code\\python\\Python_test\\cell5.tif',0)
+Rawimgaft = cv2.imread('O:\\Delft\\Code\\python\\Python_test\\cell5.tif',0)
 
 
-img_before = Rawimgbef
-#[483:483+600,690:690+600]  #crop image
-img_after = Rawimgaft
-#[483:483+600,690:690+600]
+img_before = Rawimgbef#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
+img_after = Rawimgaft#[200:400,300:500]#[483:483+600,690:690+600]
 
 S = ImageAnalysis(img_before, img_after)
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
-L, cp = S.getproperties(1000, bw, img_after, thres, -1500, -1500)
-S.showlabel(1000, bw, img_after, thres, -1500, -1500)
+L, cp, contourim = S.get_intensity_properties(1000, bw, R, thres, v2, -1500, -1500)
+Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
 print (L)
-print (cp)
-
+print (cp['Mean intensity in contour'][0])
 '''
 fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
 ax.imshow(img_before)# fig 1
