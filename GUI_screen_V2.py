@@ -57,27 +57,27 @@ class MainWindow(QWidget):
         Layout.addWidget(QLabel("Step:"), 2, 0)          
 
         self.textboxF = QComboBox()
-        self.textboxF.addItems(['50000', '500000'])
+        self.textboxF.addItems(['500000', '50000'])
         Layout.addWidget(self.textboxF, 2, 3)
         Layout.addWidget(QLabel("DAQ sampling rate:"), 2, 2)         
 
         self.textboxG = QComboBox()
-        self.textboxG.addItems(['-3','-2','-1'])
+        self.textboxG.addItems(['-5','-3','-1'])
         Layout.addWidget(self.textboxG, 3, 1)
         Layout.addWidget(QLabel("voltXMin"), 3, 0)
 
         self.textboxH = QComboBox()
-        self.textboxH.addItems(['3','2','1'])
+        self.textboxH.addItems(['5','3','1'])
         Layout.addWidget(self.textboxH, 3, 3)
         Layout.addWidget(QLabel("voltXMax"), 3, 2)
 
         self.textboxI = QComboBox()
-        self.textboxI.addItems(['-3','-2','-1'])
+        self.textboxI.addItems(['-5','-3','-1'])
         Layout.addWidget(self.textboxI, 4, 1)
         Layout.addWidget(QLabel("voltYMin"), 4, 0)
 
         self.textboxJ = QComboBox()
-        self.textboxJ.addItems(['3','2','1'])
+        self.textboxJ.addItems(['5','3','1'])
         Layout.addWidget(self.textboxJ, 4, 3)
         Layout.addWidget(QLabel("voltYMax"), 4, 2)
 
@@ -92,7 +92,7 @@ class MainWindow(QWidget):
         Layout.addWidget(QLabel("Y pixel number"), 5, 2)
         
         self.textboxM = QComboBox()
-        self.textboxM.addItems(['1','2','3','4','5'])
+        self.textboxM.addItems(['5','2','3','8','1'])
         Layout.addWidget(self.textboxM, 6, 1)
         Layout.addWidget(QLabel("average over:"), 6, 0)
 

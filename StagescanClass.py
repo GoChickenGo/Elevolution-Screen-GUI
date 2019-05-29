@@ -125,7 +125,7 @@ class Stagescan():
                     slave_Task3.start()
                     slave_Task2.start()
                     reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamples, timeout=16.0)
-                    Dataholder_average = np.mean(Dataholder.reshape(-1, averagenum), axis=1)
+                    Dataholder_average = np.mean(Dataholder.reshape(averagenum, -1), axis=0)
                     data1 = np.reshape(Dataholder_average, (Value_yPixels, ScanArrayXnum))
                     
                     slave_Task3.wait_until_done()
@@ -133,7 +133,7 @@ class Stagescan():
                     master_Task.wait_until_done()
                     
                     Pic_name =str(i)+str(j)
-                    print('Piicture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
+                    print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                     Data_dict_0[Pic_name] = data1[:,:Value_yPixels]*-1
                     Localimg = Image.fromarray(Data_dict_0[Pic_name]) #generate an image object
                     #Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
@@ -184,7 +184,7 @@ class Stagescan():
                     slave_Task3.start()
                     slave_Task2.start()
                     reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamples, timeout=16.0)
-                    Dataholder_average = np.mean(Dataholder.reshape(-1, averagenum), axis=1)
+                    Dataholder_average = np.mean(Dataholder.reshape(averagenum, -1), axis=0)
                     data1 = np.reshape(Dataholder_average, (Value_yPixels, ScanArrayXnum))
                     
                     slave_Task3.wait_until_done()
@@ -192,10 +192,10 @@ class Stagescan():
                     master_Task.wait_until_done()
                     
                     Pic_name = str(i)+str(j)
-                    print('Piicture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
+                    print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                     Data_dict_1[Pic_name] = data1[:,:Value_yPixels]*-1
                     Localimg = Image.fromarray(Data_dict_1[Pic_name]) #generate an image object
-                    #Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
+                    Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
                     plt.figure(loopnum)
                     plt.imshow(Data_dict_1[Pic_name], cmap = plt.cm.gray)
                     plt.show()
@@ -203,10 +203,10 @@ class Stagescan():
                     # Image processing
                     #kkk = Data_dict_1[Pic_name]/Data_dict_0[Pic_name]
                     S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
-                    v1, v2, bw = S.ApplyMask()
-                    R = S.Ratio(v1, v2)
-                    L, cp = S.Getproperties(150, bw, R, i, j)
-                    S.Showlabel(150, bw, R, i, j)
+                    v1, v2, bw, thres = S.applyMask()
+                    R = S.ratio(v1, v2)
+                    L, cp= S.get_intensity_properties(50, bw, R, thres, v2, i, j,4)
+                    S.showlabel(50, bw, v2, thres, i, j, cp)
                     #print (L)
                     print (cp)
                     time.sleep(2)

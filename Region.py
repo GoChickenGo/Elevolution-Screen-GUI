@@ -14,25 +14,29 @@ from skimage import data
 from skimage.filters import threshold_otsu
 from skimage.segmentation import clear_border
 from skimage.measure import label
-from skimage.morphology import closing, square
+from skimage.morphology import closing, square, opening
 from skimage.measure import regionprops
 from skimage.color import label2rgb
-from MageAnalysis import ImageAnalysis
+from trymageAnalysis import ImageAnalysis
+from skimage.io import imread
 
-Rawimgbef = cv2.imread('O:\\Delft\\Code\\python\\Python_test\\cell5.tif',0)
-Rawimgaft = cv2.imread('O:\\Delft\\Code\\python\\Python_test\\cell5.tif',0)
+Rawimgbef = imread("D:/111out.tif", as_gray=True)
+Rawimgaft = imread("D:/111out.tif", as_gray=True)
+#Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
+#Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
 
 
-img_before = Rawimgbef#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
-img_after = Rawimgaft#[200:400,300:500]#[483:483+600,690:690+600]
+img_before = Rawimgbef[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
+img_after = Rawimgaft[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
 
 S = ImageAnalysis(img_before, img_after)
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
-L, cp, contourim = S.get_intensity_properties(1000, bw, R, thres, v2, -1500, -1500)
-Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
+L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -1500, -1500, 4)
+S.showlabel(100, bw, v2, thres, -1500, -1500, cp)
+#Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
 print (L)
-print (cp['Mean intensity in contour'][0])
+print (cp)
 '''
 fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
 ax.imshow(img_before)# fig 1
