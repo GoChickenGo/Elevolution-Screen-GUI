@@ -24,70 +24,84 @@ Rawimgbef = imread("D:/111out.tif", as_gray=True)
 Rawimgaft = imread("D:/111out.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
-
-
-img_before = Rawimgbef[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
-img_after = Rawimgaft[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
+img_before = Rawimgbef#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
+img_after = Rawimgaft#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
 
 S = ImageAnalysis(img_before, img_after)
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
-L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -1500, -1500, 4)
+L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -1500, -1500, 7)
 S.showlabel(100, bw, v2, thres, -1500, -1500, cp)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
 print (L)
 print (cp)
-'''
-fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
-ax.imshow(img_before)# fig 1
 
-thresh = threshold_otsu(img_before)
-#mask = img_before > thresh # generate mask
-bw = closing(img_before > thresh, square(3))
-mask = closing(img_before > thresh, square(3))
+Rawimgbef1 = imread("D:/222out.tif", as_gray=True)
+Rawimgaft1 = imread("D:/222out.tif", as_gray=True)
+#Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
+#Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
+img_before1 = Rawimgbef1#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
+img_after1 = Rawimgaft1
 
-fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
-ax.imshow(bw)# fig 2
+S = ImageAnalysis(img_before1, img_after1)
+v1, v2, bw, thres = S.applyMask()
+R = S.ratio(v1, v2)
+L1, cp1, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -2500, -2500, 7)
+S.showlabel(100, bw, v2, thres, -2500, -2500, cp1)
+#Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
+print (L1)
+print (cp1)
 
-Segimg_bef = mask*img_before
-Segimg_aft = mask*img_after
+print('...........Original ..........')
 
-fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
-ax.imshow(Segimg_bef) #fig 3
+loopnum = 1
+All_cell_properties_dict = {}
+All_cell_properties_dict[0] = []
+All_cell_properties = []
 
-Segimg_bef_ratio = np.where(Segimg_bef == 0, 1, Segimg_bef)
-Ratio = Segimg_aft/Segimg_bef_ratio
+All_cell_properties_dict[1] = cp
+All_cell_properties_dict[2] = cp1
+if loopnum != 0:
+    All_cell_properties = np.append(All_cell_properties_dict[1], All_cell_properties_dict[2], axis=0)
+else:
+    pass
+All_cell_properties = cp1
+# Put all results in one
 
-fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
-ax.imshow(Ratio) #fig 4
+# Label the original order
+original_dtype = np.dtype(All_cell_properties.dtype.descr + [('Original_sequence', '<i4')])
+original_cp = np.zeros(All_cell_properties.shape, dtype=original_dtype)
+original_cp['Row index'] = All_cell_properties['Row index']
+original_cp['Column index'] = All_cell_properties['Column index']
+original_cp['Mean intensity'] = All_cell_properties['Mean intensity']
+original_cp['Circularity'] = All_cell_properties['Circularity']
+original_cp['Mean intensity in contour'] = All_cell_properties['Mean intensity in contour']
+original_cp['Original_sequence'] = list(range(0, len(All_cell_properties)))
 
-# remove artifacts connected to image border
-cleared = bw.copy()
-clear_border(cleared)
+print (original_cp['Mean intensity in contour'])
+print('*********************sorted************************')
+#sort
+sortedcp = np.flip(np.sort(original_cp, order='Mean intensity in contour'), 0)
+selected_num = 10 #determine how many we want
+#unsorted_cp = All_cell_properties[:selected_num]
+#targetcp = sortedcp[:selected_num]
 
-# label image regions
-label_image = label(cleared)
-#image_label_overlay = label2rgb(label_image, image=image)
+rank_dtype = np.dtype(sortedcp.dtype.descr + [('Ranking', '<i4')])
+ranked_cp = np.zeros(sortedcp.shape, dtype=rank_dtype)
+ranked_cp['Row index'] = sortedcp['Row index']
+ranked_cp['Column index'] = sortedcp['Column index']
+ranked_cp['Mean intensity'] = sortedcp['Mean intensity']
+ranked_cp['Circularity'] = sortedcp['Circularity']
+ranked_cp['Mean intensity in contour'] = sortedcp['Mean intensity in contour']
+ranked_cp['Original_sequence'] = sortedcp['Original_sequence']
+ranked_cp['Ranking'] = list(range(0, len(All_cell_properties)))
 
-fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
-ax.imshow(label_image)
+print (ranked_cp['Mean intensity in contour'])
+print('***********************Original sequence with ranking**************************')
 
-for region in regionprops(label_image,intensity_image=Ratio):
+#back to original sequence with ranking
+withranking_cp = np.sort(ranked_cp, order='Original_sequence')
+print (withranking_cp['Mean intensity in contour'])
 
-    # skip small images
-    if region.area < 100:
-        continue
-
-    # draw rectangle around segmented coins
-    minr, minc, maxr, maxc = region.bbox
-    rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr,
-                              fill=False, edgecolor='red', linewidth=2)
-    ax.add_patch(rect)
-    centroidint1 = int(region.centroid[0])
-    centroidint2 = int(region.centroid[1])
-    ax.text(centroidint1+50, centroidint2+55, round(region.mean_intensity,3),fontsize=15,
-                    style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':10})
-    print(region.mean_intensity)
-
-plt.show() # fig 5
-'''
+S = ImageAnalysis(img_before1, img_after1)
+S.showlabel_with_rank(100, bw, v2, thres, -1500, -1500, withranking_cp, 'Mean intensity in contour', 10)

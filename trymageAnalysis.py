@@ -12,7 +12,7 @@ import matplotlib.patches as mpatches
 import math
 from findcontour import imageanalysistoolbox
 from skimage import data
-from skimage.filters import threshold_otsu
+from skimage.filters import threshold_otsu, threshold_local
 from skimage.segmentation import clear_border
 from skimage.measure import label, perimeter, find_contours
 from skimage.morphology import closing, square, opening
@@ -26,10 +26,15 @@ class ImageAnalysis():
         self.Img_before = self.img_before_tem.copy()
         self.Img_after = self.img_after_tem.copy()
     def applyMask(self):
-        thresh = threshold_otsu(self.Img_before)-0.8#-55
+        thresh = threshold_otsu(self.Img_before)#-0.7#-55
+        # Adaptive thresholding
+        block_size = 35
+        binary_adaptive = threshold_local(self.Img_before, block_size, offset=0)
         #mask = img_before > thresh # generate mask
-        binarymask = opening(self.Img_before > thresh, square(1))
-        self.mask = closing(binarymask, square(9))
+        #binarymask = opening(self.Img_before > thresh, square(1))
+        binary_adaptive1 = self.Img_before >= binary_adaptive
+        binarymask = opening(binary_adaptive1, square(2))
+        self.mask = closing(binarymask, square(4))
         
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(bw)# fig 2
@@ -40,7 +45,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(Segimg_aft) #fig 3
         
-        return Segimg_bef, Segimg_aft, binarymask, thresh
+        return Segimg_bef, Segimg_aft, self.mask, thresh
     
         
     def ratio(self, value1, value2):
@@ -99,13 +104,15 @@ class ImageAnalysis():
                 #Sliced_binary_region_image = region.image
                 self.intensityimage_intensity = region.intensity_image # need a copy of this cause region will be altered by s.contour
                 self.intensityimage_intensity1 = self.intensityimage_intensity.copy()
-                #singlethresh = threshold_otsu(filledimg)
+                #region.coords
+                #localthresh = threshold_otsu(self.intensityimage_intensity1)-0.1
+                #print(localthresh)
                 #singlethresh = True
                 #print(region.area)
                 #print(region.bbox_area)
                 #print(region_mean_intensity)
                 s=imageanalysistoolbox()
-                contourimage_intensity = s.contour(filledimg, self.intensityimage_intensity, 0.8) # after here self.intensityimage_intensity is changed with contour labeled with number 5
+                contourimage_intensity = s.contour(filledimg, self.intensityimage_intensity, 0.001) # after here self.intensityimage_intensity is changed with contour labeled with number 5
                 contour_mask_of_intensity = s.inwarddilationmask(contourimage_intensity ,filledimg, self.dilationdegree)   
 
 
@@ -151,7 +158,7 @@ class ImageAnalysis():
         fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         ax.imshow(label_image)
         
-        loopmun = 0
+        loopmun1 = 0
         for region in regionprops(label_image,intensity_image=self.OriginImag):
             # skip small images
             if region.area > smallest_size:
@@ -162,8 +169,6 @@ class ImageAnalysis():
                 ax.add_patch(rect)
                 filledimg = region.filled_image #Binary region image with filled holes which has the same size as bounding box.
                 #filledperimeter = perimeter(filledimg)
-                Sliced_binary_region_image = region.image
-                self.intensityimage = region.intensity_image
                 #singlethresh = threshold_otsu(filledimg)
                 
                 #print(singlethresh)
@@ -188,8 +193,8 @@ class ImageAnalysis():
                         #self.intensityimage[row1[m], col1[m]] = 5
                     #filledimg[contour[:, 0], contour[:, 1]] = 2
                     ax.plot(contour[:, 1]+minc, contour[:, 0]+minr, linewidth=1, color='yellow')
-                x1 = cell_properties['Circularity'][loopmun]
-                x2 = cell_properties['Mean intensity in contour'][loopmun]
+                x1 = cell_properties['Circularity'][loopmun1]
+                x2 = cell_properties['Mean intensity in contour'][loopmun1]
                 
                 #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
                 ax.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',    '+str(round(x2, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
@@ -197,10 +202,81 @@ class ImageAnalysis():
                 
                 #ax.plot(contours[:, 1], contours[:, 0], linewidth=2)
                 
-                loopmun = loopmun+1
+                loopmun1 = loopmun1+1
                 
         ax.set_axis_off()
         #plt.tight_layout()
         plt.show()
         
         #return filledimg, Sliced_binary_region_image, intensityimage
+    def showlabel_with_rank(self, smallest_size, theMask, original_intensity, threshold, i, j, cell_properties, thekey_attri, num_hits):
+        self.Labelmask = theMask
+        self.OriginImag = original_intensity
+        self.row_num = i
+        self.column_num = j
+        self.threshold = threshold
+        self.thekey_attri= thekey_attri
+        
+        #cell_properties = np.flip(np.sort(cell_properties, order=self.thekey_attri), 0)
+        #keyattri = cell_properties[self.thekey_attri].tolist()
+        #keyattri = keyattri[:num_hits]
+        #print(keyattri)
+        
+        #cell_properties = cell_properties[:num_hits]
+        cleared = self.Labelmask.copy()
+        clear_border(cleared)
+                # label image regions
+        label_image = label(cleared)
+        #image_label_overlay = label2rgb(label_image, image=image)
+        
+        
+        fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
+        ax.imshow(label_image)
+        
+        loopmun1 = 0
+        for region in regionprops(label_image,intensity_image=self.OriginImag):
+            # skip small images
+            if region.area > smallest_size:         
+                # draw rectangle around segmented coins
+                minr, minc, maxr, maxc = region.bbox
+                rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
+                ax.add_patch(rect)
+                filledimg = region.filled_image
+                #singlethresh = threshold_otsu(filledimg)
+                
+                #print(singlethresh)
+                #print(filledperimeter)
+                #print(region.perimeter)
+                #print(region.filled_area)
+                #print(str(minc)+', '+str(maxc)+', '+str(minr)+', '+str(maxr))
+                #s=imageanalysistoolbox()
+                #contourimage = s.contour(filledimg, self.intensityimage, singlethresh)
+                #contour_mask = s.inwarddilationmask(contourimage ,filledimg, 15)
+
+                #contours = find_contours(filledimg, 0.8) # Find iso-valued contours in a 2D array for a given level value.
+                    
+                #for n, contour in enumerate(contours):
+                    #print(contour[1,0])
+                    #col = contour[:, 1]
+                    #row = contour[:, 0]
+                    #col1 = [int(round(i)) for i in col]
+                    #row1 = [int(round(i)) for i in row]
+                    
+                    #for m in range(len(col1)):
+                    #self.intensityimage[row1[m], col1[m]] = 5
+                    #filledimg[contour[:, 0], contour[:, 1]] = 2
+                    #ax.plot(contour[:, 1]+minc, contour[:, 0]+minr, linewidth=1, color='yellow')
+                    #x1 = cell_properties['Circularity'][loopmun1]
+                x2 = cell_properties['Mean intensity in contour'][loopmun1]
+                x3 = cell_properties['Ranking'][loopmun1]
+                if x3 < num_hits:
+                    #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
+                    ax.text((maxc + minc)/2, (maxr + minr)/2, str(round(x2, 3))+ ',  '+str(x3), fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
+                    
+                    
+                    #ax.plot(contours[:, 1], contours[:, 0], linewidth=2)
+                loopmun1 = loopmun1+1
+                
+        ax.set_axis_off()
+        #plt.tight_layout()
+        plt.show()
