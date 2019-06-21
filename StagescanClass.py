@@ -297,3 +297,19 @@ class Stagescan():
             input("Press Enter to continue...")
             print(merged_index_samples)
             print(withranking_cp)
+
+            for i in range(len(merged_index_samples)):
+                print ('-----------------------------------')
+                    
+                #stage movement
+                self.ludlStage.MoveAbs(merged_index_samples[i,:].tolist()[0],merged_index_samples[i,:].tolist()[1])
+                time.sleep(1)
+                    
+                Pic_name_trace = str(merged_index_samples[i,:].tolist()[0])+str(merged_index_samples[i,:].tolist()[1])
+                    
+                S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
+                v1, v2, bw, thres = S.applyMask()
+                S.showlabel_with_rank(100, bw, v2, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', 10)
+                print ( ' i: '+ str(merged_index_samples[i,:].tolist()[0]) + ' j: '+ str(merged_index_samples[i,:].tolist()[1]))
+                print ('-----------------------------------')
+                input("Press Enter to continue...")
