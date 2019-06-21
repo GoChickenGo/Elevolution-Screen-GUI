@@ -24,33 +24,44 @@ Rawimgbef = imread("D:/111out.tif", as_gray=True)
 Rawimgaft = imread("D:/111out.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
-img_before = Rawimgbef#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
-img_after = Rawimgaft#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
 
-S = ImageAnalysis(img_before, img_after)
+Data_dict_0 = {}
+Data_dict_0[str(-1500)+str(-1500)] = Rawimgbef
+
+Data_dict_1 = {}
+Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft
+
+#img_before = Rawimgbef#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
+#img_after = Rawimgaft#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
+
+S = ImageAnalysis(Data_dict_0[str(-1500)+str(-1500)], Data_dict_1[str(-1500)+str(-1500)])
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
 L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -1500, -1500, 7)
 S.showlabel(100, bw, v2, thres, -1500, -1500, cp)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
-print (L)
+#print (L)
 print (cp)
 
 Rawimgbef1 = imread("D:/222out.tif", as_gray=True)
 Rawimgaft1 = imread("D:/222out.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
-img_before1 = Rawimgbef1#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
-img_after1 = Rawimgaft1
 
-S = ImageAnalysis(img_before1, img_after1)
+Data_dict_0[str(-1500)+str(-500)] = Rawimgbef1
+
+Data_dict_1[str(-1500)+str(-500)] = Rawimgaft1
+
+S = ImageAnalysis(Data_dict_0[str(-1500)+str(-500)], Data_dict_1[str(-1500)+str(-500)])
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
-L1, cp1, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -2500, -2500, 7)
-S.showlabel(100, bw, v2, thres, -2500, -2500, cp1)
+L1, cp1, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -1500, -500, 7)
+S.showlabel(100, bw, v2, thres, -1500, -500, cp1)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
-print (L1)
+#print (L1)
 print (cp1)
+
+input("Press Enter to continue...")
 
 print('...........Original ..........')
 
@@ -65,7 +76,7 @@ if loopnum != 0:
     All_cell_properties = np.append(All_cell_properties_dict[1], All_cell_properties_dict[2], axis=0)
 else:
     pass
-All_cell_properties = cp1
+#All_cell_properties = cp1
 # Put all results in one
 
 # Label the original order
@@ -96,12 +107,47 @@ ranked_cp['Mean intensity in contour'] = sortedcp['Mean intensity in contour']
 ranked_cp['Original_sequence'] = sortedcp['Original_sequence']
 ranked_cp['Ranking'] = list(range(0, len(All_cell_properties)))
 
-print (ranked_cp['Mean intensity in contour'])
+print (ranked_cp)
 print('***********************Original sequence with ranking**************************')
 
 #back to original sequence with ranking
 withranking_cp = np.sort(ranked_cp, order='Original_sequence')
 print (withranking_cp['Mean intensity in contour'])
 
-S = ImageAnalysis(img_before1, img_after1)
-S.showlabel_with_rank(100, bw, v2, thres, -1500, -1500, withranking_cp, 'Mean intensity in contour', 10)
+cp_index_dict = {}
+Pic_name = str(-1500)+str(-1500)
+Pic_name1 = str(-1500)+str(-500)
+
+cp_index_dict[Pic_name] = [0, 12]
+cp_index_dict[Pic_name1] = [13, 35]
+
+target = Pic_name
+target1 = Pic_name1
+
+S = ImageAnalysis(Data_dict_0[target], Data_dict_1[target]) #S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
+v1, v2, bw, thres = S.applyMask()
+S.showlabel_with_rank(100, bw, v2, cp_index_dict[target][0], cp_index_dict[target][1], withranking_cp, 'Mean intensity in contour', 10)
+
+S = ImageAnalysis(Data_dict_0[target1], Data_dict_1[target1]) #S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
+v1, v2, bw, thres = S.applyMask()
+S.showlabel_with_rank(100, bw, v2, cp_index_dict[target1][0], cp_index_dict[target1][1], withranking_cp, 'Mean intensity in contour', 10)
+
+cell_properties_selected_hits = ranked_cp[0:7]
+cell_properties_selected_hits_index_sorted = np.sort(cell_properties_selected_hits, order=['Row index', 'Column index'])
+
+# for test
+index_samples1 = np.array([[-1500, -1500,-1500, -1500, -1500, -500, -500, -500],   # i
+                           [-1500, -1500, -500,  -500,  -500, -500,  500,  500]])  # j
+
+# merge repeated index
+# i in 1st row, j in 2nd row
+index_samples = np.vstack((cell_properties_selected_hits_index_sorted['Row index'],cell_properties_selected_hits_index_sorted['Column index']))
+
+merged_index_samples = index_samples[:,0]
+
+#consider these after 1st one
+for i in range(1, len(index_samples[0])):
+    #print(index_samples[:,i][0] - index_samples[:,i-1][0])    
+    if index_samples[:,i][0] != index_samples[:,i-1][0] or index_samples[:,i][1] != index_samples[:,i-1][1]: 
+        merged_index_samples = np.append(merged_index_samples, index_samples[:,i], axis=0)
+merged_index_samples = merged_index_samples.reshape(-1, 2) # 1st column=i, 2nd column=j

@@ -14,7 +14,7 @@ from nidaqmx.stream_readers import AnalogSingleChannelReader
 import wavegenerator
 import matplotlib.pyplot as plt
 from PIL import Image
-from MageAnalysis import ImageAnalysis
+from trymageAnalysis import ImageAnalysis
 
 class Stagescan():
     def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13):
@@ -163,7 +163,11 @@ class Stagescan():
             self.ludlStage.MoveAbs(row_start,column_start) #move to the start as preparation
             time.sleep(2)
             
-            Data_dict_1 = {}
+            Data_dict_1 = {} #dictionary for images
+            All_cell_properties_dict = {}
+            All_cell_properties = []
+            cp_end_index = -1
+            cp_index_dict = {}
             
             RepeatNum = 1
             loopnum = 0        
@@ -171,7 +175,7 @@ class Stagescan():
                 position_index.append(i)
                 for j in range(column_start, column_end, step):
                     position_index.append(j)
-                    print ('-----------------------------------')
+                    print ('----(´・ω・`)---------vvv-Start-vvv-------(´・ω・`)--------')
                     print (position_index)
                     
                     #stage movement
@@ -204,11 +208,21 @@ class Stagescan():
                     #kkk = Data_dict_1[Pic_name]/Data_dict_0[Pic_name]
                     S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
                     v1, v2, bw, thres = S.applyMask()
-                    R = S.ratio(v1, v2)
-                    L, cp= S.get_intensity_properties(50, bw, R, thres, v2, i, j,4)
-                    S.showlabel(50, bw, v2, thres, i, j, cp)
+                    #R = S.ratio(v1, v2)
+                    L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, i, j, 7)
+                    S.showlabel(100, bw, v2, thres, i, j, cp)
                     #print (L)
                     print (cp)
+                    All_cell_properties_dict[loopnum] = cp
+                    if loopnum == 0:
+                        All_cell_properties = All_cell_properties_dict[0]
+                    if loopnum != 0:
+                        All_cell_properties = np.append(All_cell_properties, All_cell_properties_dict[loopnum], axis=0)
+                    
+                    cp_end_index = cp_end_index + len(cp)
+                    cp_start_index = cp_end_index - len(cp) +1
+                    cp_index_dict[Pic_name] = [cp_start_index, cp_end_index] #get the location of individual cp index & put in dictionary
+                    
                     time.sleep(2)
                     
                     slave_Task3.stop()
@@ -222,6 +236,64 @@ class Stagescan():
                     
                     
                     del position_index[-1]
-                    print ('---------------^^^^---------------')
+                    print ('-----(⊙⊙！)-----^^^^END^^^------结束-----')
                 position_index=[]
-            print ('Finish round 2')
+            
+            print ('End of round 2')
+            #print(All_cell_properties)
+            
+            time.sleep(2)
+            #Sorting and trace back
+            original_dtype = np.dtype(All_cell_properties.dtype.descr + [('Original_sequence', '<i4')])
+            original_cp = np.zeros(All_cell_properties.shape, dtype=original_dtype)
+            original_cp['Row index'] = All_cell_properties['Row index']
+            original_cp['Column index'] = All_cell_properties['Column index']
+            original_cp['Mean intensity'] = All_cell_properties['Mean intensity']
+            original_cp['Circularity'] = All_cell_properties['Circularity']
+            original_cp['Mean intensity in contour'] = All_cell_properties['Mean intensity in contour']
+            original_cp['Original_sequence'] = list(range(0, len(All_cell_properties)))
+            
+            #print (original_cp['Mean intensity in contour'])
+            #print('*********************sorted************************')
+            #sort
+            sortedcp = np.flip(np.sort(original_cp, order='Mean intensity in contour'), 0)
+            selected_num = 3 #determine how many we want
+            #unsorted_cp = All_cell_properties[:selected_num]
+            #targetcp = sortedcp[:selected_num]
+            
+            rank_dtype = np.dtype(sortedcp.dtype.descr + [('Ranking', '<i4')])
+            ranked_cp = np.zeros(sortedcp.shape, dtype=rank_dtype)
+            ranked_cp['Row index'] = sortedcp['Row index']
+            ranked_cp['Column index'] = sortedcp['Column index']
+            ranked_cp['Mean intensity'] = sortedcp['Mean intensity']
+            ranked_cp['Circularity'] = sortedcp['Circularity']
+            ranked_cp['Mean intensity in contour'] = sortedcp['Mean intensity in contour']
+            ranked_cp['Original_sequence'] = sortedcp['Original_sequence']
+            ranked_cp['Ranking'] = list(range(0, len(All_cell_properties)))
+            
+            withranking_cp = np.sort(ranked_cp, order='Original_sequence')
+            
+            #print (ranked_cp)
+            #print('***********************Original sequence with ranking**************************')
+            
+            # All the cells are ranked, now we find the desired group and their position indexs, call the images and show labels of
+            # these who meet the requirements, omitting bad ones.
+            
+            #get the index
+            cell_properties_selected_hits = ranked_cp[0:selected_num]
+            cell_properties_selected_hits_index_sorted = np.sort(cell_properties_selected_hits, order=['Row index', 'Column index'])
+            index_samples = np.vstack((cell_properties_selected_hits_index_sorted['Row index'],cell_properties_selected_hits_index_sorted['Column index']))
+            
+            merged_index_samples = index_samples[:,0]
+
+            #consider these after 1st one
+            for i in range(1, len(index_samples[0])):
+                #print(index_samples[:,i][0] - index_samples[:,i-1][0])    
+                if index_samples[:,i][0] != index_samples[:,i-1][0] or index_samples[:,i][1] != index_samples[:,i-1][1]: 
+                    merged_index_samples = np.append(merged_index_samples, index_samples[:,i], axis=0)
+            merged_index_samples = merged_index_samples.reshape(-1, 2) # 1st column=i, 2nd column=j
+            
+            # then we move back to each of this positions and show the labels
+            input("Press Enter to continue...")
+            print(merged_index_samples)
+            print(withranking_cp)

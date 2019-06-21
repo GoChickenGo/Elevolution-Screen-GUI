@@ -136,7 +136,7 @@ class ImageAnalysis():
         cell_properties = np.zeros(len(region_mean_intensity_list), dtype = dtype)
         for p in range(loopmun):
             cell_properties[p] = dirforcellprp[p]
-                
+            
         return region_mean_intensity_list, cell_properties, contour_mask_of_intensity, contour_origin_image_intensity,  self.intensityimage_intensity1
     
     
@@ -209,12 +209,12 @@ class ImageAnalysis():
         plt.show()
         
         #return filledimg, Sliced_binary_region_image, intensityimage
-    def showlabel_with_rank(self, smallest_size, theMask, original_intensity, threshold, i, j, cell_properties, thekey_attri, num_hits):
+    def showlabel_with_rank(self, smallest_size, theMask, original_intensity, cpstart, cpend, cell_properties, thekey_attri, num_hits):
         self.Labelmask = theMask
         self.OriginImag = original_intensity
-        self.row_num = i
-        self.column_num = j
-        self.threshold = threshold
+        self.cp_start = cpstart
+        self.cp_end = cpend
+        #self.threshold = threshold
         self.thekey_attri= thekey_attri
         
         #cell_properties = np.flip(np.sort(cell_properties, order=self.thekey_attri), 0)
@@ -223,6 +223,7 @@ class ImageAnalysis():
         #print(keyattri)
         
         #cell_properties = cell_properties[:num_hits]
+        cell_properties = cell_properties[self.cp_start:self.cp_end+1] # trace back to i,j corresponding locations in cell properties list.
         cleared = self.Labelmask.copy()
         clear_border(cleared)
                 # label image regions
