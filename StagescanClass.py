@@ -5,7 +5,7 @@ Created on Thu May  2 10:41:31 2019
 @author: xinmeng
 """
 import time
-from Stage import Stage
+from stage import LudlStage
 import nidaqmx
 import numpy as np
 from nidaqmx.constants import AcquisitionType, TaskMode
@@ -19,7 +19,7 @@ from trymageAnalysis import ImageAnalysis
 class Stagescan():
     def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13):
         # Settings for stage scan
-        self.ludlStage = Stage("COM7")
+        self.ludlStage = LudlStage("COM7")
         self.UI_row_start_stagescan = value1
         self.UI_row_end_stagescan = value2
         self.UI_column_start_stagescan = value3
@@ -62,7 +62,7 @@ class Stagescan():
                          sawtooth = True)
         #ScanArrayX = wavegenerator.xValuesSingleSawtooth(sampleRate = Daq_sample_rate, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, xPixels = Value_xPixels, sawtooth = True)
         Totalscansamples = len(samples_1)*averagenum # Calculate number of samples to feed to scanner, by default it's one frame 
-        ScanArrayXnum = int (len(samples_1)/Value_yPixels)
+        ScanArrayXnum = int (len(samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
         Galvo_samples = np.vstack((samples_1,samples_2)) #
         
             
@@ -116,7 +116,7 @@ class Stagescan():
                     print (position_index)
                     
                     #stage movement
-                    self.ludlStage.MoveAbs(i,j)
+                    self.ludlStage.moveAbs(i,j)
                     time.sleep(1)
                     
                     AnalogWriter .write_many_sample(Galvo_samples, timeout=16.0)
@@ -136,7 +136,7 @@ class Stagescan():
                     print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                     Data_dict_0[Pic_name] = data1[:,:Value_yPixels]*-1
                     Localimg = Image.fromarray(Data_dict_0[Pic_name]) #generate an image object
-                    #Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
+                    Localimg.save(str(RepeatNum)+Pic_name+'out_1st.tif') #save as tif
                     
                     plt.figure(loopnum)
                     plt.imshow(Data_dict_0[Pic_name], cmap = plt.cm.gray)
@@ -149,7 +149,7 @@ class Stagescan():
                     
                     time.sleep(1)
                    
-                    self.ludlStage.GetPos()
+                    self.ludlStage.getPos()
                     loopnum = loopnum+1
                     
                     
@@ -160,14 +160,15 @@ class Stagescan():
             
             time.sleep(1) 
             
-            self.ludlStage.MoveAbs(row_start,column_start) #move to the start as preparation
+            self.ludlStage.moveAbs(row_start,column_start) #move to the start as preparation
             time.sleep(2)
+            input("Press Enter to continue...")
             
             Data_dict_1 = {} #dictionary for images
             All_cell_properties_dict = {}
             All_cell_properties = []
             cp_end_index = -1
-            cp_index_dict = {}
+            cp_index_dict = {} #dictionary for each cell properties
             
             RepeatNum = 1
             loopnum = 0        
@@ -179,7 +180,7 @@ class Stagescan():
                     print (position_index)
                     
                     #stage movement
-                    self.ludlStage.MoveAbs(i,j)
+                    self.ludlStage.moveAbs(i,j)
                     time.sleep(1)
                     
                     AnalogWriter .write_many_sample(Galvo_samples, timeout=16.0)
@@ -221,7 +222,7 @@ class Stagescan():
                     
                     cp_end_index = cp_end_index + len(cp)
                     cp_start_index = cp_end_index - len(cp) +1
-                    cp_index_dict[Pic_name] = [cp_start_index, cp_end_index] #get the location of individual cp index & put in dictionary
+                    cp_index_dict[Pic_name] = [cp_start_index, cp_end_index] #get the location of individual cp index & put in dictionary， as they are stored in sequence.
                     
                     time.sleep(2)
                     
@@ -231,7 +232,7 @@ class Stagescan():
                     
                     time.sleep(1)
                    
-                    self.ludlStage.GetPos()
+                    self.ludlStage.getPos()
                     loopnum = loopnum+1
                     
                     
@@ -257,7 +258,7 @@ class Stagescan():
             #print('*********************sorted************************')
             #sort
             sortedcp = np.flip(np.sort(original_cp, order='Mean intensity in contour'), 0)
-            selected_num = 3 #determine how many we want
+            selected_num = 10 #determine how many we want
             #unsorted_cp = All_cell_properties[:selected_num]
             #targetcp = sortedcp[:selected_num]
             
@@ -302,12 +303,12 @@ class Stagescan():
                 print ('-----------------------------------')
                     
                 #stage movement
-                self.ludlStage.MoveAbs(merged_index_samples[i,:].tolist()[0],merged_index_samples[i,:].tolist()[1])
+                self.ludlStage.moveAbs(merged_index_samples[i,:].tolist()[0],merged_index_samples[i,:].tolist()[1])
                 time.sleep(1)
                     
                 Pic_name_trace = str(merged_index_samples[i,:].tolist()[0])+str(merged_index_samples[i,:].tolist()[1])
                     
-                S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
+                S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #The same as ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name]), call the same image with same dictionary index.
                 v1, v2, bw, thres = S.applyMask()
                 S.showlabel_with_rank(100, bw, v2, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', 10)
                 print ( ' i: '+ str(merged_index_samples[i,:].tolist()[0]) + ' j: '+ str(merged_index_samples[i,:].tolist()[1]))
