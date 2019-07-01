@@ -362,7 +362,7 @@ class setADsamples(QtWidgets.QDialog):
         xlabel = np.arange(lengthofmasterwave)/self.samplingrate_1
         dirforwave = {}
         
-        number_of_Dchannels = int(self.textboxA.currentText())+int(self.textbox2A.currentText())+int(self.textbox3A.currentText())+int(self.textbox4A.currentText())
+        self.number_of_Dchannels = int(self.textboxA.currentText())+int(self.textbox2A.currentText())+int(self.textbox3A.currentText())+int(self.textbox4A.currentText())
         
         dirforwave[0] = np.array([self.final_wave_1, self.textboxF.currentText()])
         if len(self.final_wave_2) != 0:
@@ -390,7 +390,10 @@ class setADsamples(QtWidgets.QDialog):
 
         plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
         plt.show()
-
+        
+        self.Digital_container = dirforwave[0]
+        for i in range(1,self.number_of_Dchannels):
+            self.Digital_container = np.vstack((self.Digital_container, dirforwave[i]))
         #self.Digital_container = np.vstack((dirforwave[0:number_of_Dchannels]))
         '''
         dtype_wave = [('waveform array', object), ('DAQ line', 'S30')]
@@ -515,7 +518,7 @@ class MyWindow(QtWidgets.QWidget):
         UI_step = int(textboxValue5) 
 
         textboxValue6 = self.textboxF.currentText()
-        UI_Daq_sample_rate = int(textboxValue6)
+        UI_Daq_sample_rate = int(textboxValue6)      #  SHOULD BE THE SAME WITH SAMPLING RATE IN DIGITAL SIGNALS WINDOW
 
         textboxValue7 = self.textboxG.currentText()
         UI_voltXMin = int(textboxValue7)
@@ -541,22 +544,27 @@ class MyWindow(QtWidgets.QWidget):
         #------------------------------------before start, set Spyder graphic back to inline-------------------------------
         get_ipython().run_line_magic('matplotlib', 'inline') # before start, set spyder back to inline
         
-        digitalwave1 = self.wave1 # digital wave feed to start()
-        plt.plot(digitalwave1[0][0])
+        #print(self.Digital_container_feeder[:, 0])
+             
+        plt.figure()
+
+        xlabelhere = np.arange(len(self.Digital_container_feeder[0,0]))/UI_Daq_sample_rate
+        for i in range(len(self.Digital_container_feeder)):
+            plt.plot(xlabelhere, self.Digital_container_feeder[i, 0])
+        plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
         plt.show()
-        
+
         #self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, UI_Daq_sample_rate, UI_voltXMin, UI_voltXMax, UI_voltYMin, UI_voltYMax, UI_Value_xPixels, UI_Value_yPixels, UI_averagenum)
         #self.S.start()
-
+        
 
     def get_login(self):
         login = setADsamples()
         if login.exec_():
-            self.wave1 = login.Digital_container
-            #self.edit.setText(login.password.text())
-            plt.plot(self.wave1[:][0])
-            plt.show()
-
+            self.Digital_container_feeder = login.Digital_container
+            
+            #print(self.wave1[:, 1]) 
+        return self.Digital_container_feeder
 
 if __name__ == '__main__':
 
