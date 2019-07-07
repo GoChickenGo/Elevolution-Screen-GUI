@@ -506,7 +506,7 @@ class adgenerator(QtWidgets.QDialog):
             
             self.Galvo_samples = np.vstack((self.repeated_samples_1,self.repeated_samples_2_yaxis))
             
-            return self.samples_1
+            return self.Galvo_samples
             
     def generate_galvos_graphy(self):
             plt.figure()
@@ -519,25 +519,59 @@ class adgenerator(QtWidgets.QDialog):
             plt.show()
             
     def generate_galvotrigger(self):
-        Daq_sample_rate = int(self.textboxAA.currentText())
-        
-        samplenumber_oneframe = len(self.samples_1)
-        
-        self.true_sample_num_singleperiod_galvotrigger = round((20/1000)*Daq_sample_rate) # Default the trigger lasts for 20 ms.
-        self.false_sample_num_singleperiod_galvotrigger = samplenumber_oneframe - self.true_sample_num_singleperiod_galvotrigger
-        
-        self.true_sample_singleperiod_galvotrigger = np.ones(self.true_sample_num_singleperiod_galvotrigger, dtype=bool)
-        self.true_sample_singleperiod_galvotrigger[0] = False  # first one False to give a rise.
-        
-        self.sample_singleperiod_galvotrigger = np.append(self.true_sample_singleperiod_galvotrigger, np.zeros(self.false_sample_num_singleperiod_galvotrigger, dtype=bool))
-        
-        self.sample_repeatedperiod_galvotrigger = np.tile(self.sample_singleperiod_galvotrigger, self.averagenum)
-        
-        self.offset_galvotrigger = np.array(self.offsetsamples_galvo, dtype=bool)
-        
-        self.final_galvotrigger = np.append(self.offset_galvotrigger, self.sample_repeatedperiod_galvotrigger)
+        self.Daq_sample_rate = int(self.textboxAA.currentText())
+        #Scanning settings
+        if int(self.textbox1A.currentText()) == 1:
+            Value_voltXMin = int(self.textbox1B.currentText())
+            Value_voltXMax = int(self.textbox1C.currentText())
+            Value_voltYMin = int(self.textbox1D.currentText())
+            Value_voltYMax = int(self.textbox1E.currentText())
+            Value_xPixels = int(self.textbox1F.currentText())
+            Value_yPixels = int(self.textbox1G.currentText())
+            self.averagenum =int(self.textbox1H.currentText())
+            
+            if not self.textbox1I.toPlainText():
+                self.Galvo_samples_offset = 1
+                self.offsetsamples_galvo = []
+
+            else:
+                self.Galvo_samples_offset = int(self.textbox1I.toPlainText())
+                
+                self.offsetsamples_number_galvo = int((self.Galvo_samples_offset/1000)*self.Daq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
+                self.offsetsamples_galvo = np.zeros(self.offsetsamples_number_galvo) # Be default offsetsamples_number is an integer.    
+            #Generate galvo samples            
+            self.samples_1, self.samples_2= wavegenerator.waveRecPic(sampleRate = self.Daq_sample_rate, imAngle = 0, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, 
+                             voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
+                             sawtooth = True)
+            self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
+            
+            #print(self.Digital_container_feeder[:, 0])
+            
+            self.repeated_samples_1 = np.tile(self.samples_1, self.averagenum)
+            self.repeated_samples_2_yaxis = np.tile(self.samples_2, self.averagenum)
+
+            self.repeated_samples_1 = np.append(self.offsetsamples_galvo, self.repeated_samples_1)
+            self.repeated_samples_2_yaxis = np.append(self.offsetsamples_galvo, self.repeated_samples_2_yaxis)
+       
+            samplenumber_oneframe = len(self.samples_1)
+            
+            self.true_sample_num_singleperiod_galvotrigger = round((20/1000)*self.Daq_sample_rate) # Default the trigger lasts for 20 ms.
+            self.false_sample_num_singleperiod_galvotrigger = samplenumber_oneframe - self.true_sample_num_singleperiod_galvotrigger
+            
+            self.true_sample_singleperiod_galvotrigger = np.ones(self.true_sample_num_singleperiod_galvotrigger, dtype=bool)
+            self.true_sample_singleperiod_galvotrigger[0] = False  # first one False to give a rise.
+            
+            self.sample_singleperiod_galvotrigger = np.append(self.true_sample_singleperiod_galvotrigger, np.zeros(self.false_sample_num_singleperiod_galvotrigger, dtype=bool))
+            
+            self.sample_repeatedperiod_galvotrigger = np.tile(self.sample_singleperiod_galvotrigger, self.averagenum)
+            
+            self.offset_galvotrigger = np.array(self.offsetsamples_galvo, dtype=bool)
+            
+            self.final_galvotrigger = np.append(self.offset_galvotrigger, self.sample_repeatedperiod_galvotrigger)
+            return self.final_galvotrigger
         
     def generate_galvotrigger_graphy(self):
+        self.xlabelhere_galvo = np.arange(len(self.repeated_samples_2_yaxis))/self.Daq_sample_rate
         plt.figure()
         plt.plot(self.xlabelhere_galvo, self.repeated_samples_2_yaxis)
         plt.plot(self.xlabelhere_galvo, self.final_galvotrigger)
@@ -735,6 +769,7 @@ class adgenerator(QtWidgets.QDialog):
         self.switch_532AO = int(self.textbox4A.currentText())
         
         self.switch_cameratrigger = int(self.textbox11A.currentText())
+        self.switch_galvotrigger = int(self.textbox11A.currentText())# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         self.switch_640blanking = int(self.textbox22A.currentText())
         
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
@@ -746,21 +781,102 @@ class adgenerator(QtWidgets.QDialog):
                               
                               
         dictionary_digital = {'cameratrigger':[self.switch_cameratrigger,self.generate_cameratrigger],
+                              'galvotrigger':[self.switch_galvotrigger,self.generate_galvotrigger], 
                               '640blanking':[self.switch_640blanking, self.generate_640blanking]
                               }
         # Calculate the length of reference wave
         # tags in the dictionary above should be the same as that in reference combox, then the dictionary below can work
         reference_wave = dictionary_analog[self.textboxBB.currentText()][1]()
-        reference_length = len(reference_wave)
-
+        if self.textboxBB.currentText() == 'galvos': # in case of using galvos as reference wave
+            self.reference_length = len(reference_wave[0, :])
+        else:
+            self.reference_length = len(reference_wave)
+        print('reference_length: '+str(self.reference_length))
+    
         # Structured array to contain 
         # https://stackoverflow.com/questions/39622533/numpy-array-as-datatype-in-a-structured-array
-        tp_analog = np.dtype([('Waveform', float, (reference_length,)), ('Analog or Digital', int)])
+        tp_analog = np.dtype([('Waveform', float, (self.reference_length,)), ('Sepcification', 'U20')])
+        tp_digital = np.dtype([('Waveform', bool, (self.reference_length,)), ('Sepcification', 'U20')])
         
-        
+        self.analog_data_container = {}
+
         for key in dictionary_analog:
-            if dictionary_analog[key][0] == 1:
-               dictionary_analog[key][1]()
+            if dictionary_analog[key][0] == 1: # if the signal line is added
+                self.analog_data_container[key] = dictionary_analog[key][1]()
+        
+        # set galvos sampele stack apart
+        if 'galvos' in self.analog_data_container:
+            self.analog_data_container['galvosx'+'_avgnum_'+str(int(self.textbox1H.currentText()))] = self.generate_galvos()[0, :]
+            self.analog_data_container['galvosy'+'_ypixels_'+str(int(self.textbox1G.currentText()))] = self.generate_galvos()[1, :]
+            del self.analog_data_container['galvos']
+        
+        # reform all waves according to the length of reference wave
+        for key in self.analog_data_container:
+            if len(self.analog_data_container[key]) >= self.reference_length:
+                self.analog_data_container[key] = self.analog_data_container[key][0:self.reference_length]
+            else:
+                append_zeros = np.zeros(self.reference_length-len(self.analog_data_container[key]))
+                self.analog_data_container[key] = np.append(self.analog_data_container[key], append_zeros)
+            #print(len(self.analog_data_container[key]))
+        self.container_array = np.zeros(len(self.analog_data_container), dtype =tp_analog)
+        loopnum = 0
+        for key in self.analog_data_container:
+            self.container_array[loopnum] = np.array([(self.analog_data_container[key], key)], dtype =tp_analog)
+            loopnum = loopnum+ 1
+        print(self.container_array['Sepcification'])
+                  
+
+        plt.figure()
+        for i in range(loopnum):
+            if self.container_array['Sepcification'][i] != 'galvosx'+'_avgnum_'+str(int(self.textbox1H.currentText())):
+                plt.plot(self.container_array['Waveform'][i])
+        
+        plt.show()
+        '''
+        self.data_container_1 = {}
+        for key in self.data_container:
+            if key =='galvos':
+                self.data_container_1[loopnum] = 
+            loopnum =+ 1
+        #self.analog_wave_container = np.zeros(loopnum, dtype =tp_analog)       
+        #for p in range(loopnum):
+            #self.analog_wave_container[p]=self.data_container[p]        
+        '''        
+        '''
+        if key =='galvos': # if galvos as reference wave
+            wavegalvos = dictionary_analog['galvos'][1]()
+            self.data_container[0] = np.array([(wavegalvos[0, :][0:self.reference_length], key)], dtype =tp_analog)
+            wave_this_term = dictionary_analog[key][1]()
+
+            if len(wavegalvos[0, :]) >= self.reference_length:
+            
+                self.data_container[loopnum] = np.array([(wavegalvos[0, :][0:self.reference_length], key)], dtype =tp_analog)
+                self.data_container[loopnum+1] = np.array([(wavegalvos[1, :][0:self.reference_length], key)], dtype =tp_analog)
+                
+            else:
+                append_zeros = np.zeros(self.reference_length-len(wavegalvos[0, :]))
+                self.data_container[loopnum] = np.append(wavegalvos[0, :], append_zeros)
+                self.data_container[loopnum+1] = np.append(wavegalvos[1, :], append_zeros)
+                
+                self.data_container[loopnum] = np.array([(self.data_container[loopnum], key)], dtype =tp_analog)
+                self.data_container[loopnum+1] = np.array([(self.data_container[loopnum+1], key)], dtype =tp_analog)
+            
+            print(len(self.data_container[loopnum]['Waveform']))
+            print(self.data_container[loopnum]['Sepcification'])
+            
+        else:
+            waveothers = dictionary_analog[key][1]()
+            
+            if len(waveothers) >= self.reference_length:
+                self.data_container[loopnum] = np.array([(waveothers[0:self.reference_length], key)], dtype =tp_analog)
+            else:
+                append_zeros = np.zeros(self.reference_length-len(waveothers))
+                self.data_container[loopnum] = np.append(waveothers, append_zeros)
+                self.data_container[loopnum] = np.array([(self.data_container[loopnum], key)], dtype =tp_analog)
+                
+            print(len(self.data_container[loopnum]['Waveform']))
+            print(self.data_container[loopnum]['Sepcification']) 
+        '''
 
         
 if __name__ == "__main__":
