@@ -18,6 +18,7 @@ from skimage.measure import label, perimeter, find_contours
 from skimage.morphology import closing, square, opening
 from skimage.measure import regionprops
 from skimage.color import label2rgb
+from skimage.restoration import denoise_tv_chambolle
 
 class ImageAnalysis():
     def __init__(self, value1, value2):
@@ -26,15 +27,20 @@ class ImageAnalysis():
         self.Img_before = self.img_before_tem.copy()
         self.Img_after = self.img_after_tem.copy()
     def applyMask(self):
+        
+        self.Img_before = denoise_tv_chambolle(self.Img_before, weight=0.01)
+        self.Img_after = denoise_tv_chambolle(self.Img_after, weight=0.01)
+        
         thresh = threshold_otsu(self.Img_before)#-0.7#-55
-        # Adaptive thresholding
-        block_size = 35
+        # -----------------------------------------------Adaptive thresholding-----------------------------------------------
+        block_size = 335
         binary_adaptive = threshold_local(self.Img_before, block_size, offset=0)
+        
         #mask = img_before > thresh # generate mask
         #binarymask = opening(self.Img_before > thresh, square(1))
         binary_adaptive1 = self.Img_before >= binary_adaptive
         binarymask = opening(binary_adaptive1, square(2))
-        self.mask = closing(binarymask, square(4))
+        self.mask = closing(binarymask, square(3))
         
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(bw)# fig 2
@@ -45,7 +51,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(Segimg_aft) #fig 3
         
-        return Segimg_bef, Segimg_aft, self.mask, thresh
+        return Segimg_bef, self.Img_after, self.mask, thresh
     
         
     def ratio(self, value1, value2):

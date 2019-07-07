@@ -462,6 +462,7 @@ class adgenerator(QtWidgets.QDialog):
         master.addWidget(AnalogContainer)
         master.addWidget(DigitalContainer)
         self.setLayout(master)
+        
             
             
     def generate_galvos(self):
@@ -505,6 +506,7 @@ class adgenerator(QtWidgets.QDialog):
             
             self.Galvo_samples = np.vstack((self.repeated_samples_1,self.repeated_samples_2_yaxis))
             
+            return self.samples_1
             
     def generate_galvos_graphy(self):
             plt.figure()
@@ -558,11 +560,11 @@ class adgenerator(QtWidgets.QDialog):
             self.uiwavegap_2 = 0
         else:
             self.uiwavegap_2 = int(self.textbox2G.toPlainText())
-        self.uiwavestartamplitude_2 = int(self.textbox2H.currentText())
+        self.uiwavestartamplitude_2 = float(self.textbox2H.currentText())
         if not self.textbox2I.toPlainText():
             self.uiwavebaseline_2 = 0
         else:
-            self.uiwavebaseline_2 = int(self.textbox2I.toPlainText())
+            self.uiwavebaseline_2 = float(self.textbox2I.toPlainText())
         self.uiwavestep_2 = int(self.textbox2J.currentText())
         self.uiwavecycles_2 = int(self.textbox2K.currentText())   
         
@@ -571,6 +573,7 @@ class adgenerator(QtWidgets.QDialog):
             s = generate_AO_for640(self.uiDaq_sample_rate, self.uiwavefrequency_2, self.uiwaveoffset_2, self.uiwaveperiod_2, self.uiwaveDC_2
                                    , self.uiwaverepeat_2, self.uiwavegap_2, self.uiwavestartamplitude_2, self.uiwavebaseline_2, self.uiwavestep_2, self.uiwavecycles_2)
             self.finalwave_640 = s.generate()
+            return self.finalwave_640
             
     def generate_640AO_graphy(self):            
         xlabelhere_640 = np.arange(len(self.finalwave_640))/self.uiDaq_sample_rate
@@ -595,11 +598,11 @@ class adgenerator(QtWidgets.QDialog):
             self.uiwavegap_488AO = 0
         else:
             self.uiwavegap_488AO = int(self.textbox3G.toPlainText())
-        self.uiwavestartamplitude_488AO = int(self.textbox3H.currentText())
+        self.uiwavestartamplitude_488AO = float(self.textbox3H.currentText())
         if not self.textbox3I.toPlainText():
             self.uiwavebaseline_488AO = 0
         else:
-            self.uiwavebaseline_488AO = int(self.textbox3I.toPlainText())
+            self.uiwavebaseline_488AO = float(self.textbox3I.toPlainText())
         self.uiwavestep_488AO = int(self.textbox3J.currentText())
         self.uiwavecycles_488AO = int(self.textbox3K.currentText())   
         
@@ -608,6 +611,7 @@ class adgenerator(QtWidgets.QDialog):
             s = generate_AO_for488(self.uiDaq_sample_rate, self.uiwavefrequency_488AO, self.uiwaveoffset_488AO, self.uiwaveperiod_488AO, self.uiwaveDC_488AO
                                    , self.uiwaverepeat_488AO, self.uiwavegap_488AO, self.uiwavestartamplitude_488AO, self.uiwavebaseline_488AO, self.uiwavestep_488AO, self.uiwavecycles_488AO)
             self.finalwave_488 = s.generate()
+            return self.finalwave_488
             
     def generate_488AO_graphy(self):
         xlabelhere_488 = np.arange(len(self.finalwave_488))/self.uiDaq_sample_rate
@@ -632,11 +636,11 @@ class adgenerator(QtWidgets.QDialog):
             self.uiwavegap_532AO = 0
         else:
             self.uiwavegap_532AO = int(self.textbox4G.toPlainText())
-        self.uiwavestartamplitude_532AO = int(self.textbox4H.currentText())
+        self.uiwavestartamplitude_532AO = float(self.textbox4H.currentText())
         if not self.textbox4I.toPlainText():
             self.uiwavebaseline_532AO = 0
         else:
-            self.uiwavebaseline_532AO = int(self.textbox4I.toPlainText())
+            self.uiwavebaseline_532AO = float(self.textbox4I.toPlainText())
         self.uiwavestep_532AO = int(self.textbox4J.currentText())
         self.uiwavecycles_532AO = int(self.textbox4K.currentText())   
         
@@ -645,6 +649,7 @@ class adgenerator(QtWidgets.QDialog):
             s = generate_AO_for532(self.uiDaq_sample_rate, self.uiwavefrequency_532AO, self.uiwaveoffset_532AO, self.uiwaveperiod_532AO, self.uiwaveDC_532AO
                                    , self.uiwaverepeat_532AO, self.uiwavegap_532AO, self.uiwavestartamplitude_532AO, self.uiwavebaseline_532AO, self.uiwavestep_532AO, self.uiwavecycles_532AO)
             self.finalwave_532 = s.generate()
+            return self.finalwave_532
             
     def generate_532AO_graphy(self):
         xlabelhere_532 = np.arange(len(self.finalwave_532))/self.uiDaq_sample_rate
@@ -733,18 +738,30 @@ class adgenerator(QtWidgets.QDialog):
         self.switch_640blanking = int(self.textbox22A.currentText())
         
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
-        dictionary_showall = {'galvos':[self.switch_galvos,self.generate_galvos],
+        dictionary_analog = {'galvos':[self.switch_galvos,self.generate_galvos],
                               '640AO':[self.switch_640AO,self.generate_640AO],
                               '488AO':[self.switch_488AO,self.generate_488AO],
-                              '532AO':[self.switch_532AO,self.generate_532AO],
-                              'cameratrigger':[self.switch_cameratrigger,self.generate_cameratrigger],
+                              '532AO':[self.switch_532AO,self.generate_532AO]
+                             }
+                              
+                              
+        dictionary_digital = {'cameratrigger':[self.switch_cameratrigger,self.generate_cameratrigger],
                               '640blanking':[self.switch_640blanking, self.generate_640blanking]
                               }
+        # Calculate the length of reference wave
+        # tags in the dictionary above should be the same as that in reference combox, then the dictionary below can work
+        reference_wave = dictionary_analog[self.textboxBB.currentText()][1]()
+        reference_length = len(reference_wave)
 
+        # Structured array to contain 
+        # https://stackoverflow.com/questions/39622533/numpy-array-as-datatype-in-a-structured-array
+        tp_analog = np.dtype([('Waveform', float, (reference_length,)), ('Analog or Digital', int)])
         
-        for key in dictionary_showall:
-            if dictionary_showall[key][0] == 1:
-               dictionary_showall[key][1]()
+        
+        for key in dictionary_analog:
+            if dictionary_analog[key][0] == 1:
+               dictionary_analog[key][1]()
+
         
 if __name__ == "__main__":
     def run_app():

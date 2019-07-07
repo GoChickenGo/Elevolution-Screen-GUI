@@ -6,30 +6,22 @@ Created on Fri Mar  8 17:58:53 2019
 """
 
 import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
-from skimage import data
-from skimage.filters import threshold_otsu
-from skimage.segmentation import clear_border
-from skimage.measure import label
-from skimage.morphology import closing, square, opening
-from skimage.measure import regionprops
-from skimage.color import label2rgb
 from trymageAnalysis import ImageAnalysis
 from skimage.io import imread
+from PIL import Image
 
-Rawimgbef = imread("D:/111out.tif", as_gray=True)
-Rawimgaft = imread("D:/111out.tif", as_gray=True)
+Rawimgbef = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
+Rawimgaft = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
 
 Data_dict_0 = {}
-Data_dict_0[str(-1500)+str(-1500)] = Rawimgbef
+Data_dict_0[str(-1500)+str(-1500)] = Rawimgbef#[40:100,300:350]
+imagrarray = Rawimgbef#[40:100,300:350]
+
 
 Data_dict_1 = {}
-Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft
+Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft#[40:100,300:350]
 
 #img_before = Rawimgbef#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
 #img_after = Rawimgaft#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
@@ -37,14 +29,16 @@ Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft
 S = ImageAnalysis(Data_dict_0[str(-1500)+str(-1500)], Data_dict_1[str(-1500)+str(-1500)])
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
-L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(100, bw, v2, thres, v2, -1500, -1500, 7)
-S.showlabel(100, bw, v2, thres, -1500, -1500, cp)
+L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(200, bw, v2, thres, v2, -1500, -1500, 8)
+S.showlabel(200, bw, v2, thres, -1500, -1500, cp)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
 #print (L)
+Localimg = Image.fromarray(v2) #generate an image object
+#Localimg.save('out_1st.tif') #save as tif
 print (cp)
-
-Rawimgbef1 = imread("D:/222out.tif", as_gray=True)
-Rawimgaft1 = imread("D:/222out.tif", as_gray=True)
+'''
+Rawimgbef1 = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
+Rawimgaft1 = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
 
@@ -151,3 +145,4 @@ for i in range(1, len(index_samples[0])):
     if index_samples[:,i][0] != index_samples[:,i-1][0] or index_samples[:,i][1] != index_samples[:,i-1][1]: 
         merged_index_samples = np.append(merged_index_samples, index_samples[:,i], axis=0)
 merged_index_samples = merged_index_samples.reshape(-1, 2) # 1st column=i, 2nd column=j
+'''
