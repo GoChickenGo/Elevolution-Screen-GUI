@@ -11,11 +11,12 @@ from matplotlib import pyplot as plt
 from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
 import wavegenerator
+from generalDaqer import execute
 from configuration import Configuration
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox
-from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532
+from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking
 
 class adgenerator(QtWidgets.QDialog):
     def __init__(self, *args, **kwargs):
@@ -31,7 +32,7 @@ class adgenerator(QtWidgets.QDialog):
         self.AnalogLayout = QGridLayout() #self.AnalogLayout manager
                
         self.textboxBB = QComboBox()
-        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO'])
+        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO', 'patchAO'])
         self.AnalogLayout.addWidget(self.textboxBB, 0, 8)
         self.AnalogLayout.addWidget(QLabel("Reference waveform:"), 0, 7)
 
@@ -106,6 +107,10 @@ class adgenerator(QtWidgets.QDialog):
         self.button_triggerforcam = QPushButton('With trigger!', self)
         self.AnalogLayout.addWidget(self.button_triggerforcam, 2, 10)
         
+        self.textbox1K = QComboBox()
+        self.textbox1K.addItems(['0','1'])
+        self.AnalogLayout.addWidget(self.textbox1K, 2, 11)
+        
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger)        
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger_graphy)
         
@@ -123,9 +128,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox2B = QPlainTextEdit(self)
         self.AnalogLayout.addWidget(self.textbox2B, 4, 2)
-        self.AnalogLayout.addWidget(QLabel("Frequency:"), 4, 1)
+        self.AnalogLayout.addWidget(QLabel("Frequency in period:"), 4, 1)
 
         self.textbox2C = QPlainTextEdit(self)
+        self.textbox2C.setPlaceholderText('0')
         self.AnalogLayout.addWidget(self.textbox2C, 5, 2)
         self.AnalogLayout.addWidget(QLabel("Offset (ms):"), 5, 1)
         
@@ -183,9 +189,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox3B = QPlainTextEdit(self)
         self.AnalogLayout.addWidget(self.textbox3B, 6, 2)
-        self.AnalogLayout.addWidget(QLabel("Frequency:"), 6, 1)
+        self.AnalogLayout.addWidget(QLabel("Frequency in period:"), 6, 1)
 
         self.textbox3C = QPlainTextEdit(self)
+        self.textbox3C.setPlaceholderText('0')
         self.AnalogLayout.addWidget(self.textbox3C, 7, 2)
         self.AnalogLayout.addWidget(QLabel("Offset (ms):"), 7, 1)
         
@@ -242,9 +249,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox4B = QPlainTextEdit(self)
         self.AnalogLayout.addWidget(self.textbox4B, 8, 2)
-        self.AnalogLayout.addWidget(QLabel("Frequency:"), 8, 1)
+        self.AnalogLayout.addWidget(QLabel("Frequency in period:"), 8, 1)
 
         self.textbox4C = QPlainTextEdit(self)
+        self.textbox4C.setPlaceholderText('0')
         self.AnalogLayout.addWidget(self.textbox4C, 9, 2)
         self.AnalogLayout.addWidget(QLabel("Offset (ms):"), 9, 1)
         
@@ -294,6 +302,71 @@ class adgenerator(QtWidgets.QDialog):
         self.button4.clicked.connect(self.generate_532AO_graphy)
         AnalogContainer.setLayout(self.AnalogLayout)
         
+        #-----------------------------------------------------------V-patch------------------------------------------------
+        self.textbox5A = QComboBox()
+        self.textbox5A.addItems(['0','1'])
+        self.AnalogLayout.addWidget(self.textbox5A, 11, 0)
+        
+        self.AnalogLayout.addWidget(QLabel("V-patch : "), 10, 0)
+        
+        self.textbox5B = QPlainTextEdit(self)
+        self.AnalogLayout.addWidget(self.textbox5B, 10, 2)
+        self.AnalogLayout.addWidget(QLabel("Frequency in period:"), 10, 1)
+
+        self.textbox5C = QPlainTextEdit(self)
+        self.textbox5C.setPlaceholderText('0')
+        self.AnalogLayout.addWidget(self.textbox5C, 11, 2)
+        self.AnalogLayout.addWidget(QLabel("Offset (ms):"), 11, 1)
+        
+        self.textbox5D = QPlainTextEdit(self)
+        self.AnalogLayout.addWidget(self.textbox5D, 10, 4)
+        self.AnalogLayout.addWidget(QLabel("Period (ms):"), 10, 3)   
+        
+        self.textbox5E = QPlainTextEdit(self)
+        self.textbox5E.setPlaceholderText('1')
+        self.AnalogLayout.addWidget(self.textbox5E, 11, 4)
+        self.AnalogLayout.addWidget(QLabel("Repeat:"), 11, 3) 
+        
+        self.AnalogLayout.addWidget(QLabel("DC (%):"), 10, 5)
+        self.textbox5F = QComboBox()
+        self.textbox5F.addItems(['50','10'])
+        self.AnalogLayout.addWidget(self.textbox5F, 10, 6)
+        
+        self.textbox5G = QPlainTextEdit(self)
+        self.textbox5G.setPlaceholderText('0')
+        self.AnalogLayout.addWidget(self.textbox5G, 11, 6)
+        self.AnalogLayout.addWidget(QLabel("Gap between repeat (samples):"), 11, 5)
+        
+        self.AnalogLayout.addWidget(QLabel("Starting amplitude (V)"), 10, 7)
+        self.textbox5H = QComboBox()
+        self.textbox5H.addItems(['5','1'])
+        self.AnalogLayout.addWidget(self.textbox5H, 10, 8)        
+
+        self.textbox5I = QPlainTextEdit(self)
+        self.textbox5I.setPlaceholderText('0')
+        self.AnalogLayout.addWidget(self.textbox5I, 11, 8)
+        self.AnalogLayout.addWidget(QLabel("Baseline (V):"), 11, 7)
+
+        self.AnalogLayout.addWidget(QLabel("Step (V)"), 10, 9)
+        self.textbox5J = QComboBox()
+        self.textbox5J.addItems(['0','1', '2'])
+        self.AnalogLayout.addWidget(self.textbox5J, 10, 10)
+
+        self.AnalogLayout.addWidget(QLabel("Cycles"), 11, 9)
+        self.textbox5K = QComboBox()
+        self.textbox5K.addItems(['1','2', '3'])
+        self.AnalogLayout.addWidget(self.textbox5K, 11, 10)
+        
+        self.button5 = QPushButton('SHOW WAVE', self)
+        self.AnalogLayout.addWidget(self.button5, 10, 11)
+        
+        self.button5.clicked.connect(self.generate_patchAO)
+        self.button5.clicked.connect(self.generate_patchAO_graphy)
+        
+        AnalogContainer.setLayout(self.AnalogLayout)        
+        
+        
+        
         #------------------------------------------------------------------------------------------------------------------
         #----------------------------------------------------------Digital-------------------------------------------------
         #------------------------------------------------------------------------------------------------------------------       
@@ -309,7 +382,7 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox11B = QPlainTextEdit(self)
         self.DigitalLayout.addWidget(self.textbox11B, 0, 2)
-        self.DigitalLayout.addWidget(QLabel("Frequency:"), 0, 1)
+        self.DigitalLayout.addWidget(QLabel("Frequency in period:"), 0, 1)
 
         self.textbox11C = QPlainTextEdit(self)
         self.textbox11C.setPlaceholderText('0')
@@ -321,12 +394,13 @@ class adgenerator(QtWidgets.QDialog):
         self.DigitalLayout.addWidget(QLabel("Period (ms):"), 0, 3)   
         
         self.textbox11E = QPlainTextEdit(self)
+        self.textbox11E.setPlaceholderText('1')
         self.DigitalLayout.addWidget(self.textbox11E, 1, 4)
         self.DigitalLayout.addWidget(QLabel("Repeat:"), 1, 3) 
         
         self.DigitalLayout.addWidget(QLabel("DC (%):"), 0, 5)
         self.textbox11F = QComboBox()
-        self.textbox11F.addItems(['50','10'])
+        self.textbox11F.addItems(['50','10','0','100'])
         self.DigitalLayout.addWidget(self.textbox11F, 0, 6)
 
         self.textbox11G = QPlainTextEdit(self)
@@ -339,6 +413,7 @@ class adgenerator(QtWidgets.QDialog):
         
         self.button_camera.clicked.connect(self.generate_cameratrigger)
         self.button_camera.clicked.connect(self.generate_cameratrigger_graphy)
+        
         # ----------------------------------------------------------640 blanking---------------------------------------
         self.textbox22A = QComboBox()
         self.textbox22A.addItems(['0','1'])
@@ -348,9 +423,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox22B = QPlainTextEdit(self)
         self.DigitalLayout.addWidget(self.textbox22B, 2, 2)
-        self.DigitalLayout.addWidget(QLabel("Frequency:"), 2, 1)
+        self.DigitalLayout.addWidget(QLabel("Frequency in period:"), 2, 1)
 
         self.textbox22C = QPlainTextEdit(self)
+        self.textbox22C.setPlaceholderText('0')
         self.DigitalLayout.addWidget(self.textbox22C, 3, 2)
         self.DigitalLayout.addWidget(QLabel("Offset (ms):"), 3, 1)
         
@@ -359,6 +435,7 @@ class adgenerator(QtWidgets.QDialog):
         self.DigitalLayout.addWidget(QLabel("Period (ms):"), 2, 3)   
         
         self.textbox22E = QPlainTextEdit(self)
+        self.textbox22E.setPlaceholderText('1')
         self.DigitalLayout.addWidget(self.textbox22E, 3, 4)
         self.DigitalLayout.addWidget(QLabel("Repeat:"), 3, 3) 
         
@@ -386,9 +463,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox33B = QPlainTextEdit(self)
         self.DigitalLayout.addWidget(self.textbox33B, 4, 2)
-        self.DigitalLayout.addWidget(QLabel("Frequency:"), 4, 1)
+        self.DigitalLayout.addWidget(QLabel("Frequency in period:"), 4, 1)
 
         self.textbox33C = QPlainTextEdit(self)
+        self.textbox33C.setPlaceholderText('0')
         self.DigitalLayout.addWidget(self.textbox33C, 5, 2)
         self.DigitalLayout.addWidget(QLabel("Offset (ms):"), 5, 1)
         
@@ -397,6 +475,7 @@ class adgenerator(QtWidgets.QDialog):
         self.DigitalLayout.addWidget(QLabel("Period (ms):"), 4, 3)   
         
         self.textbox33E = QPlainTextEdit(self)
+        self.textbox33E.setPlaceholderText('1')
         self.DigitalLayout.addWidget(self.textbox33E, 5, 4)
         self.DigitalLayout.addWidget(QLabel("Repeat:"), 5, 3) 
         
@@ -413,8 +492,8 @@ class adgenerator(QtWidgets.QDialog):
         self.button_532blanking = QPushButton('SHOW WAVE', self)
         self.DigitalLayout.addWidget(self.button_532blanking, 5, 7)
         
-        #self.button_532blanking.clicked.connect(self.generate_532blanking)
-        
+        self.button_532blanking.clicked.connect(self.generate_532blanking)
+        self.button_532blanking.clicked.connect(self.generate_532blanking_graphy)
         # ------------------------------------------------------488 blanking---------------------------------------------
         self.textbox44A = QComboBox()
         self.textbox44A.addItems(['0','1'])
@@ -424,9 +503,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.textbox44B = QPlainTextEdit(self)
         self.DigitalLayout.addWidget(self.textbox44B, 6, 2)
-        self.DigitalLayout.addWidget(QLabel("Frequency:"), 6, 1)
+        self.DigitalLayout.addWidget(QLabel("Frequency in period:"), 6, 1)
 
         self.textbox44C = QPlainTextEdit(self)
+        self.textbox44C.setPlaceholderText('0')
         self.DigitalLayout.addWidget(self.textbox44C, 7, 2)
         self.DigitalLayout.addWidget(QLabel("Offset (ms):"), 7, 1)
         
@@ -435,6 +515,7 @@ class adgenerator(QtWidgets.QDialog):
         self.DigitalLayout.addWidget(QLabel("Period (ms):"), 6, 3)   
         
         self.textbox44E = QPlainTextEdit(self)
+        self.textbox44E.setPlaceholderText('1')
         self.DigitalLayout.addWidget(self.textbox44E, 7, 4)
         self.DigitalLayout.addWidget(QLabel("Repeat:"), 7, 3) 
         
@@ -451,16 +532,83 @@ class adgenerator(QtWidgets.QDialog):
         self.button_488blanking = QPushButton('SHOW WAVE', self)
         self.DigitalLayout.addWidget(self.button_488blanking, 7, 7)
         
-        #self.button_488blanking.clicked.connect(self.generate_488blanking)
+        self.button_488blanking.clicked.connect(self.generate_488blanking)
+        self.button_488blanking.clicked.connect(self.generate_488blanking_graphy) 
+        
+        # ------------------------------------------------------blankingall---------------------------------------------
+        self.textbox55A = QComboBox()
+        self.textbox55A.addItems(['0','1'])
+        self.DigitalLayout.addWidget(self.textbox55A, 9, 0)
+        
+        self.DigitalLayout.addWidget(QLabel("blanking all : "), 8, 0)
+        
+        self.textbox55B = QPlainTextEdit(self)
+        self.DigitalLayout.addWidget(self.textbox55B, 8, 2)
+        self.DigitalLayout.addWidget(QLabel("Frequency in period:"), 8, 1)
+
+        self.textbox55C = QPlainTextEdit(self)
+        self.textbox55C.setPlaceholderText('0')
+        self.DigitalLayout.addWidget(self.textbox55C, 9, 2)
+        self.DigitalLayout.addWidget(QLabel("Offset (ms):"), 9, 1)
+        
+        self.textbox55D = QPlainTextEdit(self)
+        self.DigitalLayout.addWidget(self.textbox55D, 8, 4)
+        self.DigitalLayout.addWidget(QLabel("Period (ms):"), 8, 3)   
+        
+        self.textbox55E = QPlainTextEdit(self)
+        self.textbox55E.setPlaceholderText('1')
+        self.DigitalLayout.addWidget(self.textbox55E, 9, 4)
+        self.DigitalLayout.addWidget(QLabel("Repeat:"), 9, 3) 
+        
+        self.DigitalLayout.addWidget(QLabel("DC (%):"), 8, 5)
+        self.textbox55F = QComboBox()
+        self.textbox55F.addItems(['0','100','50'])
+        self.DigitalLayout.addWidget(self.textbox55F, 8, 6) 
+                
+        self.textbox55G = QPlainTextEdit(self)
+        self.textbox55G.setPlaceholderText('0')
+        self.DigitalLayout.addWidget(self.textbox55G, 9, 6)
+        self.DigitalLayout.addWidget(QLabel("Gap between repeat (samples):"), 9, 5)
+        
+        self.button_blankingall = QPushButton('SHOW WAVE', self)
+        self.DigitalLayout.addWidget(self.button_blankingall, 9, 7)
+        
+        self.button_blankingall.clicked.connect(self.generate_blankingall)
+        self.button_blankingall.clicked.connect(self.generate_blankingall_graphy)
               
         DigitalContainer.setLayout(self.DigitalLayout)
 
-        self.configs = Configuration()
+        #------------------------------------------------------------------------------------------------------------------
+        #----------------------------------------------------------Readin-------------------------------------------------
+        #------------------------------------------------------------------------------------------------------------------       
+        ReadContainer = QGroupBox("Readin channels")
+        self.ReadLayout = QGridLayout() #self.AnalogLayout manager
         
+        # ------------------------------------------------------Camera triggering------------------------------------------
+        self.textbox111A = QComboBox()
+        self.textbox111A.addItems(['1','0'])
+        self.ReadLayout.addWidget(self.textbox111A, 1, 0)     
+        
+        self.ReadLayout.addWidget(QLabel("PMT : "), 0, 0)
+        
+        self.textbox222A = QComboBox()
+        self.textbox222A.addItems(['0','1'])
+        self.ReadLayout.addWidget(self.textbox222A, 1, 1)     
+        
+        self.ReadLayout.addWidget(QLabel("Vp : "), 0, 1)
+        
+        self.textbox333A = QComboBox()
+        self.textbox333A.addItems(['0','1'])
+        self.ReadLayout.addWidget(self.textbox333A, 1, 2)     
+        
+        self.ReadLayout.addWidget(QLabel("Ip : "), 0, 2)
+        
+        ReadContainer.setLayout(self.ReadLayout)
         #--------------Adding to master----------------------------------------
         master = QVBoxLayout()
         master.addWidget(AnalogContainer)
         master.addWidget(DigitalContainer)
+        master.addWidget(ReadContainer)
         self.setLayout(master)
         
             
@@ -583,7 +731,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
         self.uiwavefrequency_2 = int(self.textbox2B.toPlainText())
-        self.uiwaveoffset_2 = int(self.textbox2C.toPlainText()) # in ms
+        if not self.textbox2C.toPlainText():
+            self.uiwaveoffset_2 = 0
+        else:
+            self.uiwaveoffset_2 = int(self.textbox2C.toPlainText()) # in ms
         self.uiwaveperiod_2 = int(self.textbox2D.toPlainText())
         self.uiwaveDC_2 = int(self.textbox2F.currentText())
         if not self.textbox2E.toPlainText():
@@ -621,7 +772,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
         self.uiwavefrequency_488AO = int(self.textbox3B.toPlainText())
-        self.uiwaveoffset_488AO = int(self.textbox3C.toPlainText()) # in ms
+        if not self.textbox3C.toPlainText():
+            self.uiwaveoffset_488AO = 0
+        else:
+            self.uiwaveoffset_488AO = int(self.textbox3C.toPlainText()) # in ms
         self.uiwaveperiod_488AO = int(self.textbox3D.toPlainText())
         self.uiwaveDC_488AO = int(self.textbox3F.currentText())
         if not self.textbox3E.toPlainText():
@@ -659,7 +813,10 @@ class adgenerator(QtWidgets.QDialog):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
         self.uiwavefrequency_532AO = int(self.textbox4B.toPlainText())
-        self.uiwaveoffset_532AO = int(self.textbox4C.toPlainText()) # in ms
+        if not self.textbox4C.toPlainText():
+            self.uiwaveoffset_532AO = 0
+        else:
+            self.uiwaveoffset_532AO = int(self.textbox4C.toPlainText()) # in ms
         self.uiwaveperiod_532AO = int(self.textbox4D.toPlainText())
         self.uiwaveDC_532AO = int(self.textbox4F.currentText())
         if not self.textbox4E.toPlainText():
@@ -692,6 +849,48 @@ class adgenerator(QtWidgets.QDialog):
         plt.text(0.1, 2, 'Time lasted:'+str(xlabelhere_532[-1])+'s', fontsize=12)
         #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
         plt.show()  
+        
+        
+    def generate_patchAO(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiwavefrequency_patchAO = int(self.textbox5B.toPlainText())
+        if not self.textbox5C.toPlainText():
+            self.uiwaveoffset_patchAO = 0
+        else:
+            self.uiwaveoffset_patchAO = int(self.textbox5C.toPlainText()) # in ms
+        self.uiwaveperiod_patchAO = int(self.textbox5D.toPlainText())
+        self.uiwaveDC_patchAO = int(self.textbox5F.currentText())
+        if not self.textbox5E.toPlainText():
+            self.uiwaverepeat_patchAO = 1
+        else:
+            self.uiwaverepeat_patchAO = int(self.textbox5E.toPlainText())
+        if not self.textbox5G.toPlainText():
+            self.uiwavegap_patchAO = 0
+        else:
+            self.uiwavegap_patchAO = int(self.textbox5G.toPlainText())
+        self.uiwavestartamplitude_patchAO = float(self.textbox5H.currentText())
+        if not self.textbox5I.toPlainText():
+            self.uiwavebaseline_patchAO = 0
+        else:
+            self.uiwavebaseline_patchAO = float(self.textbox5I.toPlainText())
+        self.uiwavestep_patchAO = int(self.textbox5J.currentText())
+        self.uiwavecycles_patchAO = int(self.textbox5K.currentText())   
+        
+        if int(self.textbox5A.currentText()) == 1:
+            
+            s = generate_AO_forpatch(self.uiDaq_sample_rate, self.uiwavefrequency_patchAO, self.uiwaveoffset_patchAO, self.uiwaveperiod_patchAO, self.uiwaveDC_patchAO
+                                   , self.uiwaverepeat_patchAO, self.uiwavegap_patchAO, self.uiwavestartamplitude_patchAO, self.uiwavebaseline_patchAO, self.uiwavestep_patchAO, self.uiwavecycles_patchAO)
+            self.finalwave_patch = s.generate()
+            return self.finalwave_patch
+            
+    def generate_patchAO_graphy(self):
+        xlabelhere_patch = np.arange(len(self.finalwave_patch))/self.uiDaq_sample_rate
+        #plt.plot(xlabelhere_galvo, samples_1)
+        plt.plot(xlabelhere_patch, self.finalwave_patch)
+        plt.text(0.1, 2, 'Time lasted:'+str(xlabelhere_patch[-1])+'s', fontsize=12)
+        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
+        plt.show()
 
     def generate_cameratrigger(self):
         
@@ -717,6 +916,7 @@ class adgenerator(QtWidgets.QDialog):
             cameratrigger = generate_DO_forcameratrigger(self.uiDaq_sample_rate, self.uiwavefrequency_cameratrigger, self.uiwaveoffset_cameratrigger,
                                                          self.uiwaveperiod_cameratrigger, self.uiwaveDC_cameratrigger, self.uiwaverepeat_cameratrigger_number, self.uiwavegap_cameratrigger)
             self.finalwave_cameratrigger = cameratrigger.generate()
+            return self.finalwave_cameratrigger
             
     def generate_cameratrigger_graphy(self):
 
@@ -751,6 +951,7 @@ class adgenerator(QtWidgets.QDialog):
             blanking640 = generate_DO_for640blanking(self.uiDaq_sample_rate, self.uiwavefrequency_640blanking, self.uiwaveoffset_640blanking,
                                                          self.uiwaveperiod_640blanking, self.uiwaveDC_640blanking, self.uiwaverepeat_640blanking_number, self.uiwavegap_640blanking)
             self.finalwave_640blanking = blanking640.generate()
+            return self.finalwave_640blanking
             
     def generate_640blanking_graphy(self):    
 
@@ -761,28 +962,141 @@ class adgenerator(QtWidgets.QDialog):
         #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
         plt.show()
         
+    def generate_532blanking(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiwavefrequency_532blanking = int(self.textbox33B.toPlainText())
+        if not self.textbox33C.toPlainText():
+            self.uiwaveoffset_532blanking = 0
+        else:
+            self.uiwaveoffset_532blanking = int(self.textbox33C.toPlainText())
+        self.uiwaveperiod_532blanking = int(self.textbox33D.toPlainText())
+        self.uiwaveDC_532blanking = int(self.textbox33F.currentText())
+        if not self.textbox33E.toPlainText():
+            self.uiwaverepeat_532blanking_number = 1
+        else:
+            self.uiwaverepeat_532blanking_number = int(self.textbox33E.toPlainText())
+        if not self.textbox33G.toPlainText():
+            self.uiwavegap_532blanking = 0
+        else:
+            self.uiwavegap_532blanking = int(self.textbox33G.toPlainText())
+        
+        if int(self.textbox33A.currentText()) == 1:
+            
+            blanking532 = generate_DO_for532blanking(self.uiDaq_sample_rate, self.uiwavefrequency_532blanking, self.uiwaveoffset_532blanking,
+                                                         self.uiwaveperiod_532blanking, self.uiwaveDC_532blanking, self.uiwaverepeat_532blanking_number, self.uiwavegap_532blanking)
+            self.finalwave_532blanking = blanking532.generate()
+            return self.finalwave_532blanking
+            
+    def generate_532blanking_graphy(self):    
+
+        xlabelhere_532blanking = np.arange(len(self.finalwave_532blanking))/self.uiDaq_sample_rate
+        #plt.plot(xlabelhere_galvo, samples_1)
+        plt.plot(xlabelhere_532blanking, self.finalwave_532blanking)
+        plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_532blanking[-1])+'s', fontsize=12)
+        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
+        plt.show()
+        
+    def generate_488blanking(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiwavefrequency_488blanking = int(self.textbox44B.toPlainText())
+        if not self.textbox44C.toPlainText():
+            self.uiwaveoffset_488blanking = 0
+        else:
+            self.uiwaveoffset_488blanking = int(self.textbox44C.toPlainText())
+        self.uiwaveperiod_488blanking = int(self.textbox44D.toPlainText())
+        self.uiwaveDC_488blanking = int(self.textbox44F.currentText())
+        if not self.textbox44E.toPlainText():
+            self.uiwaverepeat_488blanking_number = 1
+        else:
+            self.uiwaverepeat_488blanking_number = int(self.textbox44E.toPlainText())
+        if not self.textbox44G.toPlainText():
+            self.uiwavegap_488blanking = 0
+        else:
+            self.uiwavegap_488blanking = int(self.textbox44G.toPlainText())
+        
+        if int(self.textbox44A.currentText()) == 1:
+            
+            blanking488 = generate_DO_for488blanking(self.uiDaq_sample_rate, self.uiwavefrequency_488blanking, self.uiwaveoffset_488blanking,
+                                                         self.uiwaveperiod_488blanking, self.uiwaveDC_488blanking, self.uiwaverepeat_488blanking_number, self.uiwavegap_488blanking)
+            self.finalwave_488blanking = blanking488.generate()
+            return self.finalwave_488blanking
+            
+    def generate_488blanking_graphy(self):    
+
+        xlabelhere_488blanking = np.arange(len(self.finalwave_488blanking))/self.uiDaq_sample_rate
+        #plt.plot(xlabelhere_galvo, samples_1)
+        plt.plot(xlabelhere_488blanking, self.finalwave_488blanking)
+        plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_488blanking[-1])+'s', fontsize=12)
+        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
+        plt.show()
+        
+    def generate_blankingall(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiwavefrequency_blankingall = int(self.textbox55B.toPlainText())
+        if not self.textbox55C.toPlainText():
+            self.uiwaveoffset_blankingall = 0
+        else:
+            self.uiwaveoffset_blankingall = int(self.textbox55C.toPlainText())
+        self.uiwaveperiod_blankingall = int(self.textbox55D.toPlainText())
+        self.uiwaveDC_blankingall = int(self.textbox55F.currentText())
+        if not self.textbox55E.toPlainText():
+            self.uiwaverepeat_blankingall_number = 1
+        else:
+            self.uiwaverepeat_blankingall_number = int(self.textbox55E.toPlainText())
+        if not self.textbox55G.toPlainText():
+            self.uiwavegap_blankingall = 0
+        else:
+            self.uiwavegap_blankingall = int(self.textbox55G.toPlainText())
+        
+        if int(self.textbox55A.currentText()) == 1:
+            
+            blanking640 = generate_DO_forblankingall(self.uiDaq_sample_rate, self.uiwavefrequency_blankingall, self.uiwaveoffset_blankingall,
+                                                         self.uiwaveperiod_blankingall, self.uiwaveDC_blankingall, self.uiwaverepeat_blankingall_number, self.uiwavegap_blankingall)
+            self.finalwave_blankingall = blanking640.generate()
+            return self.finalwave_blankingall
+            
+    def generate_blankingall_graphy(self):    
+
+        xlabelhere_blankingall = np.arange(len(self.finalwave_blankingall))/self.uiDaq_sample_rate
+        #plt.plot(xlabelhere_galvo, samples_1)
+        plt.plot(xlabelhere_blankingall, self.finalwave_blankingall)
+        plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_blankingall[-1])+'s', fontsize=12)
+        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
+        plt.show()
+        
     def show_all(self):
         
         self.switch_galvos = int(self.textbox1A.currentText())
         self.switch_640AO = int(self.textbox2A.currentText())
         self.switch_488AO = int(self.textbox3A.currentText())
         self.switch_532AO = int(self.textbox4A.currentText())
+        self.switch_patchAO = int(self.textbox5A.currentText())
         
         self.switch_cameratrigger = int(self.textbox11A.currentText())
-        self.switch_galvotrigger = int(self.textbox11A.currentText())# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        self.switch_galvotrigger = int(self.textbox1K.currentText())
+        self.switch_blankingall = int(self.textbox55A.currentText())
         self.switch_640blanking = int(self.textbox22A.currentText())
+        self.switch_532blanking = int(self.textbox33A.currentText())
+        self.switch_488blanking = int(self.textbox44A.currentText())
         
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
         dictionary_analog = {'galvos':[self.switch_galvos,self.generate_galvos],
                               '640AO':[self.switch_640AO,self.generate_640AO],
                               '488AO':[self.switch_488AO,self.generate_488AO],
-                              '532AO':[self.switch_532AO,self.generate_532AO]
+                              '532AO':[self.switch_532AO,self.generate_532AO],
+                              'patchAO':[self.switch_patchAO,self.generate_patchAO],
                              }
                               
                               
         dictionary_digital = {'cameratrigger':[self.switch_cameratrigger,self.generate_cameratrigger],
                               'galvotrigger':[self.switch_galvotrigger,self.generate_galvotrigger], 
-                              '640blanking':[self.switch_640blanking, self.generate_640blanking]
+                              'blankingall':[self.switch_blankingall, self.generate_blankingall],
+                              '640blanking':[self.switch_640blanking, self.generate_640blanking],
+                              '532blanking':[self.switch_532blanking, self.generate_532blanking],
+                              '488blanking':[self.switch_488blanking, self.generate_488blanking]
                               }
         # Calculate the length of reference wave
         # tags in the dictionary above should be the same as that in reference combox, then the dictionary below can work
@@ -806,8 +1120,8 @@ class adgenerator(QtWidgets.QDialog):
         
         # set galvos sampele stack apart
         if 'galvos' in self.analog_data_container:
-            self.analog_data_container['galvosx'+'_avgnum_'+str(int(self.textbox1H.currentText()))] = self.generate_galvos()[0, :]
-            self.analog_data_container['galvosy'+'_ypixels_'+str(int(self.textbox1G.currentText()))] = self.generate_galvos()[1, :]
+            self.analog_data_container['galvosx'+'avgnum_'+str(int(self.textbox1H.currentText()))] = self.generate_galvos()[0, :]
+            self.analog_data_container['galvosy'+'ypixels_'+str(int(self.textbox1G.currentText()))] = self.generate_galvos()[1, :]
             del self.analog_data_container['galvos']
         
         # reform all waves according to the length of reference wave
@@ -818,65 +1132,59 @@ class adgenerator(QtWidgets.QDialog):
                 append_zeros = np.zeros(self.reference_length-len(self.analog_data_container[key]))
                 self.analog_data_container[key] = np.append(self.analog_data_container[key], append_zeros)
             #print(len(self.analog_data_container[key]))
-        self.container_array = np.zeros(len(self.analog_data_container), dtype =tp_analog)
-        loopnum = 0
+        self.analogcontainer_array = np.zeros(len(self.analog_data_container), dtype =tp_analog)
+        analogloopnum = 0
         for key in self.analog_data_container:
-            self.container_array[loopnum] = np.array([(self.analog_data_container[key], key)], dtype =tp_analog)
-            loopnum = loopnum+ 1
-        print(self.container_array['Sepcification'])
-                  
-
-        plt.figure()
-        for i in range(loopnum):
-            if self.container_array['Sepcification'][i] != 'galvosx'+'_avgnum_'+str(int(self.textbox1H.currentText())):
-                plt.plot(self.container_array['Waveform'][i])
+            self.analogcontainer_array[analogloopnum] = np.array([(self.analog_data_container[key], key)], dtype =tp_analog)
+            analogloopnum = analogloopnum+ 1
+            
+        #num_rows, num_cols = self.analogcontainer_array['Waveform'].shape
+        print(self.analogcontainer_array['Sepcification'])
         
+        self.digital_data_container = {}
+        
+        for key in dictionary_digital:
+            if dictionary_digital[key][0] == 1: # if the signal line is added
+                self.digital_data_container[key] = dictionary_digital[key][1]()
+        
+        # reform all waves according to the length of reference wave
+        for key in self.digital_data_container:
+            if len(self.digital_data_container[key]) >= self.reference_length:
+                self.digital_data_container[key] = self.digital_data_container[key][0:self.reference_length]
+            else:
+                append_zeros = np.zeros(self.reference_length-len(self.digital_data_container[key]))
+                self.digital_data_container[key] = np.append(self.digital_data_container[key], append_zeros)
+            #print(len(self.digital_data_container[key]))
+        self.digitalcontainer_array = np.zeros(len(self.digital_data_container), dtype =tp_digital)
+        digitalloopnum = 0
+        for key in self.digital_data_container:
+            self.digitalcontainer_array[digitalloopnum] = np.array([(self.digital_data_container[key], key)], dtype =tp_digital)
+            digitalloopnum = digitalloopnum+ 1
+        print(self.digitalcontainer_array['Sepcification'])
+                
+        xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.currentText())
+        plt.figure()
+        for i in range(analogloopnum):
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'_avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
+                plt.plot(xlabelhere_all, self.analogcontainer_array['Waveform'][i])
+        for i in range(digitalloopnum):
+            plt.plot(xlabelhere_all, self.digitalcontainer_array['Waveform'][i])
+        plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_all[-1])+'s', fontsize=12)
         plt.show()
-        '''
-        self.data_container_1 = {}
-        for key in self.data_container:
-            if key =='galvos':
-                self.data_container_1[loopnum] = 
-            loopnum =+ 1
-        #self.analog_wave_container = np.zeros(loopnum, dtype =tp_analog)       
-        #for p in range(loopnum):
-            #self.analog_wave_container[p]=self.data_container[p]        
-        '''        
-        '''
-        if key =='galvos': # if galvos as reference wave
-            wavegalvos = dictionary_analog['galvos'][1]()
-            self.data_container[0] = np.array([(wavegalvos[0, :][0:self.reference_length], key)], dtype =tp_analog)
-            wave_this_term = dictionary_analog[key][1]()
-
-            if len(wavegalvos[0, :]) >= self.reference_length:
-            
-                self.data_container[loopnum] = np.array([(wavegalvos[0, :][0:self.reference_length], key)], dtype =tp_analog)
-                self.data_container[loopnum+1] = np.array([(wavegalvos[1, :][0:self.reference_length], key)], dtype =tp_analog)
-                
-            else:
-                append_zeros = np.zeros(self.reference_length-len(wavegalvos[0, :]))
-                self.data_container[loopnum] = np.append(wavegalvos[0, :], append_zeros)
-                self.data_container[loopnum+1] = np.append(wavegalvos[1, :], append_zeros)
-                
-                self.data_container[loopnum] = np.array([(self.data_container[loopnum], key)], dtype =tp_analog)
-                self.data_container[loopnum+1] = np.array([(self.data_container[loopnum+1], key)], dtype =tp_analog)
-            
-            print(len(self.data_container[loopnum]['Waveform']))
-            print(self.data_container[loopnum]['Sepcification'])
-            
-        else:
-            waveothers = dictionary_analog[key][1]()
-            
-            if len(waveothers) >= self.reference_length:
-                self.data_container[loopnum] = np.array([(waveothers[0:self.reference_length], key)], dtype =tp_analog)
-            else:
-                append_zeros = np.zeros(self.reference_length-len(waveothers))
-                self.data_container[loopnum] = np.append(waveothers, append_zeros)
-                self.data_container[loopnum] = np.array([(self.data_container[loopnum], key)], dtype =tp_analog)
-                
-            print(len(self.data_container[loopnum]['Waveform']))
-            print(self.data_container[loopnum]['Sepcification']) 
-        '''
+        
+        self.readinchan = []
+        
+        if int(self.textbox111A.currentText()) == 1:
+            self.readinchan.append('PMT')
+        if int(self.textbox222A.currentText()) == 1:
+            self.readinchan.append('Vp')
+        if int(self.textbox333A.currentText()) == 1:
+            self.readinchan.append('Ip')       
+        
+        print(self.readinchan)
+        
+        execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
 
         
 if __name__ == "__main__":
