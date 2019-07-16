@@ -730,7 +730,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_640AO(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_2 = int(self.textbox2B.toPlainText())
+        self.uiwavefrequency_2 = float(self.textbox2B.toPlainText())
         if not self.textbox2C.toPlainText():
             self.uiwaveoffset_2 = 0
         else:
@@ -771,7 +771,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_488AO(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_488AO = int(self.textbox3B.toPlainText())
+        self.uiwavefrequency_488AO = float(self.textbox3B.toPlainText())
         if not self.textbox3C.toPlainText():
             self.uiwaveoffset_488AO = 0
         else:
@@ -812,7 +812,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_532AO(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_532AO = int(self.textbox4B.toPlainText())
+        self.uiwavefrequency_532AO = float(self.textbox4B.toPlainText())
         if not self.textbox4C.toPlainText():
             self.uiwaveoffset_532AO = 0
         else:
@@ -854,7 +854,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_patchAO(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_patchAO = int(self.textbox5B.toPlainText())
+        self.uiwavefrequency_patchAO = float(self.textbox5B.toPlainText())
         if not self.textbox5C.toPlainText():
             self.uiwaveoffset_patchAO = 0
         else:
@@ -895,7 +895,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_cameratrigger(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_cameratrigger = int(self.textbox11B.toPlainText())
+        self.uiwavefrequency_cameratrigger = float(self.textbox11B.toPlainText())
         if not self.textbox11C.toPlainText():
             self.uiwaveoffset_cameratrigger = 0
         else:
@@ -930,7 +930,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_640blanking(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_640blanking = int(self.textbox22B.toPlainText())
+        self.uiwavefrequency_640blanking = float(self.textbox22B.toPlainText())
         if not self.textbox22C.toPlainText():
             self.uiwaveoffset_640blanking = 0
         else:
@@ -965,7 +965,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_532blanking(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_532blanking = int(self.textbox33B.toPlainText())
+        self.uiwavefrequency_532blanking = float(self.textbox33B.toPlainText())
         if not self.textbox33C.toPlainText():
             self.uiwaveoffset_532blanking = 0
         else:
@@ -1000,7 +1000,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_488blanking(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_488blanking = int(self.textbox44B.toPlainText())
+        self.uiwavefrequency_488blanking = float(self.textbox44B.toPlainText())
         if not self.textbox44C.toPlainText():
             self.uiwaveoffset_488blanking = 0
         else:
@@ -1035,7 +1035,7 @@ class adgenerator(QtWidgets.QDialog):
     def generate_blankingall(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.currentText())
-        self.uiwavefrequency_blankingall = int(self.textbox55B.toPlainText())
+        self.uiwavefrequency_blankingall = float(self.textbox55B.toPlainText())
         if not self.textbox55C.toPlainText():
             self.uiwaveoffset_blankingall = 0
         else:
@@ -1165,7 +1165,7 @@ class adgenerator(QtWidgets.QDialog):
         xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.currentText())
         plt.figure()
         for i in range(analogloopnum):
-            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'_avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
                 plt.plot(xlabelhere_all, self.analogcontainer_array['Waveform'][i])
         for i in range(digitalloopnum):
             plt.plot(xlabelhere_all, self.digitalcontainer_array['Waveform'][i])
@@ -1183,7 +1183,7 @@ class adgenerator(QtWidgets.QDialog):
         
         print(self.readinchan)
         
-        execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
 
         
