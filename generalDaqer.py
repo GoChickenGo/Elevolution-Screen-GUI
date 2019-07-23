@@ -44,6 +44,7 @@ class execute():
         num_rows, num_cols = analogsignals['Waveform'].shape
         print("row number of analog signals:  "+str(num_rows))
         
+        # Get the average number and y pixel number information from data
         self.averagenumber = 0
         self.ypixelnumber = 0
         for i in range(len(analogsignals['Sepcification'])):
@@ -106,17 +107,22 @@ class execute():
             for i in range(1, digitalsignalslinenumber):
                 holder2 = np.vstack((holder2, digitalsignals['Waveform'][i]))
         
-        #holder = np.vstack((analogsignals['Waveform'][0], analogsignals['Waveform'][1]))
-        holder2 = np.array(holder2, dtype = 'uint32')
-        
-        #print(writesamples_dev2.shape)
-        print(holder2.shape)
-        print(holder2.dtype)
-        #print(analogsignals['Waveform'].flags)
-        
+        # Set the dtype of digital signals
+        #
+        holder2 = np.array(holder2, dtype = 'uint32')        
+        for i in range(digitalsignalslinenumber):
+            convernum = int(configdictionary[digitalsignals['Sepcification'][i]][configdictionary[digitalsignals['Sepcification'][i]].index('line')+4:len(configdictionary[digitalsignals['Sepcification'][i]])])
+            print(convernum)
+            holder2[i] = holder2[i]*(2**(convernum)) 
+        # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
+        #if digitalsignalslinenumber > 1:
+        #   holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines
+        #
+        #
+        #
+        print(type(holder2[0][1]))
+        print(holder2[0][1])
 
-
-        
         # Assume that dev1 is always employed
         with nidaqmx.Task() as slave_Task_1_dev1, nidaqmx.Task() as slave_Task_1_dev2, nidaqmx.Task() as master_Task, nidaqmx.Task() as slave_Task_2:
             # adding channels      
@@ -165,7 +171,7 @@ class execute():
                 slave_Task_1_dev2.timing.cfg_samp_clk_timing(Daq_sample_rate, source=dev2Clock, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
                 #slave_Task_1_dev2.triggers.sync_type.SLAVE = True
                 
-                slave_Task_1_dev2.triggers.start_trigger.cfg_dig_edge_start_trig(configs.trigger2Channel)#'/Dev2/PFI7'
+                #slave_Task_1_dev2.triggers.start_trigger.cfg_dig_edge_start_trig(configs.trigger2Channel)#'/Dev2/PFI7'
                 
                 AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_dev1.out_stream, auto_start= False)
                 AnalogWriter.auto_start = False
@@ -179,7 +185,7 @@ class execute():
                 #slave_Task_2.triggers.sync_type.SLAVE = True
             
 
-
+        	# Configure the writer and reader
             AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_dev1.out_stream, auto_start= False)
             AnalogWriter.auto_start = False
             if len(digitalsignals['Sepcification']) != 0:
@@ -205,11 +211,11 @@ class execute():
                 Dataholder_average = np.mean(Dataholder[0,:].reshape(self.averagenumber, -1), axis=0)
                 
                 ScanArrayXnum = int ((Totalscansamplesnumber/self.averagenumber)/self.ypixelnumber)
-                data1 = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
+                PMT_data = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
                 
-                data1= data1*-1
+                PMT_data= PMT_data*-1
                 plt.figure()
-                plt.imshow(data1, cmap = plt.cm.gray)
+                plt.imshow(PMT_data, cmap = plt.cm.gray)
                 plt.show()
             
             slave_Task_1_dev1.wait_until_done()
@@ -221,3 +227,5 @@ class execute():
             if analogsignal_dev2_number != 0:
                 slave_Task_1_dev2.stop()
             master_Task.stop()
+            
+        return PMT_data

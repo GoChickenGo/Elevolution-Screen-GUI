@@ -1183,7 +1183,7 @@ class adgenerator(QtWidgets.QDialog):
         
         print(self.readinchan)
         
-        #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
 
         
