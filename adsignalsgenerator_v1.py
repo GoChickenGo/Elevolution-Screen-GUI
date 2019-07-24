@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
 import wavegenerator
-from generalDaqer import execute
+from generalDaqer import execute_analog_readin_optional_digital, execute_digital
 from configuration import Configuration
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
@@ -32,7 +32,7 @@ class adgenerator(QtWidgets.QDialog):
         self.AnalogLayout = QGridLayout() #self.AnalogLayout manager
                
         self.textboxBB = QComboBox()
-        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO', 'patchAO'])
+        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO', 'patchAO', 'blankingall'])
         self.AnalogLayout.addWidget(self.textboxBB, 0, 8)
         self.AnalogLayout.addWidget(QLabel("Reference waveform:"), 0, 7)
 
@@ -1100,7 +1100,11 @@ class adgenerator(QtWidgets.QDialog):
                               }
         # Calculate the length of reference wave
         # tags in the dictionary above should be the same as that in reference combox, then the dictionary below can work
-        reference_wave = dictionary_analog[self.textboxBB.currentText()][1]()
+        if self.textboxBB.currentText() in dictionary_analog.keys():
+            reference_wave = dictionary_analog[self.textboxBB.currentText()][1]()
+        else:
+            reference_wave = dictionary_digital[self.textboxBB.currentText()][1]()
+        
         if self.textboxBB.currentText() == 'galvos': # in case of using galvos as reference wave
             self.reference_length = len(reference_wave[0, :])
         else:
@@ -1183,7 +1187,7 @@ class adgenerator(QtWidgets.QDialog):
         
         print(self.readinchan)
         
-        execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
 
         
