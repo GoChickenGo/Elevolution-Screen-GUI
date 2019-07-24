@@ -18,7 +18,7 @@ from PIL import Image
 
 from configuration import Configuration
 
-class execute():
+class execute_analog_readin_optional_digital():
     def __init__(self, samplingrate, analogsignals, digitalsignals, readinchannels):
         
         configs = Configuration()
@@ -40,6 +40,8 @@ class execute():
                             }
         
         Daq_sample_rate = samplingrate
+        
+        # some preparations for analog lines
         Totalscansamplesnumber = len(analogsignals['Waveform'][0])
         num_rows, num_cols = analogsignals['Waveform'].shape
         print("row number of analog signals:  "+str(num_rows))
@@ -107,6 +109,7 @@ class execute():
             for i in range(1, digitalsignalslinenumber):
                 holder2 = np.vstack((holder2, digitalsignals['Waveform'][i]))
         
+
         # Set the dtype of digital signals
         #
         holder2 = np.array(holder2, dtype = 'uint32')        
@@ -115,117 +118,204 @@ class execute():
             print(convernum)
             holder2[i] = holder2[i]*(2**(convernum)) 
         # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
-        #if digitalsignalslinenumber > 1:
-        #   holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines
+        if digitalsignalslinenumber > 1:
+           holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines
         #
         #
-        #
+        #        
         print(type(holder2[0][1]))
         print(holder2[0][1])
 
         # Assume that dev1 is always employed
-        with nidaqmx.Task() as slave_Task_1_dev1, nidaqmx.Task() as slave_Task_1_dev2, nidaqmx.Task() as master_Task, nidaqmx.Task() as slave_Task_2:
+        with nidaqmx.Task() as slave_Task_1_analog_dev1, nidaqmx.Task() as slave_Task_1_analog_dev2, nidaqmx.Task() as master_Task_readin, nidaqmx.Task() as slave_Task_2_digitallines:
             # adding channels      
-            '''
-            for i in range(len(analogsignals['Sepcification'])):
-                slave_Task_1.ao_channels.add_ao_voltage_chan(configdictionary[analogsignals['Sepcification'][i]])
-            '''
             # Set tasks from different devices apart
             for i in range(analogsignal_dev1_number):
-                slave_Task_1_dev1.ao_channels.add_ao_voltage_chan(analogwritesamplesdev1_Sepcification[i])
+                slave_Task_1_analog_dev1.ao_channels.add_ao_voltage_chan(analogwritesamplesdev1_Sepcification[i])
 
             if len(digitalsignals['Sepcification']) != 0:
                 for i in range(len(digitalsignals['Sepcification'])):
-                    slave_Task_2.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_PER_LINE)#line_grouping??????????????One Channel For Each Line
+                    slave_Task_2_digitallines.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_PER_LINE)#line_grouping??????????????One Channel For Each Line
 
             Dataholder = np.zeros((len(readinchannels), Totalscansamplesnumber))
             
             if 'PMT' in readinchannels:
-                master_Task.ai_channels.add_ai_voltage_chan(configdictionary['PMT'])
+                master_Task_readin.ai_channels.add_ai_voltage_chan(configdictionary['PMT'])
             if 'Vp' in readinchannels:
-                master_Task.ai_channels.add_ai_voltage_chan(configdictionary['Vp'])
+                master_Task_readin.ai_channels.add_ai_voltage_chan(configdictionary['Vp'])
             if 'Ip' in readinchannels:
-                master_Task.ai_channels.add_ai_current_chan(configdictionary['Ip'])
+                master_Task_readin.ai_channels.add_ai_current_chan(configdictionary['Ip'])
             
             # setting clock
             # Analog clock  USE clock on Dev1 as center clock
-            slave_Task_1_dev1.timing.cfg_samp_clk_timing(Daq_sample_rate, source='ai/SampleClock', sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
-            #slave_Task_1_dev1.triggers.sync_type.SLAVE = True            
+            slave_Task_1_analog_dev1.timing.cfg_samp_clk_timing(Daq_sample_rate, source='ai/SampleClock', sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+            #slave_Task_1_analog_dev1.triggers.sync_type.SLAVE = True            
             # Readin clock as master clock
-            master_Task.timing.cfg_samp_clk_timing(Daq_sample_rate, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
-            #master_Task.triggers.sync_type.MASTER = True 
-            #master_Task.export_signals(Signal.SAMPLE_CLOCK, '/Dev1/PFI1')
-            #master_Task.export_signals(Signal.START_TRIGGER, '')
-            master_Task.export_signals.samp_clk_output_term = configs.clock1Channel#'/Dev1/PFI1'#
-            master_Task.export_signals.start_trig_output_term = configs.trigger1Channel#'/Dev1/PFI2'
-            #slave_Task_1_dev1.samp_clk_output_term
-            #slave_Task_1_dev1.samp_trig_output_term
+            master_Task_readin.timing.cfg_samp_clk_timing(Daq_sample_rate, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+            #master_Task_readin.triggers.sync_type.MASTER = True 
+            #master_Task_readin.export_signals(Signal.SAMPLE_CLOCK, '/Dev1/PFI1')
+            #master_Task_readin.export_signals(Signal.START_TRIGGER, '')
+            master_Task_readin.export_signals.samp_clk_output_term = configs.clock1Channel#'/Dev1/PFI1'#
+            master_Task_readin.export_signals.start_trig_output_term = configs.trigger1Channel#'/Dev1/PFI2'
+            #slave_Task_1_analog_dev1.samp_clk_output_term
+            #slave_Task_1_analog_dev1.samp_trig_output_term
             
             if analogsignal_dev2_number != 0:
-                # Be default assume that read master task is in dev1
+                # By default assume that read master task is in dev1
                 
                 for i in range(analogsignal_dev2_number):
-                    slave_Task_1_dev2.ao_channels.add_ao_voltage_chan(analogwritesamplesdev2_Sepcification[i])
+                    slave_Task_1_analog_dev2.ao_channels.add_ao_voltage_chan(analogwritesamplesdev2_Sepcification[i])
                 
                 dev2Clock = configs.clock2Channel#/Dev2/PFI1
-                slave_Task_1_dev2.timing.cfg_samp_clk_timing(Daq_sample_rate, source=dev2Clock, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
-                #slave_Task_1_dev2.triggers.sync_type.SLAVE = True
+                slave_Task_1_analog_dev2.timing.cfg_samp_clk_timing(Daq_sample_rate, source=dev2Clock, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+                #slave_Task_1_analog_dev2.triggers.sync_type.SLAVE = True
                 
-                #slave_Task_1_dev2.triggers.start_trigger.cfg_dig_edge_start_trig(configs.trigger2Channel)#'/Dev2/PFI7'
+                #slave_Task_1_analog_dev2.triggers.start_trigger.cfg_dig_edge_start_trig(configs.trigger2Channel)#'/Dev2/PFI7'
                 
-                AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_dev1.out_stream, auto_start= False)
+                AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_analog_dev1.out_stream, auto_start= False)
                 AnalogWriter.auto_start = False
                 
-                AnalogWriter_dev2 = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_dev2.out_stream, auto_start= False)
+                AnalogWriter_dev2 = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_analog_dev2.out_stream, auto_start= False)
                 AnalogWriter_dev2.auto_start = False
             
             # Digital clock
             if len(digitalsignals['Sepcification']) != 0: # or the source of sample clock could be PFI? or using start trigger: cfg_dig_edge_start_trig    slave_task.triggers.start_trigger.cfg_dig_edge_start_trig("/PXI1Slot3/ai/StartTrigger")
-                slave_Task_2.timing.cfg_samp_clk_timing(Daq_sample_rate, source='ai/SampleClock', sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
-                #slave_Task_2.triggers.sync_type.SLAVE = True
+                slave_Task_2_digitallines.timing.cfg_samp_clk_timing(Daq_sample_rate, source='ai/SampleClock', sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+                #slave_Task_2_digitallines.triggers.sync_type.SLAVE = True
             
 
         	# Configure the writer and reader
-            AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_dev1.out_stream, auto_start= False)
+            AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(slave_Task_1_analog_dev1.out_stream, auto_start= False)
             AnalogWriter.auto_start = False
             if len(digitalsignals['Sepcification']) != 0:
-                DigitalWriter = nidaqmx.stream_writers.DigitalMultiChannelWriter(slave_Task_2.out_stream, auto_start= False)
+                DigitalWriter = nidaqmx.stream_writers.DigitalMultiChannelWriter(slave_Task_2_digitallines.out_stream, auto_start= False)
                 DigitalWriter.auto_start = False
-            reader = AnalogMultiChannelReader(master_Task.in_stream)        
+            reader = AnalogMultiChannelReader(master_Task_readin.in_stream)        
             
-            # ----------------------------------Run in conditions of presence of at least one digital line.!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # ---------------------------------------------------------------------------------------------------------------------
+            #-----------------------------------------------------Begin to execute in DAQ------------------------------------------
             AnalogWriter.write_many_sample(writesamples_dev1, timeout = 16.0)
+            
             if analogsignal_dev2_number != 0:
                 AnalogWriter_dev2.write_many_sample(writesamples_dev2, timeout = 16.0)
-            DigitalWriter.write_many_sample_port_uint32(holder2, timeout = 16.0)
+                
+            if digitalsignalslinenumber != 0:     
+                DigitalWriter.write_many_sample_port_uint32(holder2, timeout = 16.0)
+                
             reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamplesnumber, timeout=16.0)
             
             if analogsignal_dev2_number != 0:
-                slave_Task_1_dev2.start()            
-            slave_Task_1_dev1.start()
-            slave_Task_2.start()
-            master_Task.start()
+                slave_Task_1_analog_dev2.start()            
+            slave_Task_1_analog_dev1.start()
+            
+            if digitalsignalslinenumber != 0:
+                slave_Task_2_digitallines.start()
+                
+            master_Task_readin.start()
 
             
             if 'PMT' in readinchannels:
                 Dataholder_average = np.mean(Dataholder[0,:].reshape(self.averagenumber, -1), axis=0)
                 
                 ScanArrayXnum = int ((Totalscansamplesnumber/self.averagenumber)/self.ypixelnumber)
-                PMT_data = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
+                data1 = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
                 
-                PMT_data= PMT_data*-1
+                data1= data1*-1
                 plt.figure()
-                plt.imshow(PMT_data, cmap = plt.cm.gray)
+                plt.imshow(data1, cmap = plt.cm.gray)
                 plt.show()
             
-            slave_Task_1_dev1.wait_until_done()
+            slave_Task_1_analog_dev1.wait_until_done()
             if analogsignal_dev2_number != 0:
-                slave_Task_1_dev2.wait_until_done()
-            master_Task.wait_until_done()
+                slave_Task_1_analog_dev2.wait_until_done()
+            if digitalsignalslinenumber != 0:
+                slave_Task_2_digitallines.wait_until_done()                
+            master_Task_readin.wait_until_done()
             
-            slave_Task_1_dev1.stop()
+            slave_Task_1_analog_dev1.stop()
             if analogsignal_dev2_number != 0:
-                slave_Task_1_dev2.stop()
-            master_Task.stop()
+                slave_Task_1_analog_dev2.stop()
+            if digitalsignalslinenumber != 0:
+                slave_Task_2_digitallines.stop()
+            master_Task_readin.stop()
             
-        return PMT_data
+            
+class execute_digital():
+    def __init__(self, samplingrate, digitalsignals):
+        
+        configs = Configuration()
+        configdictionary = {'galvosx':configs.galvoXChannel,
+                            'galvosy':'Dev1/ao1',#configs.galvoYChannel, 
+                            '640AO':'Dev1/ao3',
+                            '488AO':'Dev2/ao1',
+                            '532AO':'Dev2/ao0',
+                            'patchAO':configs.patchVoltInChannel,
+                            'cameratrigger':"Dev1/port0/line25",
+                            'galvotrigger':"Dev1/port0/line25",
+                            'blankingall':"Dev1/port0/line4",
+                            '640blanking':"Dev1/port0/line4",
+                            '532blanking':"Dev1/port0/line6",
+                            '488blanking':"Dev1/port0/line3",
+                            'PMT':"Dev1/ai0",
+                            'Vp':"Dev1/ai22",
+                            'Ip':"Dev1/ai20"
+                            }
+        
+        Daq_sample_rate = samplingrate
+        
+        # some preparations for digital lines
+        Totalscansamplesnumber = len(digitalsignals['Waveform'][0])
+        
+        digitalsignalslinenumber = len(digitalsignals['Waveform'])
+                
+        # Stack the digital samples        
+        if digitalsignalslinenumber == 1:
+            holder2 = np.array([digitalsignals['Waveform'][0]])
+
+        elif digitalsignalslinenumber == 0:
+            holder2 = []
+        else:
+            holder2 = digitalsignals['Waveform'][0]
+            for i in range(1, digitalsignalslinenumber):
+                holder2 = np.vstack((holder2, digitalsignals['Waveform'][i]))
+        
+        # Set the dtype of digital signals
+        #
+        holder2 = np.array(holder2, dtype = 'uint32')        
+        for i in range(digitalsignalslinenumber):
+            convernum = int(configdictionary[digitalsignals['Sepcification'][i]][configdictionary[digitalsignals['Sepcification'][i]].index('line')+4:len(configdictionary[digitalsignals['Sepcification'][i]])])
+            print(convernum)
+            holder2[i] = holder2[i]*(2**(convernum))
+        # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
+        if digitalsignalslinenumber > 1:
+           holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines        
+        #holder2 = holder2*16 
+
+        print(type(holder2[0][1]))
+        print(holder2[0][1])
+
+        # Assume that dev1 is always employed
+        with nidaqmx.Task() as slave_Task_2_digitallines:
+            # adding channels      
+            # Set tasks from different devices apart
+            for i in range(len(digitalsignals['Sepcification'])):
+                slave_Task_2_digitallines.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_PER_LINE)#line_grouping??????????????One Channel For Each Line
+            
+            # Digital clock
+            slave_Task_2_digitallines.timing.cfg_samp_clk_timing(Daq_sample_rate, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+
+        	# Configure the writer and reader
+            DigitalWriter = nidaqmx.stream_writers.DigitalMultiChannelWriter(slave_Task_2_digitallines.out_stream, auto_start= False)
+            DigitalWriter.auto_start = False
+                  
+            # ---------------------------------------------------------------------------------------------------------------------
+            #-----------------------------------------------------Begin to execute in DAQ------------------------------------------
+                
+            DigitalWriter.write_many_sample_port_uint32(holder2, timeout = 16.0)
+            
+            slave_Task_2_digitallines.start()
+
+            slave_Task_2_digitallines.wait_until_done()                
+
+            slave_Task_2_digitallines.stop()
+
