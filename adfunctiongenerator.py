@@ -370,3 +370,39 @@ class generate_DO_forblankingall():
         self.finalwave_blankingall = np.append(self.offsetsamples_blankingall, self.waverepeated_blankingall)
         
         return self.finalwave_blankingall
+    
+class generate_DO_forPerfusion():
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7):
+        self.Daq_sample_rate = value1
+        self.wavefrequency_Perfusion = value2
+        self.waveoffset_Perfusion = value3
+        self.waveperiod_Perfusion = value4
+        self.waveDC_Perfusion = value5
+        self.waverepeat_Perfusion_number = value6
+        self.wavegap_Perfusion = value7
+        
+    def generate(self):
+        
+        self.offsetsamples_number_Perfusion = int(1 + (self.waveoffset_Perfusion/1000)*self.Daq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
+        self.offsetsamples_Perfusion = np.zeros(self.offsetsamples_number_Perfusion, dtype=bool) # Be default offsetsamples_number is an integer.
+        
+        self.sample_num_singleperiod_Perfusion = round(self.Daq_sample_rate/self.wavefrequency_Perfusion)
+        self.true_sample_num_singleperiod_Perfusion = round((self.waveDC_Perfusion/100)*self.sample_num_singleperiod_Perfusion)
+        self.false_sample_num_singleperiod_Perfusion = self.sample_num_singleperiod_Perfusion - self.true_sample_num_singleperiod_Perfusion
+        
+        self.sample_singleperiod_Perfusion = np.append(np.ones(self.true_sample_num_singleperiod_Perfusion, dtype=bool), np.zeros(self.false_sample_num_singleperiod_Perfusion, dtype=bool))
+        self.repeatnumberintotal_Perfusion = int(self.wavefrequency_Perfusion*(self.waveperiod_Perfusion/1000))
+        # In default, pulses * sample_singleperiod_2 = period
+        self.sample_singlecycle_Perfusion = np.tile(self.sample_singleperiod_Perfusion, int(self.repeatnumberintotal_Perfusion)) # At least 1 rise and fall during one cycle
+        
+        if self.wavegap_Perfusion != 0:
+            self.gapsample_Perfusion = np.zeros(self.wavegap_Perfusion, dtype=bool)
+            self.waveallcyclewithgap_Perfusion = np.append(self.sample_singlecycle_Perfusion, self.gapsample_Perfusion)
+        else:
+            self.waveallcyclewithgap_Perfusion = self.sample_singlecycle_Perfusion
+            
+        self.waverepeated_Perfusion = np.tile(self.waveallcyclewithgap_Perfusion, self.waverepeat_Perfusion_number)
+        
+        self.finalwave_Perfusion = np.append(self.offsetsamples_Perfusion, self.waverepeated_Perfusion)
+        
+        return self.finalwave_Perfusion

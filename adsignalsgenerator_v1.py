@@ -16,7 +16,7 @@ from configuration import Configuration
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox
-from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking
+from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion
 
 class adgenerator(QtWidgets.QDialog):
     def __init__(self, *args, **kwargs):
@@ -32,14 +32,19 @@ class adgenerator(QtWidgets.QDialog):
         self.AnalogLayout = QGridLayout() #self.AnalogLayout manager
                
         self.textboxBB = QComboBox()
-        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO', 'patchAO', 'blankingall'])
+        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO', 'patchAO', 'blankingall', 'Perfusion_1'])
         self.AnalogLayout.addWidget(self.textboxBB, 0, 8)
         self.AnalogLayout.addWidget(QLabel("Reference waveform:"), 0, 7)
 
-        self.button_all = QPushButton('SHOW ALL', self)
+        self.button_all = QPushButton('Generate & Show ', self)
         self.AnalogLayout.addWidget(self.button_all, 0, 11)
         
         self.button_all.clicked.connect(self.show_all)
+        
+        self.button_execute = QPushButton('EXECUTE AD', self)
+        self.AnalogLayout.addWidget(self.button_execute, 0, 12)
+        
+        self.button_execute.clicked.connect(self.execute)        
         
         # Galvo scanning
         self.textboxAA = QComboBox()
@@ -367,9 +372,9 @@ class adgenerator(QtWidgets.QDialog):
         
         
         
-        #------------------------------------------------------------------------------------------------------------------
-        #----------------------------------------------------------Digital-------------------------------------------------
-        #------------------------------------------------------------------------------------------------------------------       
+        #------------------------------------------------------------------------------------------------------------------@@@@@
+        #----------------------------------------------------------Digital-------------------------------------------------@@@@@
+        #------------------------------------------------------------------------------------------------------------------@@@@@       
         DigitalContainer = QGroupBox("Digital signals")
         self.DigitalLayout = QGridLayout() #self.AnalogLayout manager
         
@@ -413,6 +418,13 @@ class adgenerator(QtWidgets.QDialog):
         
         self.button_camera.clicked.connect(self.generate_cameratrigger)
         self.button_camera.clicked.connect(self.generate_cameratrigger_graphy)
+        
+        #---------------------------------------------------------------------------------------------------------------------------
+        
+        self.button_execute_digital = QPushButton('EXECUTE DIGITAL', self)
+        self.DigitalLayout.addWidget(self.button_execute_digital, 0, 9)
+        
+        self.button_execute_digital.clicked.connect(self.execute_digital)         
         
         # ----------------------------------------------------------640 blanking---------------------------------------
         self.textbox22A = QComboBox()
@@ -575,6 +587,47 @@ class adgenerator(QtWidgets.QDialog):
         
         self.button_blankingall.clicked.connect(self.generate_blankingall)
         self.button_blankingall.clicked.connect(self.generate_blankingall_graphy)
+        
+        # ------------------------------------------------------Perfusion Channel 1---------------------------------------------
+        self.textbox66A = QComboBox()
+        self.textbox66A.addItems(['0','1'])
+        self.DigitalLayout.addWidget(self.textbox66A, 11, 0)
+        
+        self.DigitalLayout.addWidget(QLabel("Perfusion Channel 1 : "), 10, 0)
+        
+        self.textbox66B = QPlainTextEdit(self)
+        self.DigitalLayout.addWidget(self.textbox66B, 10, 2)
+        self.DigitalLayout.addWidget(QLabel("Frequency in period:"), 10, 1)
+
+        self.textbox66C = QPlainTextEdit(self)
+        self.textbox66C.setPlaceholderText('0')
+        self.DigitalLayout.addWidget(self.textbox66C, 11, 2)
+        self.DigitalLayout.addWidget(QLabel("Offset (ms):"), 11, 1)
+        
+        self.textbox66D = QPlainTextEdit(self)
+        self.DigitalLayout.addWidget(self.textbox66D, 10, 4)
+        self.DigitalLayout.addWidget(QLabel("Period (ms):"), 10, 3)   
+        
+        self.textbox66E = QPlainTextEdit(self)
+        self.textbox66E.setPlaceholderText('1')
+        self.DigitalLayout.addWidget(self.textbox66E, 11, 4)
+        self.DigitalLayout.addWidget(QLabel("Repeat:"), 11, 3) 
+        
+        self.DigitalLayout.addWidget(QLabel("DC (%):"), 10, 5)
+        self.textbox66F = QComboBox()
+        self.textbox66F.addItems(['50','100','0'])
+        self.DigitalLayout.addWidget(self.textbox66F, 10, 6) 
+                
+        self.textbox66G = QPlainTextEdit(self)
+        self.textbox66G.setPlaceholderText('0')
+        self.DigitalLayout.addWidget(self.textbox66G, 11, 6)
+        self.DigitalLayout.addWidget(QLabel("Gap between repeat (samples):"), 11, 5)
+        
+        self.button_Perfusion_1 = QPushButton('SHOW WAVE', self)
+        self.DigitalLayout.addWidget(self.button_Perfusion_1, 11, 7)
+        
+        self.button_Perfusion_1.clicked.connect(self.generate_Perfusion_1)
+        self.button_Perfusion_1.clicked.connect(self.generate_Perfusion_1_graphy)
               
         DigitalContainer.setLayout(self.DigitalLayout)
 
@@ -1053,9 +1106,9 @@ class adgenerator(QtWidgets.QDialog):
         
         if int(self.textbox55A.currentText()) == 1:
             
-            blanking640 = generate_DO_forblankingall(self.uiDaq_sample_rate, self.uiwavefrequency_blankingall, self.uiwaveoffset_blankingall,
+            blankingall = generate_DO_forblankingall(self.uiDaq_sample_rate, self.uiwavefrequency_blankingall, self.uiwaveoffset_blankingall,
                                                          self.uiwaveperiod_blankingall, self.uiwaveDC_blankingall, self.uiwaverepeat_blankingall_number, self.uiwavegap_blankingall)
-            self.finalwave_blankingall = blanking640.generate()
+            self.finalwave_blankingall = blankingall.generate()
             return self.finalwave_blankingall
             
     def generate_blankingall_graphy(self):    
@@ -1064,6 +1117,41 @@ class adgenerator(QtWidgets.QDialog):
         #plt.plot(xlabelhere_galvo, samples_1)
         plt.plot(xlabelhere_blankingall, self.finalwave_blankingall)
         plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_blankingall[-1])+'s', fontsize=12)
+        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
+        plt.show()
+        
+    def generate_Perfusion_1(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiwavefrequency_Perfusion_1 = float(self.textbox66B.toPlainText())
+        if not self.textbox66C.toPlainText():
+            self.uiwaveoffset_Perfusion_1 = 0
+        else:
+            self.uiwaveoffset_Perfusion_1 = int(self.textbox66C.toPlainText())
+        self.uiwaveperiod_Perfusion_1 = int(self.textbox66D.toPlainText())
+        self.uiwaveDC_Perfusion_1 = int(self.textbox66F.currentText())
+        if not self.textbox66E.toPlainText():
+            self.uiwaverepeat_Perfusion_1_number = 1
+        else:
+            self.uiwaverepeat_Perfusion_1_number = int(self.textbox66E.toPlainText())
+        if not self.textbox66G.toPlainText():
+            self.uiwavegap_Perfusion_1 = 0
+        else:
+            self.uiwavegap_Perfusion_1 = int(self.textbox66G.toPlainText())
+        
+        if int(self.textbox66A.currentText()) == 1:
+            
+            Perfusion_1 = generate_DO_forPerfusion(self.uiDaq_sample_rate, self.uiwavefrequency_Perfusion_1, self.uiwaveoffset_Perfusion_1,
+                                                         self.uiwaveperiod_Perfusion_1, self.uiwaveDC_Perfusion_1, self.uiwaverepeat_Perfusion_1_number, self.uiwavegap_Perfusion_1)
+            self.finalwave_Perfusion_1 = Perfusion_1.generate()
+            return self.finalwave_Perfusion_1
+            
+    def generate_Perfusion_1_graphy(self):    
+
+        xlabelhere_Perfusion_1 = np.arange(len(self.finalwave_Perfusion_1))/self.uiDaq_sample_rate
+        #plt.plot(xlabelhere_galvo, samples_1)
+        plt.plot(xlabelhere_Perfusion_1, self.finalwave_Perfusion_1)
+        plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_Perfusion_1[-1])+'s', fontsize=12)
         #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
         plt.show()
         
@@ -1081,6 +1169,7 @@ class adgenerator(QtWidgets.QDialog):
         self.switch_640blanking = int(self.textbox22A.currentText())
         self.switch_532blanking = int(self.textbox33A.currentText())
         self.switch_488blanking = int(self.textbox44A.currentText())
+        self.switch_Perfusion_1 = int(self.textbox66A.currentText())        
         
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
         dictionary_analog = {'galvos':[self.switch_galvos,self.generate_galvos],
@@ -1096,7 +1185,8 @@ class adgenerator(QtWidgets.QDialog):
                               'blankingall':[self.switch_blankingall, self.generate_blankingall],
                               '640blanking':[self.switch_640blanking, self.generate_640blanking],
                               '532blanking':[self.switch_532blanking, self.generate_532blanking],
-                              '488blanking':[self.switch_488blanking, self.generate_488blanking]
+                              '488blanking':[self.switch_488blanking, self.generate_488blanking],
+                              'Perfusion_1':[self.switch_Perfusion_1, self.generate_Perfusion_1]
                               }
         # Calculate the length of reference wave
         # tags in the dictionary above should be the same as that in reference combox, then the dictionary below can work
@@ -1189,8 +1279,16 @@ class adgenerator(QtWidgets.QDialog):
         
         #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
-
+    
+    def execute(self):
         
+        execute_analog_readin_optional_digital(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+
+    def execute_digital(self):
+        
+        execute_digital(int(self.textboxAA.currentText()), self.digitalcontainer_array)
+    
+    
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)

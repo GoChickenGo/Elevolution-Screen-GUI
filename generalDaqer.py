@@ -36,7 +36,8 @@ class execute_analog_readin_optional_digital():
                             '488blanking':"Dev1/port0/line3",
                             'PMT':"Dev1/ai0",
                             'Vp':"Dev1/ai22",
-                            'Ip':"Dev1/ai20"
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
                             }
         
         Daq_sample_rate = samplingrate
@@ -79,6 +80,8 @@ class execute_analog_readin_optional_digital():
         digitalsignalslinenumber = len(digitalsignals['Waveform'])
         
         # Stack the Analog samples of dev1 and dev2 individually
+        # IN CASE OF ONLY ONE ARRAY, WE NEED TO CONVERT THE SHAPE TO (1,N) BY USING np.array([]) OUTSIDE THE ARRAY!!
+        #------------------------------------------!!_________________________
         if analogsignal_dev1_number == 1:            
             writesamples_dev1 = np.array([analogwritesamplesdev1[0]])
 
@@ -120,11 +123,7 @@ class execute_analog_readin_optional_digital():
         # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
         if digitalsignalslinenumber > 1:
            holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines
-        #
-        #
-        #        
-        print(type(holder2[0][1]))
-        print(holder2[0][1])
+        holder2 = np.array([holder2]) # here convert the shape from (n,) to (1,n)
 
         # Assume that dev1 is always employed
         with nidaqmx.Task() as slave_Task_1_analog_dev1, nidaqmx.Task() as slave_Task_1_analog_dev2, nidaqmx.Task() as master_Task_readin, nidaqmx.Task() as slave_Task_2_digitallines:
@@ -133,10 +132,11 @@ class execute_analog_readin_optional_digital():
             for i in range(analogsignal_dev1_number):
                 slave_Task_1_analog_dev1.ao_channels.add_ao_voltage_chan(analogwritesamplesdev1_Sepcification[i])
 
-            if len(digitalsignals['Sepcification']) != 0:
-                for i in range(len(digitalsignals['Sepcification'])):
-                    slave_Task_2_digitallines.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_PER_LINE)#line_grouping??????????????One Channel For Each Line
-
+            #if len(digitalsignals['Sepcification']) != 0:
+                #for i in range(len(digitalsignals['Sepcification'])):
+                    #slave_Task_2_digitallines.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_PER_LINE)#line_grouping??????????????One Channel For Each Line
+            slave_Task_2_digitallines.do_channels.add_do_chan("/Dev1/port0", line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
+            
             Dataholder = np.zeros((len(readinchannels), Totalscansamplesnumber))
             
             if 'PMT' in readinchannels:
@@ -258,7 +258,8 @@ class execute_digital():
                             '488blanking':"Dev1/port0/line3",
                             'PMT':"Dev1/ai0",
                             'Vp':"Dev1/ai22",
-                            'Ip':"Dev1/ai20"
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
                             }
         
         Daq_sample_rate = samplingrate
@@ -289,18 +290,19 @@ class execute_digital():
         # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
         if digitalsignalslinenumber > 1:
            holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines        
+        holder2 = np.array([holder2]) # here convert the shape from (n,) to (1,n)
         #holder2 = holder2*16 
 
-        print(type(holder2[0][1]))
-        print(holder2[0][1])
+        #print(type(holder2[0][1]))
+        #print(holder2[0][1])
 
         # Assume that dev1 is always employed
         with nidaqmx.Task() as slave_Task_2_digitallines:
             # adding channels      
             # Set tasks from different devices apart
-            for i in range(len(digitalsignals['Sepcification'])):
-                slave_Task_2_digitallines.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_PER_LINE)#line_grouping??????????????One Channel For Each Line
-            
+            #for i in range(len(digitalsignals['Sepcification'])):
+                #slave_Task_2_digitallines.do_channels.add_do_chan(configdictionary[digitalsignals['Sepcification'][i]], line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)#line_grouping??????????????One Channel For Each Line
+            slave_Task_2_digitallines.do_channels.add_do_chan("/Dev1/port0", line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
             # Digital clock
             slave_Task_2_digitallines.timing.cfg_samp_clk_timing(Daq_sample_rate, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
 
@@ -311,7 +313,7 @@ class execute_digital():
             # ---------------------------------------------------------------------------------------------------------------------
             #-----------------------------------------------------Begin to execute in DAQ------------------------------------------
                 
-            DigitalWriter.write_many_sample_port_uint32(holder2, timeout = 16.0)
+            DigitalWriter.write_many_sample_port_uint32(holder2, timeout = 26.0)
             
             slave_Task_2_digitallines.start()
 
