@@ -104,17 +104,17 @@ class adgenerator(QtWidgets.QDialog):
         self.AnalogLayout.addWidget(QLabel("average over:"), 1, 9)
         
         self.button1 = QPushButton('SHOW WAVE', self)
-        self.AnalogLayout.addWidget(self.button1, 2, 9)
+        self.AnalogLayout.addWidget(self.button1, 1, 11)
         
         self.button1.clicked.connect(self.generate_galvos)
         self.button1.clicked.connect(self.generate_galvos_graphy)
         
         self.button_triggerforcam = QPushButton('With trigger!', self)
-        self.AnalogLayout.addWidget(self.button_triggerforcam, 2, 10)
+        self.AnalogLayout.addWidget(self.button_triggerforcam, 2, 9)
         
         self.textbox1K = QComboBox()
         self.textbox1K.addItems(['0','1'])
-        self.AnalogLayout.addWidget(self.textbox1K, 2, 11)
+        self.AnalogLayout.addWidget(self.textbox1K, 2, 10)
         
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger)        
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger_graphy)
@@ -123,6 +123,12 @@ class adgenerator(QtWidgets.QDialog):
         pixmap = QPixmap('f15e.jpeg')
         label.setPixmap(pixmap)        
         self.AnalogLayout.addWidget(label, 3, 0)
+        
+        self.AnalogLayout.addWidget(QLabel("For feeding purpose: "), 3, 1)
+        self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+        self.AnalogLayout.addWidget(self.button_box, 3, 2)
         
         # ------------------------------------------------------640 AO-----------------------------------------------------------
         self.textbox2A = QComboBox()
@@ -305,7 +311,6 @@ class adgenerator(QtWidgets.QDialog):
         
         self.button4.clicked.connect(self.generate_532AO)
         self.button4.clicked.connect(self.generate_532AO_graphy)
-        AnalogContainer.setLayout(self.AnalogLayout)
         
         #-----------------------------------------------------------V-patch------------------------------------------------
         self.textbox5A = QComboBox()

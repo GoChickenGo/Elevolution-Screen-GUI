@@ -114,16 +114,17 @@ class execute_analog_readin_optional_digital():
         
 
         # Set the dtype of digital signals
-        #
+        # The same as (0b1 << n)
         holder2 = np.array(holder2, dtype = 'uint32')        
         for i in range(digitalsignalslinenumber):
             convernum = int(configdictionary[digitalsignals['Sepcification'][i]][configdictionary[digitalsignals['Sepcification'][i]].index('line')+4:len(configdictionary[digitalsignals['Sepcification'][i]])])
             print(convernum)
-            holder2[i] = holder2[i]*(2**(convernum)) 
+            holder2[i] = holder2[i]*(2**(convernum))
+            
         # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
         if digitalsignalslinenumber > 1:
            holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines
-        holder2 = np.array([holder2]) # here convert the shape from (n,) to (1,n)
+           holder2 = np.array([holder2]) # here convert the shape from (n,) to (1,n)
 
         # Assume that dev1 is always employed
         with nidaqmx.Task() as slave_Task_1_analog_dev1, nidaqmx.Task() as slave_Task_1_analog_dev2, nidaqmx.Task() as master_Task_readin, nidaqmx.Task() as slave_Task_2_digitallines:
@@ -212,18 +213,8 @@ class execute_analog_readin_optional_digital():
                 slave_Task_2_digitallines.start()
                 
             master_Task_readin.start()
-
             
-            if 'PMT' in readinchannels:
-                Dataholder_average = np.mean(Dataholder[0,:].reshape(self.averagenumber, -1), axis=0)
-                
-                ScanArrayXnum = int ((Totalscansamplesnumber/self.averagenumber)/self.ypixelnumber)
-                data1 = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
-                
-                data1= data1*-1
-                plt.figure()
-                plt.imshow(data1, cmap = plt.cm.gray)
-                plt.show()
+            self.data_PMT = []
             
             slave_Task_1_analog_dev1.wait_until_done()
             if analogsignal_dev2_number != 0:
@@ -232,13 +223,26 @@ class execute_analog_readin_optional_digital():
                 slave_Task_2_digitallines.wait_until_done()                
             master_Task_readin.wait_until_done()
             
+            if 'PMT' in readinchannels:
+                Dataholder_average = np.mean(Dataholder[0,:].reshape(self.averagenumber, -1), axis=0)
+                
+                ScanArrayXnum = int ((Totalscansamplesnumber/self.averagenumber)/self.ypixelnumber)
+                self.data_PMT = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
+                
+                self.data_PMT= self.data_PMT*-1
+                plt.figure()
+                plt.imshow(self.data_PMT, cmap = plt.cm.gray)
+                plt.show()
+                
             slave_Task_1_analog_dev1.stop()
             if analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.stop()
             if digitalsignalslinenumber != 0:
                 slave_Task_2_digitallines.stop()
             master_Task_readin.stop()
-            
+               
+    def read(self):
+        return self.data_PMT
             
 class execute_digital():
     def __init__(self, samplingrate, digitalsignals):
@@ -290,7 +294,8 @@ class execute_digital():
         # For example, to send commands to line 0 and line 3, you hava to write 1001 to digital port, convert to uint32 that is 9.
         if digitalsignalslinenumber > 1:
            holder2 = np.sum(holder2, axis = 0) # sum along the columns, for multiple lines        
-        holder2 = np.array([holder2]) # here convert the shape from (n,) to (1,n)
+           holder2 = np.array([holder2]) # here convert the shape from (n,) to (1,n)
+        #print(holder2.shape)
         #holder2 = holder2*16 
 
         #print(type(holder2[0][1]))
