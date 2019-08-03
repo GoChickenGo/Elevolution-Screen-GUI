@@ -10,7 +10,12 @@ This class contains all the constants that are frequently used and will stay unc
 
 class MeasurementConstants:
     def __init__(self):
+        #Seal test
         self.patchSealSampRate = 5000 #Samples/s
+        self.patchSealMinVol = 0
+        self.patchSealMaxVol = 0.01
+        self.patchSealFreq = 50
+        self.patchSealDuty = 0.5
         
 class HardwareConstants:
     def __init__(self):
