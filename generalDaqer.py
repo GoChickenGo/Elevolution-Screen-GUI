@@ -325,4 +325,181 @@ class execute_digital():
             slave_Task_2_digitallines.wait_until_done()                
 
             slave_Task_2_digitallines.stop()
+            
+class execute_constant_vpatch():
+    def __init__(self, constant):
+        configs = Configuration()
+        configdictionary = {'galvosx':configs.galvoXChannel,
+                            'galvosy':'Dev1/ao1',#configs.galvoYChannel, 
+                            '640AO':'Dev1/ao3',
+                            '488AO':'Dev2/ao1',
+                            '532AO':'Dev2/ao0',
+                            'patchAO':configs.patchVoltInChannel,
+                            'cameratrigger':"Dev1/port0/line25",
+                            'galvotrigger':"Dev1/port0/line25",
+                            'blankingall':"Dev1/port0/line4",
+                            '640blanking':"Dev1/port0/line4",
+                            '532blanking':"Dev1/port0/line6",
+                            '488blanking':"Dev1/port0/line3",
+                            'PMT':"Dev1/ai0",
+                            'Vp':"Dev1/ai22",
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
+                            }        
+        self.task = nidaqmx.Task()
+        self.task.ao_channels.add_ao_voltage_chan(configdictionary['patchAO'])
+        
+        self.task.write(constant)
+        
+    def close(self):
+        configs = Configuration()
+        configdictionary = {'galvosx':configs.galvoXChannel,
+                            'galvosy':'Dev1/ao1',#configs.galvoYChannel, 
+                            '640AO':'Dev1/ao3',
+                            '488AO':'Dev2/ao1',
+                            '532AO':'Dev2/ao0',
+                            'patchAO':configs.patchVoltInChannel,
+                            'cameratrigger':"Dev1/port0/line25",
+                            'galvotrigger':"Dev1/port0/line25",
+                            'blankingall':"Dev1/port0/line4",
+                            '640blanking':"Dev1/port0/line4",
+                            '532blanking':"Dev1/port0/line6",
+                            '488blanking':"Dev1/port0/line3",
+                            'PMT':"Dev1/ai0",
+                            'Vp':"Dev1/ai22",
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
+                            }
+        with nidaqmx.Task() as self.task:
+            self.task.ao_channels.add_ao_voltage_chan(configdictionary['patchAO'])
+            
+            self.task.write(0)
+        
+class execute_contineous_analog():
+    def __init__(self, samplingrate, analogsignals):
+        
+        configs = Configuration()
+        configdictionary = {'galvosx':configs.galvoXChannel,
+                            'galvosy':'Dev1/ao1',#configs.galvoYChannel, 
+                            '640AO':'Dev1/ao3',
+                            '488AO':'Dev2/ao1',
+                            '532AO':'Dev2/ao0',
+                            'patchAO':configs.patchVoltInChannel,
+                            'cameratrigger':"Dev1/port0/line25",
+                            'galvotrigger':"Dev1/port0/line25",
+                            'blankingall':"Dev1/port0/line4",
+                            '640blanking':"Dev1/port0/line4",
+                            '532blanking':"Dev1/port0/line6",
+                            '488blanking':"Dev1/port0/line3",
+                            'PMT':"Dev1/ai0",
+                            'Vp':"Dev1/ai22",
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
+                            }
+        
+        Daq_sample_rate = samplingrate
+        
+        # some preparations for analog lines
+        #Totalscansamplesnumber = len(analogsignals['Waveform'][0])
+        Totalscansamplesnumber = 1000000
+        num_rows, num_cols = analogsignals['Waveform'].shape
+        print("row number of analog signals:  "+str(num_rows))
+        
+        # Devide samples from Dev1 or 2
+        analogwritesamplesdev1_Sepcification = []
+        analogwritesamplesdev2_Sepcification = []
+        
+        analogwritesamplesdev1 = []
+        analogwritesamplesdev2 = []
+        
+        for i in range(int(num_rows)):
+            if 'Dev1' in configdictionary[analogsignals['Sepcification'][i]]:
+                analogwritesamplesdev1_Sepcification.append(configdictionary[analogsignals['Sepcification'][i]])
+                analogwritesamplesdev1.append(analogsignals['Waveform'][i])
+            else:
+                analogwritesamplesdev2_Sepcification.append(configdictionary[analogsignals['Sepcification'][i]])
+                analogwritesamplesdev2.append(analogsignals['Waveform'][i])
+                
+        analogsignal_dev1_number = len(analogwritesamplesdev1_Sepcification)
+        self.analogsignal_dev2_number_continue = len(analogwritesamplesdev2_Sepcification)
+        
+        # Stack the Analog samples of dev1 and dev2 individually
+        # IN CASE OF ONLY ONE ARRAY, WE NEED TO CONVERT THE SHAPE TO (1,N) BY USING np.array([]) OUTSIDE THE ARRAY!!
+        #------------------------------------------!!_________________________
+        if analogsignal_dev1_number == 1:            
+            writesamples_dev1 = np.array([analogwritesamplesdev1[0]])
 
+        elif analogsignal_dev1_number == 0:
+            writesamples_dev1 = []
+        else:
+            writesamples_dev1 = analogwritesamplesdev1[0]    
+            for i in range(1, analogsignal_dev1_number):
+                writesamples_dev1 = np.vstack((writesamples_dev1, analogwritesamplesdev1[i]))
+                
+        if self.analogsignal_dev2_number_continue == 1:
+            writesamples_dev2 = np.array([analogwritesamplesdev2[0]])
+        elif self.analogsignal_dev2_number_continue == 0:
+            writesamples_dev2 = []    
+        else:
+            writesamples_dev2 = analogwritesamplesdev2[0]
+            for i in range(1, self.analogsignal_dev2_number_continue):
+                writesamples_dev2 = np.vstack((writesamples_dev2, analogwritesamplesdev2[i]))
+        
+        # Assume that dev1 is always employed
+        with nidaqmx.Task() as self.analog_dev1, nidaqmx.Task() as self.analog_dev2:
+            # adding channels      
+            # Set tasks from different devices apart
+            for i in range(analogsignal_dev1_number):
+                self.analog_dev1.ao_channels.add_ao_voltage_chan(analogwritesamplesdev1_Sepcification[i])
+            
+            # setting clock
+            # Analog clock  USE clock on Dev1 as center clock
+            self.analog_dev1.timing.cfg_samp_clk_timing(Daq_sample_rate, source='ai/SampleClock', sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+            
+            if self.analogsignal_dev2_number_continue != 0:
+                # By default assume that read master task is in dev1
+                
+                for i in range(self.analogsignal_dev2_number_continue):
+                    self.analog_dev2.ao_channels.add_ao_voltage_chan(analogwritesamplesdev2_Sepcification[i])
+                
+                dev2Clock = configs.clock2Channel#/Dev2/PFI1
+                self.analog_dev2.timing.cfg_samp_clk_timing(Daq_sample_rate, source=dev2Clock, sample_mode= AcquisitionType.FINITE, samps_per_chan=Totalscansamplesnumber)
+                #slave_Task_1_analog_dev2.triggers.sync_type.SLAVE = True
+                
+                #slave_Task_1_analog_dev2.triggers.start_trigger.cfg_dig_edge_start_trig(configs.trigger2Channel)#'/Dev2/PFI7'
+                
+                AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(self.analog_dev1.out_stream, auto_start= False)
+                AnalogWriter.auto_start = False
+                
+                AnalogWriter_dev2 = nidaqmx.stream_writers.AnalogMultiChannelWriter(self.analog_dev2.out_stream, auto_start= False)
+                AnalogWriter_dev2.auto_start = False
+
+        	# Configure the writer and reader
+            AnalogWriter = nidaqmx.stream_writers.AnalogMultiChannelWriter(self.analog_dev1.out_stream, auto_start= False)
+            AnalogWriter.auto_start = False      
+            
+            # ---------------------------------------------------------------------------------------------------------------------
+            #-----------------------------------------------------Begin to execute in DAQ------------------------------------------
+            AnalogWriter.write_many_sample(writesamples_dev1, timeout = 16.0)
+            
+            if self.analogsignal_dev2_number_continue != 0:
+                AnalogWriter_dev2.write_many_sample(writesamples_dev2, timeout = 16.0)
+            
+            if self.analogsignal_dev2_number_continue != 0:
+                self.analog_dev2.start()            
+            self.analog_dev1.start()
+            
+            self.analog_dev1.wait_until_done()
+            if self.analogsignal_dev2_number_continue != 0:
+                self.analog_dev2.wait_until_done()
+                
+
+               
+    def stop_close(self):
+        self.analog_dev1.stop()
+        if self.analogsignal_dev2_number_continue != 0:
+            self.analog_dev2.stop()
+            
+        self.analog_dev1.close()
+        if self.analogsignal_dev2_number_continue != 0:
+            self.analog_dev2.close()     

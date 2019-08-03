@@ -15,10 +15,12 @@ from generalDaqer import execute_analog_readin_optional_digital, execute_digital
 from configuration import Configuration
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtCore import pyqtSignal, QThread
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox
 from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion
 
-class adgenerator(QtWidgets.QDialog):
+class adgenerator(QtWidgets.QDialog, QThread):
+    measurement = pyqtSignal(object, object, list, int)
     def __init__(self, *args, **kwargs):
         super(adgenerator, self).__init__(*args, **kwargs)
         get_ipython().run_line_magic('matplotlib', 'qt') # before start, set spyder back to inline
@@ -123,13 +125,13 @@ class adgenerator(QtWidgets.QDialog):
         pixmap = QPixmap('f15e.jpeg')
         label.setPixmap(pixmap)        
         self.AnalogLayout.addWidget(label, 3, 0)
-        
+        '''
         self.AnalogLayout.addWidget(QLabel("For feeding purpose: "), 3, 1)
         self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.AnalogLayout.addWidget(self.button_box, 3, 2)
-        
+        '''
         # ------------------------------------------------------640 AO-----------------------------------------------------------
         self.textbox2A = QComboBox()
         self.textbox2A.addItems(['1','0'])
@@ -699,7 +701,7 @@ class adgenerator(QtWidgets.QDialog):
                              voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
                              sawtooth = True)
             #ScanArrayX = wavegenerator.xValuesSingleSawtooth(sampleRate = Daq_sample_rate, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, xPixels = Value_xPixels, sawtooth = True)
-            Totalscansamples = len(self.samples_1)*self.averagenum # Calculate number of samples to feed to scanner, by default it's one frame 
+            #Totalscansamples = len(self.samples_1)*self.averagenum # Calculate number of samples to feed to scanner, by default it's one frame 
             self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
             
             #print(self.Digital_container_feeder[:, 0])
@@ -1281,7 +1283,7 @@ class adgenerator(QtWidgets.QDialog):
             self.readinchan.append('Ip')       
         
         print(self.readinchan)
-        
+        self.measurement.emit(self.analogcontainer_array, self.digitalcontainer_array, self.readinchan, int(self.textboxAA.currentText()))
         #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
     
@@ -1293,7 +1295,7 @@ class adgenerator(QtWidgets.QDialog):
         
         execute_digital(int(self.textboxAA.currentText()), self.digitalcontainer_array)
     
-    
+   
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)
