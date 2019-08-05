@@ -9,9 +9,12 @@ import numpy as np
 from trymageAnalysis import ImageAnalysis
 from skimage.io import imread
 from PIL import Image
+import matplotlib.pyplot as plt
 
-Rawimgbef = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
-Rawimgaft = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
+Rawimgbef = imread("D:/111out.tif", as_gray=True)
+Rawimgaft = imread("D:/111out.tif", as_gray=True)
+#Rawimgbef = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
+#Rawimgaft = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
 
@@ -29,13 +32,18 @@ Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft#[40:100,300:350]
 S = ImageAnalysis(Data_dict_0[str(-1500)+str(-1500)], Data_dict_1[str(-1500)+str(-1500)])
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
-L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(200, bw, v2, thres, v2, -1500, -1500, 8)
-S.showlabel(200, bw, v2, thres, -1500, -1500, cp)
+L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(200, bw, thres, v1, v2, -1500, -1500, 8)
+S.showlabel(200, bw, v1, thres, -1500, -1500, cp)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
 #print (L)
-Localimg = Image.fromarray(v2) #generate an image object
+#Localimg = Image.fromarray(v2) #generate an image object
 #Localimg.save('out_1st.tif') #save as tif
 print (cp)
+plt.plot(cp['Circularity'], cp['Mean intensity in contour'], 'ro')
+#plt.axis([0, 6, 0, 20])
+plt.show()
+
+sorted_cp = S.sort_using_weight(cp, 'Circularity', 'Mean intensity in contour', 0.5, 0.5)
 '''
 Rawimgbef1 = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 Rawimgaft1 = imread("D:/TUD/015001500out_1st.tif", as_gray=True)

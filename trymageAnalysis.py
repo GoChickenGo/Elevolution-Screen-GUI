@@ -19,6 +19,7 @@ from skimage.morphology import closing, square, opening
 from skimage.measure import regionprops
 from skimage.color import label2rgb
 from skimage.restoration import denoise_tv_chambolle
+import numpy.lib.recfunctions as rfn
 
 class ImageAnalysis():
     def __init__(self, value1, value2):
@@ -51,7 +52,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(Segimg_aft) #fig 3
         
-        return Segimg_bef, self.Img_after, self.mask, thresh
+        return Segimg_bef, Segimg_aft, self.mask, thresh
     
         
     def ratio(self, value1, value2):
@@ -62,14 +63,14 @@ class ImageAnalysis():
         #ax.imshow(Ratio) #fig 3 
         return Ratio
     
-    def get_intensity_properties(self, smallest_size, theMask, ratio_intensity, threshold, intensty_img, i, j, dilationdegree1):
+    def get_intensity_properties(self, smallest_size, theMask, threshold, intensity_bef, intensty_aft, i, j, dilationdegree1):
         # remove artifacts connected to image border
         self.Labelmask = theMask
-        self.ratioImag = ratio_intensity
+        self.Imagbef = intensity_bef
         self.row_num = i
         self.column_num = j
         self.threshold = threshold
-        self.originimg = intensty_img
+        self.Imageaft = intensty_aft
         self.dilationdegree = dilationdegree1
         
         cleared = self.Labelmask.copy()
@@ -81,7 +82,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(label_image)
         #contours = find_contours(original_intensity, self.threshold)
-        dtype = [('Row index', 'i4'), ('Column index', 'i4'), ('Mean intensity', float), ('Circularity', float), ('Mean intensity in contour', float)]
+        dtype = [('Row index', 'i4'), ('Column index', 'i4'), ('Mean intensity', float), ('Circularity', float), ('Mean intensity in contour', float), ('Change', float)]
         
         region_mean_intensity_list = []
         region_circularit_list = []
@@ -89,19 +90,14 @@ class ImageAnalysis():
         
         loopmun = 0
         dirforcellprp={}
-        for region in regionprops(label_image,intensity_image=self.originimg):
-        
+        for region in regionprops(label_image,intensity_image=self.Imagbef): # USE image before perfusion as template
             
             # skip small images
             if region.area > smallest_size:
                                
                 # draw rectangle around segmented coins
-                #minr, minc, maxr, maxc = region.bbox
-                #rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
-                #ax.add_patch(rect)
-                #centroidint1 = int(region.centroid[0])
-                #centroidint2 = int(region.centroid[1])
-                #ax.text(centroidint1+50, centroidint2+55, round(region.mean_intensity,3),fontsize=15, style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':10})
+                minr, minc, maxr, maxc = region.bbox
+
                 region_mean_intensity = region.mean_intensity #mean intensity of the region, 0 pixels are omitted.
                 #allpixelnum = region.bbox_area
                 #labeledpixelnum = region.area #number of pixels in region omitting 0.
@@ -109,9 +105,11 @@ class ImageAnalysis():
                 filledperimeter = perimeter(filledimg)
                 #Sliced_binary_region_image = region.image
                 self.intensityimage_intensity = region.intensity_image # need a copy of this cause region will be altered by s.contour
-                self.intensityimage_intensity1 = self.intensityimage_intensity.copy()
-                #region.coords
-                #localthresh = threshold_otsu(self.intensityimage_intensity1)-0.1
+                self.regionimage_before = self.intensityimage_intensity.copy()
+                self.regionimage_after = self.Imageaft[minr:maxr, minc:maxc]
+                #print(self.Imagbef[region.coords[0][0]][region.coords[0][1]])
+                
+                #localthresh = threshold_otsu(self.regionimage_after)-0.1
                 #print(localthresh)
                 #singlethresh = True
                 #print(region.area)
@@ -125,17 +123,27 @@ class ImageAnalysis():
                 #filledimg = region.filled_image #Binary region image with filled holes which has the same size as bounding box.
                 #filledperimeter = perimeter(filledimg)
                 regioncircularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
-                contour_origin_image_intensity = contour_mask_of_intensity*self.intensityimage_intensity1
-                contourprops = regionprops(contour_mask_of_intensity, self.intensityimage_intensity1)
-                contour_mean = contourprops[0].mean_intensity
-                #print('contour_mean:'+str(contour_mean))
+                contour_origin_image_intensity = contour_mask_of_intensity*self.regionimage_before
+                
+                # Calculate mean contour intensity of image before perfusion
+                contourprops_bef = regionprops(contour_mask_of_intensity, self.regionimage_before)
+                contour_mean_bef = contourprops_bef[0].mean_intensity
+
+                # Calculate mean contour intensity of image after perfusion
+                contourprops_aft = regionprops(contour_mask_of_intensity, self.regionimage_after)
+                contour_mean_aft = contourprops_aft[0].mean_intensity
+                #print('contour_mean_bef:'+str(contour_mean_bef))
+                
+                #Calculate the intensity change
+                ratio = contour_mean_aft/contour_mean_bef
+                
                 
                 #print(region_mean_intensity)
                 region_mean_intensity_list.append(region_mean_intensity)
                 region_circularit_list.append(regioncircularity)
-                region_meanintensity_contour_list.append(contour_mean)
+                region_meanintensity_contour_list.append(contour_mean_bef)
                 
-                dirforcellprp[loopmun] = (self.row_num, self.column_num, region_mean_intensity, regioncircularity, contour_mean)
+                dirforcellprp[loopmun] = (self.row_num, self.column_num, region_mean_intensity, regioncircularity, contour_mean_bef, ratio)
                 
                 loopmun = loopmun+1
         
@@ -143,7 +151,7 @@ class ImageAnalysis():
         for p in range(loopmun):
             cell_properties[p] = dirforcellprp[p]
             
-        return region_mean_intensity_list, cell_properties, contour_mask_of_intensity, contour_origin_image_intensity,  self.intensityimage_intensity1
+        return region_mean_intensity_list, cell_properties, contour_mask_of_intensity, contour_origin_image_intensity,  self.regionimage_before, ratio
     
     
     def showlabel(self, smallest_size, theMask, original_intensity, threshold, i, j, cell_properties):
@@ -199,7 +207,7 @@ class ImageAnalysis():
                         #self.intensityimage[row1[m], col1[m]] = 5
                     #filledimg[contour[:, 0], contour[:, 1]] = 2
                     ax.plot(contour[:, 1]+minc, contour[:, 0]+minr, linewidth=1, color='yellow')
-                x1 = cell_properties['Circularity'][loopmun1]
+                x1 = cell_properties['Change'][loopmun1]
                 x2 = cell_properties['Mean intensity in contour'][loopmun1]
                 
                 #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
@@ -287,3 +295,19 @@ class ImageAnalysis():
         ax.set_axis_off()
         #plt.tight_layout()
         plt.show()
+        
+    def sort_using_weight(self, cell_properties, property_1, property_2, weight_1, weight_2):
+       
+        cell_properties = np.flip(np.sort(cell_properties, order=property_1), 0)
+        cell_properties = rfn.append_fields(cell_properties, 'Ranking according to '+property_1, list(range(0, len(cell_properties))), usemask=False)
+
+        cell_properties = np.flip(np.sort(cell_properties, order=property_2), 0)
+        cell_properties = rfn.append_fields(cell_properties, 'Ranking according to '+property_2, list(range(0, len(cell_properties))), usemask=False)
+        
+        weights = cell_properties['Ranking according to '+property_1]*weight_1 + cell_properties['Ranking according to '+property_2]*weight_2
+        
+        cell_properties = rfn.append_fields(cell_properties, 'evalution', weights, usemask=False)
+        
+        cell_properties = np.sort(cell_properties, order='evalution')
+
+        return cell_properties

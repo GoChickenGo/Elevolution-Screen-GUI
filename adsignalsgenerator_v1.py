@@ -4,7 +4,7 @@ Created on Mon Jul  1 19:52:48 2019
 
 @author: Meng
 """
-
+from __future__ import division
 import sys
 import numpy as np
 from matplotlib import pyplot as plt
@@ -19,10 +19,10 @@ from PyQt5.QtCore import pyqtSignal, QThread
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox
 from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion
 
-class adgenerator(QtWidgets.QDialog, QThread):
+class adgenerator(QWidget, QThread):
     measurement = pyqtSignal(object, object, list, int)
     def __init__(self, *args, **kwargs):
-        super(adgenerator, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         get_ipython().run_line_magic('matplotlib', 'qt') # before start, set spyder back to inline
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------

@@ -129,8 +129,8 @@ class Stagescan():
                 S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
                 v1, v2, bw, thres = S.applyMask()
                 #R = S.ratio(v1, v2)
-                L, cp, coutourmask, coutourimg, sing = S.get_intensity_properties(self.smallestsize, bw, v2, thres, v2, i, j, 8)
-                S.showlabel(self.smallestsize, bw, v2, thres, i, j, cp)
+                L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(self.smallestsize, bw, thres, v1, v2, i, j, 8)
+                S.showlabel(self.smallestsize, bw, v1, thres, i, j, cp)
                 #print (L)
                 print (cp)
                 All_cell_properties_dict[loopnum] = cp
@@ -158,6 +158,7 @@ class Stagescan():
         
         time.sleep(2)
         #Sorting and trace back
+        #------------------------------------------CAN use 'import numpy.lib.recfunctions as rfn' to append field--------------
         original_dtype = np.dtype(All_cell_properties.dtype.descr + [('Original_sequence', '<i4')])
         original_cp = np.zeros(All_cell_properties.shape, dtype=original_dtype)
         original_cp['Row index'] = All_cell_properties['Row index']
@@ -165,12 +166,14 @@ class Stagescan():
         original_cp['Mean intensity'] = All_cell_properties['Mean intensity']
         original_cp['Circularity'] = All_cell_properties['Circularity']
         original_cp['Mean intensity in contour'] = All_cell_properties['Mean intensity in contour']
+        original_cp['Change'] = All_cell_properties['Change']
         original_cp['Original_sequence'] = list(range(0, len(All_cell_properties)))
         
         #print (original_cp['Mean intensity in contour'])
         #print('*********************sorted************************')
         #sort
-        sortedcp = np.flip(np.sort(original_cp, order='Mean intensity in contour'), 0)
+        sortedcp = S.sort_using_weight(original_cp, 'Change', 'Mean intensity in contour', 0.5, 0.5)
+        #sortedcp = np.flip(np.sort(original_cp, order='Mean intensity in contour'), 0)
         #selected_num = 10 #determine how many we want
         #unsorted_cp = All_cell_properties[:selected_num]
         #targetcp = sortedcp[:selected_num]
@@ -183,6 +186,9 @@ class Stagescan():
         ranked_cp['Circularity'] = sortedcp['Circularity']
         ranked_cp['Mean intensity in contour'] = sortedcp['Mean intensity in contour']
         ranked_cp['Original_sequence'] = sortedcp['Original_sequence']
+        ranked_cp['Change'] = sortedcp['Change']
+        ranked_cp['Ranking according to Change'] = sortedcp['Ranking according to Change']
+        ranked_cp['Ranking according to Mean intensity in contour'] = sortedcp['Ranking according to Mean intensity in contour']
         ranked_cp['Ranking'] = list(range(0, len(All_cell_properties)))
         
         withranking_cp = np.sort(ranked_cp, order='Original_sequence')
@@ -223,7 +229,7 @@ class Stagescan():
                 
             S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #The same as ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name]), call the same image with same dictionary index.
             v1, v2, bw, thres = S.applyMask()
-            S.showlabel_with_rank(100, bw, v2, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', self.selected_num)
+            S.showlabel_with_rank(100, bw, v1, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', self.selected_num)
             print ( ' i: '+ str(merged_index_samples[i,:].tolist()[0]) + ' j: '+ str(merged_index_samples[i,:].tolist()[1]))
             print ('-----------------------------------')
             input("Press Enter to continue...")

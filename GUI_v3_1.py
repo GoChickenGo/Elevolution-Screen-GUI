@@ -14,7 +14,8 @@ from matplotlib import pyplot as plt
 #import pyqtgraph as pg
 from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
-from adsignalsgenerator_v1 import adgenerator
+import adsignalsgenerator_v1
+#from adsignalsgenerator_v1 import adgenerator
 
 
 class MyWindow(QtWidgets.QWidget):
@@ -146,10 +147,10 @@ class MyWindow(QtWidgets.QWidget):
 
 
     def get_login(self):
-        adgeneratorthread = adgenerator()
-        adgeneratorthread.measurement.connect(self.get_data)
-        adgeneratorthread.exec_()
-        # if "OK" is pressed, the generated waves are fed to main program.
+        self.adgeneratorthread = adsignalsgenerator_v1.adgenerator()
+        self.adgeneratorthread.measurement.connect(self.get_data)
+        self.adgeneratorthread.show()
+        # if "Generate & show" is pressed, the generated waves are fed to main program.
         '''
         if adgeneratorthread.exec_():
             self.analogwave = adgeneratorthread.analogcontainer_array
