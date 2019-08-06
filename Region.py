@@ -10,6 +10,10 @@ from trymageAnalysis import ImageAnalysis
 from skimage.io import imread
 from PIL import Image
 import matplotlib.pyplot as plt
+from IPython import get_ipython
+from matplot import SelectFromCollection
+
+
 
 Rawimgbef = imread("D:/111out.tif", as_gray=True)
 Rawimgaft = imread("D:/111out.tif", as_gray=True)
@@ -33,17 +37,44 @@ S = ImageAnalysis(Data_dict_0[str(-1500)+str(-1500)], Data_dict_1[str(-1500)+str
 v1, v2, bw, thres = S.applyMask()
 R = S.ratio(v1, v2)
 L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(200, bw, thres, v1, v2, -1500, -1500, 8)
+#get_ipython().run_line_magic('matplotlib', 'qt')
 S.showlabel(200, bw, v1, thres, -1500, -1500, cp)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
 #print (L)
 #Localimg = Image.fromarray(v2) #generate an image object
 #Localimg.save('out_1st.tif') #save as tif
 print (cp)
-plt.plot(cp['Circularity'], cp['Mean intensity in contour'], 'ro')
+#get_ipython().run_line_magic('matplotlib', 'qt')
+#plt.plot(cp['Circularity'], cp['Mean intensity in contour'], 'ro')
 #plt.axis([0, 6, 0, 20])
-plt.show()
+#plt.show()
 
 sorted_cp = S.sort_using_weight(cp, 'Circularity', 'Mean intensity in contour', 0.5, 0.5)
+#mouse_select_points(cp['Circularity'], cp['Mean intensity in contour'])
+#app = highlightpoints(cp['Circularity'], cp['Mean intensity in contour'])
+#app.makePlot()
+
+SelectFromCollection(cp['Circularity'], cp['Mean intensity in contour'])
+
+#ppp=assd.get_container()
+'''
+fig1 = plt.figure(1)
+ax1 = fig1.add_subplot(111)
+
+def accept(event):
+    if event.key == "enter":
+        print("Selected points:")
+        print(selector.xys[selector.ind])
+        selector.disconnect()
+        ax1.set_title("")
+        fig1.canvas.draw()
+
+fig1.canvas.mpl_connect("key_press_event", accept)
+ax1.set_title("Press enter to accept selected points.")
+
+plt.show()
+'''
+
 '''
 Rawimgbef1 = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 Rawimgaft1 = imread("D:/TUD/015001500out_1st.tif", as_gray=True)

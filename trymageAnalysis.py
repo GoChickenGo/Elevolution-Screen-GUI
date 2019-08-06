@@ -169,8 +169,9 @@ class ImageAnalysis():
         #image_label_overlay = label2rgb(label_image, image=image)
         
         
-        fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
-        ax.imshow(label_image)
+        self.fig_showlabel, self.ax_showlabel = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
+        #plt.figure(self.row_num+self.column_num)
+        self.ax_showlabel.imshow(label_image)
         
         loopmun1 = 0
         for region in regionprops(label_image,intensity_image=self.OriginImag):
@@ -180,7 +181,7 @@ class ImageAnalysis():
                 # draw rectangle around segmented coins
                 minr, minc, maxr, maxc = region.bbox
                 rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
-                ax.add_patch(rect)
+                self.ax_showlabel.add_patch(rect)
                 filledimg = region.filled_image #Binary region image with filled holes which has the same size as bounding box.
                 #filledperimeter = perimeter(filledimg)
                 #singlethresh = threshold_otsu(filledimg)
@@ -206,21 +207,21 @@ class ImageAnalysis():
                     #for m in range(len(col1)):
                         #self.intensityimage[row1[m], col1[m]] = 5
                     #filledimg[contour[:, 0], contour[:, 1]] = 2
-                    ax.plot(contour[:, 1]+minc, contour[:, 0]+minr, linewidth=1, color='yellow')
+                    self.ax_showlabel.plot(contour[:, 1]+minc, contour[:, 0]+minr, linewidth=1, color='yellow')
                 x1 = cell_properties['Change'][loopmun1]
                 x2 = cell_properties['Mean intensity in contour'][loopmun1]
                 
                 #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
-                ax.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',    '+str(round(x2, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
+                self.ax_showlabel.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',    '+str(round(x2, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
                 
                 
                 #ax.plot(contours[:, 1], contours[:, 0], linewidth=2)
                 
                 loopmun1 = loopmun1+1
-                
-        ax.set_axis_off()
+        #plt.show()       
+        self.ax_showlabel.set_axis_off()
         #plt.tight_layout()
-        plt.show()
+        #self.ax_showlabel.show()
         
         #return filledimg, Sliced_binary_region_image, intensityimage
     def showlabel_with_rank(self, smallest_size, theMask, original_intensity, cpstart, cpend, cell_properties, thekey_attri, num_hits):
