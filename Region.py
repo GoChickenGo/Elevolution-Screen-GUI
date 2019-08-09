@@ -12,6 +12,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from IPython import get_ipython
 from matplot import SelectFromCollection
+import numpy.lib.recfunctions as rfn
 
 
 
@@ -43,6 +44,8 @@ S.showlabel(200, bw, v1, thres, -1500, -1500, cp)
 #print (L)
 #Localimg = Image.fromarray(v2) #generate an image object
 #Localimg.save('out_1st.tif') #save as tif
+
+cp = rfn.append_fields(cp, 'Original_sequence', list(range(0, len(cp))), usemask=False)
 print (cp)
 #get_ipython().run_line_magic('matplotlib', 'qt')
 #plt.plot(cp['Circularity'], cp['Mean intensity in contour'], 'ro')
@@ -53,9 +56,12 @@ sorted_cp = S.sort_using_weight(cp, 'Circularity', 'Mean intensity in contour', 
 #mouse_select_points(cp['Circularity'], cp['Mean intensity in contour'])
 #app = highlightpoints(cp['Circularity'], cp['Mean intensity in contour'])
 #app.makePlot()
+selection = SelectFromCollection(cp['Circularity'], cp['Mean intensity in contour'])
+#input("Press Enter to continue...")
+#wait for space input
 
-SelectFromCollection(cp['Circularity'], cp['Mean intensity in contour'])
-
+points = selection.collection_of_point
+print(points)
 #ppp=assd.get_container()
 '''
 fig1 = plt.figure(1)

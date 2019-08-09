@@ -92,6 +92,7 @@ class SelectFromCollection(object):
 
     def __init__(self, value1, value2, alpha_other=0.3):
         #get_ipython().run_line_magic('matplotlib', 'qt')
+        self.collection_of_point = []
         plt.figure()
         self.axis1 = value1
         self.axis2 = value2        
@@ -117,11 +118,12 @@ class SelectFromCollection(object):
         
         #fig = plt.figure()
         #ax_SelectFromCollection = plt.subplot(111)
-        
+        #while len(self.collection_of_point) == 0:
         def accept(event):
             if event.key == "enter":
                 print("Selected points:")
                 print(self.xys[self.ind])
+                self.collection_of_point.append(self.xys[self.ind])
                 self.disconnect()
                 ax_SelectFromCollection.set_title("")
                 self.canvas.draw()

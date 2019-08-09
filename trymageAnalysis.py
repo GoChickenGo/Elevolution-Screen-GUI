@@ -298,17 +298,20 @@ class ImageAnalysis():
         plt.show()
         
     def sort_using_weight(self, cell_properties, property_1, property_2, weight_1, weight_2):
-       
-        cell_properties = np.flip(np.sort(cell_properties, order=property_1), 0)
-        cell_properties = rfn.append_fields(cell_properties, 'Ranking according to '+property_1, list(range(0, len(cell_properties))), usemask=False)
-
-        cell_properties = np.flip(np.sort(cell_properties, order=property_2), 0)
-        cell_properties = rfn.append_fields(cell_properties, 'Ranking according to '+property_2, list(range(0, len(cell_properties))), usemask=False)
         
-        weights = cell_properties['Ranking according to '+property_1]*weight_1 + cell_properties['Ranking according to '+property_2]*weight_2
+        max_p1 = np.amax(cell_properties[property_1])
+        max_p2 = np.amax(cell_properties[property_2])
+        
+        #cell_properties = np.flip(np.sort(cell_properties, order=property_1), 0)
+        cell_properties = rfn.append_fields(cell_properties, 'Nomalization according to '+property_1, cell_properties[property_1]/max_p1, usemask=False)
+
+        #cell_properties = np.flip(np.sort(cell_properties, order=property_2), 0)
+        cell_properties = rfn.append_fields(cell_properties, 'Nomalization according to '+property_2, cell_properties[property_2]/max_p2, usemask=False)
+        
+        weights = cell_properties['Nomalization according to '+property_1]*weight_1 + cell_properties['Nomalization according to '+property_2]*weight_2
         
         cell_properties = rfn.append_fields(cell_properties, 'evalution', weights, usemask=False)
         
-        cell_properties = np.sort(cell_properties, order='evalution')
+        cell_properties = np.flip(np.sort(cell_properties, order='evalution'), 0)
 
         return cell_properties

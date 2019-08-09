@@ -14,6 +14,7 @@ from generalDaqer import execute_analog_readin_optional_digital, execute_digital
 import matplotlib.pyplot as plt
 from PIL import Image
 from trymageAnalysis import ImageAnalysis
+import numpy.lib.recfunctions as rfn
 
 class Stagescan():
     def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11):
@@ -159,6 +160,8 @@ class Stagescan():
         time.sleep(2)
         #Sorting and trace back
         #------------------------------------------CAN use 'import numpy.lib.recfunctions as rfn' to append field--------------
+        original_cp = rfn.append_fields(All_cell_properties, 'Original_sequence', list(range(0, len(All_cell_properties))), usemask=False)
+        '''
         original_dtype = np.dtype(All_cell_properties.dtype.descr + [('Original_sequence', '<i4')])
         original_cp = np.zeros(All_cell_properties.shape, dtype=original_dtype)
         original_cp['Row index'] = All_cell_properties['Row index']
@@ -168,7 +171,7 @@ class Stagescan():
         original_cp['Mean intensity in contour'] = All_cell_properties['Mean intensity in contour']
         original_cp['Change'] = All_cell_properties['Change']
         original_cp['Original_sequence'] = list(range(0, len(All_cell_properties)))
-        
+        '''
         #print (original_cp['Mean intensity in contour'])
         #print('*********************sorted************************')
         #sort
@@ -177,7 +180,8 @@ class Stagescan():
         #selected_num = 10 #determine how many we want
         #unsorted_cp = All_cell_properties[:selected_num]
         #targetcp = sortedcp[:selected_num]
-        
+        ranked_cp = rfn.append_fields(sortedcp, 'Ranking', list(range(0, len(All_cell_properties))), usemask=False)
+        '''
         rank_dtype = np.dtype(sortedcp.dtype.descr + [('Ranking', '<i4')])
         ranked_cp = np.zeros(sortedcp.shape, dtype=rank_dtype)
         ranked_cp['Row index'] = sortedcp['Row index']
@@ -190,7 +194,7 @@ class Stagescan():
         ranked_cp['Ranking according to Change'] = sortedcp['Ranking according to Change']
         ranked_cp['Ranking according to Mean intensity in contour'] = sortedcp['Ranking according to Mean intensity in contour']
         ranked_cp['Ranking'] = list(range(0, len(All_cell_properties)))
-        
+        '''
         withranking_cp = np.sort(ranked_cp, order='Original_sequence')
         
         #print (ranked_cp)
