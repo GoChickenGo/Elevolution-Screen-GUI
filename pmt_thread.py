@@ -22,10 +22,6 @@ from wavegenerator import blockWave
 from constants import MeasurementConstants
 
 class pmtimaging_continuous_Thread(QThread):
-    """
-    Class for performing a continuous patchclamp measurement. It inherits the
-    QThread so the main python code still runs while the measurment is done.
-    """
     measurement = pyqtSignal(np.ndarray) #The signal for the measurement, we can connect to this signal
     def __init__(self, wave, sampleRate, readNumber, averagenumber, ScanArrayXnum, *args, **kwargs):
         """
@@ -47,7 +43,7 @@ class pmtimaging_continuous_Thread(QThread):
             
     def run(self):
         """
-        Starts writing a waveform continuously to the patchclamp. While reading 
+        Starts writing a waveform continuously while reading 
         the buffer periodically
         """
         
@@ -58,8 +54,8 @@ class pmtimaging_continuous_Thread(QThread):
             master_Task.ai_channels.add_ai_voltage_chan("/Dev1/ai0")
             
             slave_Task3.timing.cfg_samp_clk_timing(rate = self.sampleRate, source='ai/SampleClock',
-                                                   sample_mode = nidaqmx.constants.AcquisitionType.CONTINUOUS,
-                                                   samps_per_chan = self.readNumber)
+                                                   sample_mode = nidaqmx.constants.AcquisitionType.CONTINUOUS)
+                                                 
             
             # Analoginput
             master_Task.timing.cfg_samp_clk_timing(rate = self.sampleRate,
