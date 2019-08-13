@@ -8,7 +8,7 @@ from __future__ import division
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QGroupBox, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox
+from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QGroupBox, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget
 
 import pyqtgraph as pg
 
@@ -76,7 +76,7 @@ class pmtwindow(pg.GraphicsView):
             #roi.sigRegionChanged.connect(update)
         self.vb.addItem(self.roi)# add ROIs to main image
         
-    def updateWindow(self, data):
+    def update_pmt_Window(self, data):
         """Get a window of the most recent 'windowSize' samples (or less if not available)."""
         self.pmt_img.setImage(data)
         self.imgroi.setImage(self.roi.getArrayRegion(data, self.pmt_img), levels=(0, data.max()))
@@ -93,6 +93,16 @@ class pmt_video(QWidget):
         #----------------------------------------------------------------------
         self.setMinimumSize(300,120)
         self.setWindowTitle("PMT imaging")
+        self.layout = QVBoxLayout(self)
+        # Setting tabs
+        self.tabs = QTabWidget()
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        
+        # Add tabs
+        self.tabs.addTab(self.tab1,"PMT imaging")
+        self.tabs.addTab(self.tab2,"Waveform")
+        
         #-----------------------------Plots------------------------------------
         pmtimageContainer = QGroupBox("Output")
         self.pmtimageLayout = QGridLayout()
@@ -164,10 +174,14 @@ class pmt_video(QWidget):
         controlContainer.setLayout(self.controlLayout)
         
         #---------------------------Adding to master---------------------------
-        master = QVBoxLayout()
-        master.addWidget(pmtimageContainer)
-        master.addWidget(controlContainer)
-        self.setLayout(master)
+        pmtmaster = QVBoxLayout()
+        pmtmaster.addWidget(pmtimageContainer)
+        pmtmaster.addWidget(controlContainer)
+        
+        self.tab1.setLayout(pmtmaster)
+        #self.setLayout(pmtmaster)
+        self.layout.addWidget(self.tabs)
+        self.setLayout(self.layout)
         
         #--------------------------Setting variables---------------------------
         
@@ -184,7 +198,7 @@ class pmt_video(QWidget):
         self.averagenum =int(self.textbox1H.currentText())
         
         self.pmtTest.setWave(self.Daq_sample_rate, Value_voltXMin, Value_voltXMax, Value_voltYMin, Value_voltYMax, Value_xPixels, Value_yPixels, self.averagenum)
-        self.pmtTest.pmtimagingThread.measurement.connect(self.updateGraphs) #Connecting to the measurement signal 
+        self.pmtTest.pmtimagingThread.measurement.connect(self.update_pmt_Graphs) #Connecting to the measurement signal 
         self.pmtTest.start()
         
     def saveimage(self):
@@ -192,11 +206,11 @@ class pmt_video(QWidget):
         Localimg.save('pmtimage.tif') #save as tif
         
         
-    def updateGraphs(self, data):
+    def update_pmt_Graphs(self, data):
         """Update graphs."""
         self.data = data
 
-        self.pmtvideoWidget.updateWindow(self.data)
+        self.pmtvideoWidget.update_pmt_Window(self.data)
     
         
     def stopMeasurement(self):
