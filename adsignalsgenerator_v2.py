@@ -42,8 +42,8 @@ class adgenerator(QWidget, QThread):
         self.button_execute = QPushButton('EXECUTE AD', self)
         self.AnalogLayout.addWidget(self.button_execute, 3, 3)
         
-        self.button_execute.clicked.connect(self.execute)        
-              
+        self.button_execute.clicked.connect(self.execute)    
+        
         self.textbox2A = QComboBox()
         self.textbox2A.addItems(['galvos', '640 AO','532 AO', '488 AO', 'V-patch'])
         self.AnalogLayout.addWidget(self.textbox2A, 3, 0)
@@ -87,6 +87,12 @@ class adgenerator(QWidget, QThread):
         self.button_all = QPushButton('Show waveforms', self)
         self.ReadLayout.addWidget(self.button_all, 0, 4)
         self.button_all.clicked.connect(self.show_all)
+        
+                
+        self.button_clear_canvas = QPushButton('Clear canvas', self)
+        self.ReadLayout.addWidget(self.button_clear_canvas, 1, 4)
+        
+        self.button_clear_canvas.clicked.connect(self.clear_canvas)  
         
         self.textboxAA = QComboBox()
         self.textboxAA.addItems(['500000', '50000'])
@@ -326,24 +332,38 @@ class adgenerator(QWidget, QThread):
         # make sure that the square wave tab is active now
         if self.wavetabs.currentIndex() == 0:
             if self.textbox2A.currentText() == '640 AO':
-                #button2.disconnect()
+                if self.finalwave_640 is not None:
+                    self.pw.removeItem(self.PlotDataItem_640AO) 
+                    self.pw.removeItem(self.textitem_640AO)
                 self.generate_640AO()
                 self.generate_640AO_graphy()            
-                self.set_switch('640AO')
-                
+                self.set_switch('640AO')            
+                    
             elif self.textbox2A.currentText() == '532 AO':
+                if self.finalwave_532 is not None:
+                    self.pw.removeItem(self.PlotDataItem_532AO) 
+                    self.pw.removeItem(self.textitem_532AO)
                 self.generate_532AO()
                 self.generate_532AO_graphy()
                 self.set_switch('532AO')
             elif self.textbox2A.currentText() == '488 AO':
+                if self.finalwave_488 is not None:
+                    self.pw.removeItem(self.PlotDataItem_488AO) 
+                    self.pw.removeItem(self.textitem_488AO)
                 self.generate_488AO()
                 self.generate_488AO_graphy()
                 self.set_switch('488AO')
             elif self.textbox2A.currentText() == 'V-patch':
+                if self.finalwave_patch is not None:
+                    self.pw.removeItem(self.PlotDataItem_patch) 
+                    self.pw.removeItem(self.textitem_patch)
                 self.generate_patchAO()
                 self.generate_patchAO_graphy()
                 self.set_switch('patchAO')
             elif self.textbox2A.currentText() == 'galvos':
+                if self.Galvo_samples is not None:
+                    self.pw.removeItem(self.PlotDataItem_galvos) 
+                    self.pw.removeItem(self.textitem_galvos)
                 self.generate_galvos()
                 self.generate_galvos_graphy()
                 self.set_switch('galvos')
@@ -379,30 +399,51 @@ class adgenerator(QWidget, QThread):
             
     def chosen_wave_digital(self):        
         if self.textbox3A.currentText() == 'cameratrigger':
+            if self.finalwave_cameratrigger is not None:
+                self.pw.removeItem(self.PlotDataItem_cameratrigger) 
+                self.pw.removeItem(self.textitem_cameratrigger)
             self.generate_cameratrigger()
             self.generate_cameratrigger_graphy()
             self.set_switch('cameratrigger')           
         elif self.textbox3A.currentText() == 'galvotrigger':
+            if self.final_galvotrigger is not None:
+                self.pw.removeItem(self.PlotDataItem_galvotrigger) 
+                self.pw.removeItem(self.textitem_galvotrigger)
             self.generate_galvotrigger()
             self.generate_galvotrigger_graphy()
             self.set_switch('galvotrigger')
         elif self.textbox3A.currentText() == 'blankingall':
+            if self.finalwave_blankingall is not None:
+                self.pw.removeItem(self.PlotDataItem_blankingall) 
+                self.pw.removeItem(self.textitem_blankingall)
             self.generate_blankingall()
             self.generate_blankingall_graphy()
             self.set_switch('blankingall')                                   
         elif self.textbox3A.currentText() == '640blanking':
+            if self.finalwave_640blanking is not None:
+                self.pw.removeItem(self.PlotDataItem_640blanking) 
+                self.pw.removeItem(self.textitem_640blanking)
             self.generate_640blanking()
             self.generate_640blanking_graphy()
             self.set_switch('640blanking')                                 
         elif self.textbox3A.currentText() == '532blanking':
+            if self.finalwave_532blanking is not None:
+                self.pw.removeItem(self.PlotDataItem_532blanking) 
+                self.pw.removeItem(self.textitem_532blanking)
             self.generate_532blanking()
             self.generate_532blanking_graphy()
             self.set_switch('532blanking')    
         elif self.textbox3A.currentText() == '488blanking':
+            if self.finalwave_488blanking is not None:
+                self.pw.removeItem(self.PlotDataItem_488blanking) 
+                self.pw.removeItem(self.textitem_488blanking)
             self.generate_488blanking()
             self.generate_488blanking_graphy()
             self.set_switch('488blanking')
         elif self.textbox3A.currentText() == 'Perfusion_1':
+            if self.finalwave_Perfusion_1 is not None:
+                self.pw.removeItem(self.PlotDataItem_Perfusion_1) 
+                self.pw.removeItem(self.textitem_Perfusion_1)
             self.generate_Perfusion_1()
             self.generate_Perfusion_1_graphy()
             self.set_switch('Perfusion_1')     
@@ -499,11 +540,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_galvos = pg.TextItem(text='galvos', color=('w'), anchor=(1, 1))
         self.textitem_galvos.setPos(0, 5)
         self.pw.addItem(self.textitem_galvos)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(self.xlabelhere_galvo, self.repeated_samples_2_yaxis)
-        #plt.text(0.1, 2, 'Time lasted:'+str(self.xlabelhere_galvo[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
             
     def generate_galvotrigger(self):
         self.Daq_sample_rate = int(self.textboxAA.currentText())
@@ -567,12 +604,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_galvotrigger = pg.TextItem(text='galvotrigger', color=(100,100,200), anchor=(1, 1))
         self.textitem_galvotrigger.setPos(0, -5)
         self.pw.addItem(self.textitem_galvotrigger)
-        #plt.figure()
-        #plt.plot(self.xlabelhere_galvo, self.repeated_samples_2_yaxis)
-        #plt.plot(self.xlabelhere_galvo, self.final_galvotrigger)
-        #plt.text(0.1, 2, 'Time lasted:'+str(self.xlabelhere_galvo[-1])+'s', fontsize=12)
-            #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
         
     def generate_640AO(self):
         
@@ -616,10 +648,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_640AO = pg.TextItem(text='640 AO', color=('r'), anchor=(1, 1))
         self.textitem_640AO.setPos(0, 4)
         self.pw.addItem(self.textitem_640AO)
-        #plt.plot(xlabelhere_640, self.finalwave_640)
-        #plt.text(0.1, 2, 'Time lasted:'+str(xlabelhere_640[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()            
+           
 
     def generate_488AO(self):
         
@@ -662,10 +691,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_488AO = pg.TextItem(text='488 AO', color=('b'), anchor=(1, 1))
         self.textitem_488AO.setPos(0, 2)
         self.pw.addItem(self.textitem_488AO)
-        #plt.plot(xlabelhere_488, self.finalwave_488)
-        #plt.text(0.1, 2, 'Time lasted:'+str(xlabelhere_488[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
         
     def generate_532AO(self):
         
@@ -709,12 +735,6 @@ class adgenerator(QWidget, QThread):
         self.textitem_532AO = pg.TextItem(text='532 AO', color=('g'), anchor=(1, 1))
         self.textitem_532AO.setPos(0, 3)
         self.pw.addItem(self.textitem_532AO)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_532, self.finalwave_532)
-        #plt.text(0.1, 2, 'Time lasted:'+str(xlabelhere_532[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()  
-        
         
     def generate_patchAO(self):
         
@@ -755,14 +775,10 @@ class adgenerator(QWidget, QThread):
         self.PlotDataItem_patch.setPen(100, 100, 0)
         self.pw.addItem(self.PlotDataItem_patch)
         
-        self.textitem_patch = pg.TextItem(text='patch'+' of freq:'+str(self.uiwavefrequency_patchAO), color=(100, 100, 0), anchor=(1, 1))
+        self.textitem_patch = pg.TextItem(text='patch '+str(self.uiwavefrequency_patchAO)+'hz', color=(100, 100, 0), anchor=(1, 1))
         self.textitem_patch.setPos(0, 1)
         self.pw.addItem(self.textitem_patch)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_patch, self.finalwave_patch)
-        #plt.text(0.1, 2, 'Time lasted:'+str(xlabelhere_patch[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
 
     def generate_cameratrigger(self):
         
@@ -798,15 +814,10 @@ class adgenerator(QWidget, QThread):
         self.PlotDataItem_cameratrigger.setPen('c')
         self.pw.addItem(self.PlotDataItem_cameratrigger)
         
-        self.textitem_cameratrigger = pg.TextItem(text='cameratrigger'+' of freq:'+str(self.uiwavefrequency_cameratrigger), color=('c'), anchor=(1, 1))
+        self.textitem_cameratrigger = pg.TextItem(text='cameratrigger '+str(self.uiwavefrequency_cameratrigger)+'hz', color=('c'), anchor=(1, 1))
         self.textitem_cameratrigger.setPos(0, 0)
         self.pw.addItem(self.textitem_cameratrigger)
-        
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_cameratrigger, self.finalwave_cameratrigger)
-        #plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_cameratrigger[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()     
+    
             
     def generate_640blanking(self):
         
@@ -845,11 +856,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_640blanking = pg.TextItem(text='640blanking', color=(255,204,255), anchor=(1, 1))
         self.textitem_640blanking.setPos(0, -2)
         self.pw.addItem(self.textitem_640blanking)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_640blanking, self.finalwave_640blanking)
-        #plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_640blanking[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
         
     def generate_532blanking(self):
         
@@ -888,11 +895,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_532blanking = pg.TextItem(text='532blanking', color=('y'), anchor=(1, 1))
         self.textitem_532blanking.setPos(0, -3)
         self.pw.addItem(self.textitem_532blanking)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_532blanking, self.finalwave_532blanking)
-        #plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_532blanking[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
         
     def generate_488blanking(self):
         
@@ -931,11 +934,7 @@ class adgenerator(QWidget, QThread):
         self.textitem_488blanking = pg.TextItem(text='488blanking', color=(255,51,153), anchor=(1, 1))
         self.textitem_488blanking.setPos(0, -4)
         self.pw.addItem(self.textitem_488blanking)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_488blanking, self.finalwave_488blanking)
-        #plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_488blanking[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
+
         
     def generate_blankingall(self):
         
@@ -974,11 +973,6 @@ class adgenerator(QWidget, QThread):
         self.textitem_blankingall = pg.TextItem(text='blankingall', color=(255,229,204), anchor=(1, 1))
         self.textitem_blankingall.setPos(0, -1)
         self.pw.addItem(self.textitem_blankingall)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_blankingall, self.finalwave_blankingall)
-        #plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_blankingall[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
         
     def generate_Perfusion_1(self):
         
@@ -1017,27 +1011,40 @@ class adgenerator(QWidget, QThread):
         self.textitem_Perfusion_1 = pg.TextItem(text='Perfusion_1', color=(102,0,51), anchor=(1, 1))
         self.textitem_Perfusion_1.setPos(0, -6)
         self.pw.addItem(self.textitem_Perfusion_1)
-        #plt.plot(xlabelhere_galvo, samples_1)
-        #plt.plot(xlabelhere_Perfusion_1, self.finalwave_Perfusion_1)
-        #plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_Perfusion_1[-1])+'s', fontsize=12)
-        #plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%d s'))
-        #plt.show()
         
     def set_switch(self, name):
         #self.generate_dictionary_switch_instance[name] = 1
         if name not in self.dictionary_switch_list:
             self.dictionary_switch_list.append(name)
-            
+            print(self.dictionary_switch_list)
     def del_set_switch(self, name):
         #self.generate_dictionary_switch_instance[name] = 1
         if name in self.dictionary_switch_list:
             self.dictionary_switch_list.remove(name)
             print(self.dictionary_switch_list)
+    def clear_canvas(self):
+        #Back to initial state
+        self.pw.clear()
+        self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =None
+        self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = None
+        self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=0        
         
     def show_all(self):
 
         self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=0
-
+        color_dictionary = {'galvos':[255,255,255],
+                              '640AO':[255,0,0],
+                              '488AO':[0,0,255],
+                              '532AO':[0,255,0],
+                              'patchAO':[100, 100, 0],
+                              'cameratrigger':[0,255,255],
+                              'galvotrigger':[100,100,200], 
+                              'blankingall':[255,229,204],
+                              '640blanking':[255,204,255],
+                              '532blanking':[255,255,0],
+                              '488blanking':[255,51,153],
+                              'Perfusion_1':[102,0,51]
+                            }
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
         dictionary_analog = {'galvos':[self.switch_galvos,self.Galvo_samples],
                               '640AO':[self.switch_640AO,self.finalwave_640],
@@ -1133,6 +1140,30 @@ class adgenerator(QWidget, QThread):
         print(self.digitalcontainer_array['Sepcification'])
                 
         xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.currentText())
+        
+        self.pw.clear()
+        for i in range(analogloopnum):
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
+                self.PlotDataItem_final = PlotDataItem(xlabelhere_all, self.analogcontainer_array['Waveform'][i])
+                #use the same color as before, taking advantages of employing same keys in dictionary
+                self.PlotDataItem_final.setPen(color_dictionary[self.analogcontainer_array['Sepcification'][i]][0],color_dictionary[self.analogcontainer_array['Sepcification'][i]][1],color_dictionary[self.analogcontainer_array['Sepcification'][i]][2])
+                self.pw.addItem(self.PlotDataItem_final)
+                
+                self.textitem_final = pg.TextItem(text=str(self.analogcontainer_array['Sepcification'][i]), color=(color_dictionary[self.analogcontainer_array['Sepcification'][i]][0],color_dictionary[self.analogcontainer_array['Sepcification'][i]][1],color_dictionary[self.analogcontainer_array['Sepcification'][i]][2]), anchor=(1, 1))
+                self.textitem_final.setPos(0, i+1)
+                self.pw.addItem(self.textitem_final)
+                i += 1
+        for i in range(digitalloopnum):
+            digitalwaveforgraphy = self.digitalcontainer_array['Waveform'][i].astype(int)
+            self.PlotDataItem_final = PlotDataItem(xlabelhere_all, digitalwaveforgraphy)
+            self.PlotDataItem_final.setPen(color_dictionary[self.digitalcontainer_array['Sepcification'][i]][0],color_dictionary[self.digitalcontainer_array['Sepcification'][i]][1],color_dictionary[self.digitalcontainer_array['Sepcification'][i]][2])
+            self.pw.addItem(self.PlotDataItem_final)
+            
+            self.textitem_final = pg.TextItem(text=str(self.digitalcontainer_array['Sepcification'][i]), color=(color_dictionary[self.digitalcontainer_array['Sepcification'][i]][0],color_dictionary[self.digitalcontainer_array['Sepcification'][i]][1],color_dictionary[self.digitalcontainer_array['Sepcification'][i]][2]), anchor=(1, 1))
+            self.textitem_final.setPos(0, -1*i)
+            self.pw.addItem(self.textitem_final)
+            i += 1
+        '''
         plt.figure()
         for i in range(analogloopnum):
             if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
@@ -1141,7 +1172,7 @@ class adgenerator(QWidget, QThread):
             plt.plot(xlabelhere_all, self.digitalcontainer_array['Waveform'][i])
         plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_all[-1])+'s', fontsize=12)
         plt.show()
-        
+        '''
         self.readinchan = []
         
         if self.textbox111A.isChecked():
