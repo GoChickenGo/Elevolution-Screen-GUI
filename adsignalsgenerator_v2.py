@@ -12,6 +12,7 @@ from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
 import wavegenerator
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
+from generalDaqerThread import execute_analog_readin_optional_digital_thread
 from configuration import Configuration
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
@@ -42,7 +43,7 @@ class adgenerator(QWidget, QThread):
         self.button_execute = QPushButton('EXECUTE AD', self)
         self.AnalogLayout.addWidget(self.button_execute, 3, 3)
         
-        self.button_execute.clicked.connect(self.execute)    
+        self.button_execute.clicked.connect(self.execute_tread)    
         
         self.textbox2A = QComboBox()
         self.textbox2A.addItems(['galvos', '640 AO','532 AO', '488 AO', 'V-patch'])
@@ -87,10 +88,13 @@ class adgenerator(QWidget, QThread):
         self.button_all = QPushButton('Show waveforms', self)
         self.ReadLayout.addWidget(self.button_all, 0, 4)
         self.button_all.clicked.connect(self.show_all)
-        
+
+        self.button_stop_waveforms = QPushButton('Stop', self)
+        self.ReadLayout.addWidget(self.button_stop_waveforms, 0, 5)
+        self.button_stop_waveforms.clicked.connect(self.stopMeasurement_daqer)        
                 
         self.button_clear_canvas = QPushButton('Clear canvas', self)
-        self.ReadLayout.addWidget(self.button_clear_canvas, 1, 4)
+        self.ReadLayout.addWidget(self.button_clear_canvas, 1, 5)
         
         self.button_clear_canvas.clicked.connect(self.clear_canvas)  
         
@@ -318,14 +322,24 @@ class adgenerator(QWidget, QThread):
         #------------------------------------------------------------------------------------------------------------------
         #----------------------------------------------------------Display win-------------------------------------------------
         #------------------------------------------------------------------------------------------------------------------  
-        self.pw = pg.PlotWidget(name='Waveplot')
-        
+        self.pw = pg.PlotWidget(title='Waveform plot')
+        self.pw.setLabel('bottom', 'Time', units='s')
+        self.pw.setLabel('left', 'Value', units='V')
+        self.pw.addLine(x=0)
+        self.pw.addLine(y=0)
+        #------------------------------------------------------------------------------------------------------------------
+        #----------------------------------------------------------Data win-------------------------------------------------
+        #------------------------------------------------------------------------------------------------------------------  
+        self.pw_data = pg.PlotWidget(title='Data')
+        self.pw_data.setLabel('bottom', 'Time', units='s')
+        #self.pw_data.setLabel('left', 'Value', units='V')
         #--------------Adding to master----------------------------------------
         master = QGridLayout()
         master.addWidget(AnalogContainer, 1, 0)
         master.addWidget(DigitalContainer, 2, 0)
         master.addWidget(ReadContainer, 0, 0)
         master.addWidget(self.pw, 3, 0)
+        master.addWidget(self.pw_data, 4, 0)
         self.setLayout(master)
 
     def chosen_wave(self):
@@ -1025,9 +1039,10 @@ class adgenerator(QWidget, QThread):
     def clear_canvas(self):
         #Back to initial state
         self.pw.clear()
-        self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =None
-        self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = None
-        self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=0        
+        self.dictionary_switch_list =[]
+        #self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =None
+        #self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = None
+        #self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=0        
         
     def show_all(self):
 
@@ -1139,23 +1154,34 @@ class adgenerator(QWidget, QThread):
             digitalloopnum = digitalloopnum+ 1
         print(self.digitalcontainer_array['Sepcification'])
                 
-        xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.currentText())
+        self.xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.currentText())
         
         self.pw.clear()
         for i in range(analogloopnum):
+                                        
             if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
-                self.PlotDataItem_final = PlotDataItem(xlabelhere_all, self.analogcontainer_array['Waveform'][i])
-                #use the same color as before, taking advantages of employing same keys in dictionary
-                self.PlotDataItem_final.setPen(color_dictionary[self.analogcontainer_array['Sepcification'][i]][0],color_dictionary[self.analogcontainer_array['Sepcification'][i]][1],color_dictionary[self.analogcontainer_array['Sepcification'][i]][2])
-                self.pw.addItem(self.PlotDataItem_final)
+                if self.analogcontainer_array['Sepcification'][i] == 'galvosy'+'ypixels_'+str(int(self.textbox1G.currentText())):
+                    self.PlotDataItem_final = PlotDataItem(self.xlabelhere_all, self.analogcontainer_array['Waveform'][i])
+                    #use the same color as before, taking advantages of employing same keys in dictionary
+                    self.PlotDataItem_final.setPen('w')
+                    self.pw.addItem(self.PlotDataItem_final)
                 
-                self.textitem_final = pg.TextItem(text=str(self.analogcontainer_array['Sepcification'][i]), color=(color_dictionary[self.analogcontainer_array['Sepcification'][i]][0],color_dictionary[self.analogcontainer_array['Sepcification'][i]][1],color_dictionary[self.analogcontainer_array['Sepcification'][i]][2]), anchor=(1, 1))
-                self.textitem_final.setPos(0, i+1)
-                self.pw.addItem(self.textitem_final)
+                    self.textitem_final = pg.TextItem(text=str(self.analogcontainer_array['Sepcification'][i]), color=('w'), anchor=(1, 1))
+                    self.textitem_final.setPos(0, i+1)
+                    self.pw.addItem(self.textitem_final)
+                else:
+                    self.PlotDataItem_final = PlotDataItem(self.xlabelhere_all, self.analogcontainer_array['Waveform'][i])
+                    #use the same color as before, taking advantages of employing same keys in dictionary
+                    self.PlotDataItem_final.setPen(color_dictionary[self.analogcontainer_array['Sepcification'][i]][0],color_dictionary[self.analogcontainer_array['Sepcification'][i]][1],color_dictionary[self.analogcontainer_array['Sepcification'][i]][2])
+                    self.pw.addItem(self.PlotDataItem_final)
+                    
+                    self.textitem_final = pg.TextItem(text=str(self.analogcontainer_array['Sepcification'][i]), color=(color_dictionary[self.analogcontainer_array['Sepcification'][i]][0],color_dictionary[self.analogcontainer_array['Sepcification'][i]][1],color_dictionary[self.analogcontainer_array['Sepcification'][i]][2]), anchor=(1, 1))
+                    self.textitem_final.setPos(0, i+1)
+                    self.pw.addItem(self.textitem_final)
                 i += 1
         for i in range(digitalloopnum):
             digitalwaveforgraphy = self.digitalcontainer_array['Waveform'][i].astype(int)
-            self.PlotDataItem_final = PlotDataItem(xlabelhere_all, digitalwaveforgraphy)
+            self.PlotDataItem_final = PlotDataItem(self.xlabelhere_all, digitalwaveforgraphy)
             self.PlotDataItem_final.setPen(color_dictionary[self.digitalcontainer_array['Sepcification'][i]][0],color_dictionary[self.digitalcontainer_array['Sepcification'][i]][1],color_dictionary[self.digitalcontainer_array['Sepcification'][i]][2])
             self.pw.addItem(self.PlotDataItem_final)
             
@@ -1187,6 +1213,12 @@ class adgenerator(QWidget, QThread):
         #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
     
+    def execute_tread(self):
+        self.adcollector = execute_analog_readin_optional_digital_thread()
+        self.adcollector.set_waves(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        self.adcollector.collected_data.connect(self.recive_data)
+        self.adcollector.start()
+        
     def execute(self):
         
         execute_analog_readin_optional_digital(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
@@ -1194,8 +1226,26 @@ class adgenerator(QWidget, QThread):
     def execute_digital(self):
         
         execute_digital(int(self.textboxAA.currentText()), self.digitalcontainer_array)
+        
+    def recive_data(self, data):
+        
+        self.channel_number = len(data)
+        if self.channel_number == 1:            
+            self.data_collected_0 = data[0]
+        
+        self.PlotDataItem_patch_voltage = PlotDataItem(self.xlabelhere_all, self.data_collected_0)
+        #use the same color as before, taking advantages of employing same keys in dictionary
+        self.PlotDataItem_patch_voltage.setPen('w')
+        self.pw_data.addItem(self.PlotDataItem_patch_voltage)
     
-   
+        self.textitem_patch_voltage = pg.TextItem(('Vp'), color=('w'), anchor=(1, 1))
+        self.textitem_patch_voltage.setPos(0, 1)
+        self.pw_data.addItem(self.textitem_patch_voltage)
+        
+    def stopMeasurement_daqer(self):
+        """Stop """
+        self.adcollector.aboutToQuitHandler()
+        
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)

@@ -53,9 +53,11 @@ class execute_analog_readin_optional_digital():
         for i in range(len(analogsignals['Sepcification'])):
             if 'galvosx' in analogsignals['Sepcification'][i]:
                 self.averagenumber = int(analogsignals['Sepcification'][i][analogsignals['Sepcification'][i].index('_')+1:len(analogsignals['Sepcification'][i])])
+                self.galvosx_originalkey = analogsignals['Sepcification'][i]
                 analogsignals['Sepcification'][i] = 'galvosx'
             elif 'galvosy' in analogsignals['Sepcification'][i]:
                 self.ypixelnumber = int(analogsignals['Sepcification'][i][analogsignals['Sepcification'][i].index('_')+1:len(analogsignals['Sepcification'][i])])
+                self.galvosy_originalkey = analogsignals['Sepcification'][i]
                 analogsignals['Sepcification'][i] = 'galvosy'
         
         # Devide samples from Dev1 or 2
@@ -240,6 +242,19 @@ class execute_analog_readin_optional_digital():
             if digitalsignalslinenumber != 0:
                 slave_Task_2_digitallines.stop()
             master_Task_readin.stop()
+            
+            slave_Task_1_analog_dev1.close()
+            if analogsignal_dev2_number != 0:
+                slave_Task_1_analog_dev2.close()
+            if digitalsignalslinenumber != 0:
+                slave_Task_2_digitallines.close()
+            master_Task_readin.close()
+        # set the keys of galvos back for next round
+        for i in range(len(analogsignals['Sepcification'])):
+            if 'galvosx' in analogsignals['Sepcification'][i]:
+                analogsignals['Sepcification'][i] = self.galvosx_originalkey
+            elif 'galvosy' in analogsignals['Sepcification'][i]:
+                analogsignals['Sepcification'][i] = self.galvosy_originalkey
                
     def read(self):
         return self.data_PMT
