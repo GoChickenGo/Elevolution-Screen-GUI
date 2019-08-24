@@ -24,8 +24,9 @@ from generalDaqerThread import execute_analog_readin_optional_digital_thread
 from PIL import Image
 from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion
 from pyqtgraph import PlotDataItem, TextItem
-from readbinary import readbinaryfile
+from matlabAnalysis import readbinaryfile, extractV
 import os
+import scipy.signal as sg
 
 from skimage.io import imread
 #Setting graph settings
@@ -147,11 +148,11 @@ class Mainbody(QWidget):
         
         #------------------------Initiating patchclamp class-------------------
         self.pmtTest = pmtimagingTest()
-    
+        self.OC = 0.1
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------
         #----------------------------------------------------------------------
-        self.setMinimumSize(300,120)
+        self.setMinimumSize(1200,950)
         self.setWindowTitle("Tupolev v1.0")
         self.layout = QGridLayout(self)
         # Setting tabs
@@ -544,11 +545,13 @@ class Mainbody(QWidget):
         self.pw.setLabel('left', 'Value', units='V')
         self.pw.addLine(x=0)
         self.pw.addLine(y=0)
+        self.pw.setMinimumHeight(180)
         #------------------------------------------------------------------------------------------------------------------
         #----------------------------------------------------------Data win-------------------------------------------------
         #------------------------------------------------------------------------------------------------------------------  
         self.pw_data = pg.PlotWidget(title='Data')
         self.pw_data.setLabel('bottom', 'Time', units='s')
+        self.pw_data.setMinimumHeight(180)
         #self.pw_data.setLabel('left', 'Value', units='V')
         #-------------------------------------------------------------Adding to master----------------------------------------
         master_waveform = QGridLayout()
@@ -586,10 +589,31 @@ class Mainbody(QWidget):
         
         self.button_load.clicked.connect(self.loadtiffile)
         self.button_load.clicked.connect(lambda: self.loadcurve(self.fileName))
+        self.button_load.clicked.connect(lambda: self.displayElectricalsignal())
 
         
         readimageContainer.setLayout(self.readimageLayout)
 
+        #------------------------------------------------------V, I curve display window-------------------------------------------------------
+        Curvedisplay_Container = QGroupBox("Electrical signal window")
+        self.Curvedisplay_Layout = QGridLayout()
+        
+        #Voltage window
+        self.pw_patch_voltage = pg.PlotWidget(title='Voltage plot')
+        self.pw_patch_voltage.setLabel('bottom', 'Time', units='s')
+        self.pw_patch_voltage.setLabel('left', 'Voltage', units='mV')        
+        
+        self.Curvedisplay_Layout.addWidget(self.pw_patch_voltage, 0,0)
+        
+        #Current window
+        self.pw_patch_current = pg.PlotWidget(title='Current plot')
+        self.pw_patch_current.setLabel('bottom', 'Time', units='s')
+        self.pw_patch_current.setLabel('left', 'Current', units='pA')
+        
+        self.Curvedisplay_Layout.addWidget(self.pw_patch_current, 1,0)
+        
+        Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
+        Curvedisplay_Container.setMaximumHeight(400)
         #------------------------------------------------------Image Analysis-Average window-------------------------------------------------------
         imageanalysis_average_Container = QGroupBox("Image Analysis-Average window")
         self.imageanalysisLayout_average = QGridLayout()
@@ -598,12 +622,13 @@ class Mainbody(QWidget):
         self.pw_averageimage = pg.ImageView()
         self.imageanalysisLayout_average.addWidget(self.pw_averageimage, 0, 0, 3, 3)
         
-        self.button_average = QPushButton('Calculate average', self)
+        self.button_average = QPushButton('Cal. average', self)
+        self.button_average.setMaximumWidth(70)
         self.imageanalysisLayout_average.addWidget(self.button_average, 0, 3) 
         self.button_average.clicked.connect(self.calculateaverage)
         
         imageanalysis_average_Container.setLayout(self.imageanalysisLayout_average)
-
+        imageanalysis_average_Container.setMinimumHeight(200)
         #------------------------------------------------------Image Analysis-weighV window-------------------------------------------------------
         imageanalysis_weight_Container = QGroupBox("Image Analysis-Weight window")
         self.imageanalysisLayout_weight = QGridLayout()
@@ -612,16 +637,19 @@ class Mainbody(QWidget):
         self.pw_weightimage = pg.ImageView()
         self.imageanalysisLayout_weight.addWidget(self.pw_weightimage, 0, 0, 3, 3)
         
-        self.button_weight = QPushButton('Calculate weight', self)
+        self.button_weight = QPushButton('Cal. weight', self)
+        self.button_weight.setMaximumWidth(70)
         self.imageanalysisLayout_weight.addWidget(self.button_weight, 0, 3) 
-        self.button_weight.clicked.connect(self.calculateaverage)
+        self.button_weight.clicked.connect(self.calculateweight)
         
         imageanalysis_weight_Container.setLayout(self.imageanalysisLayout_weight)
+        imageanalysis_weight_Container.setMinimumHeight(200)
         
         master_data_analysis = QGridLayout()
         master_data_analysis.addWidget(readimageContainer, 0, 0, 1, 2)
-        master_data_analysis.addWidget(imageanalysis_average_Container, 1, 0)
-        master_data_analysis.addWidget(imageanalysis_weight_Container, 1, 1)
+        master_data_analysis.addWidget(Curvedisplay_Container, 1, 0, 1, 2)
+        master_data_analysis.addWidget(imageanalysis_average_Container, 2, 0, 1,1)
+        master_data_analysis.addWidget(imageanalysis_weight_Container, 2, 1, 1,1)
         self.tab4.setLayout(master_data_analysis)         
        
         #**************************************************************************************************************************************
@@ -636,20 +664,49 @@ class Mainbody(QWidget):
     def loadtiffile(self):
         print('Loading...')
         self.videostack = imread(self.fileName)
+        print(self.videostack.shape)
         print('Loading complete, ready to fire')
         
     def loadcurve(self, filepath):
         for file in os.listdir(os.path.dirname(self.fileName)):
             if file.endswith(".Ip"):
                 self.Ipfilename = os.path.dirname(self.fileName) + '/'+file
-        
+            elif file.endswith(".Vp"):
+                self.Vpfilename = os.path.dirname(self.fileName) + '/'+file
+                
         curvereadingobjective_i =  readbinaryfile(self.Ipfilename)               
         self.Ip, self.samplingrate_curve = curvereadingobjective_i.readbinarycurve()
         
+        curvereadingobjective_V =  readbinaryfile(self.Vpfilename)               
+        self.Vp, self.samplingrate_curve = curvereadingobjective_V.readbinarycurve()
         
+    def displayElectricalsignal(self):
+        
+        self.patchcurrentlabel = np.arange(len(self.Ip))/self.samplingrate_curve
+        
+        self.PlotDataItem_patchcurrent = PlotDataItem(self.patchcurrentlabel, self.Ip*1000/self.OC)
+        self.PlotDataItem_patchcurrent.setPen('w')
+        self.pw_patch_current.addItem(self.PlotDataItem_patchcurrent)
+        
+        self.patchvoltagelabel = np.arange(len(self.Vp))/self.samplingrate_curve
+        
+        self.PlotDataItem_patchvoltage = PlotDataItem(self.patchvoltagelabel, self.Vp*1000/self.OC)
+        self.PlotDataItem_patchvoltage.setPen('w')
+        self.pw_patch_voltage.addItem(self.PlotDataItem_patchvoltage)
+    
     def calculateaverage(self):
         self.imganalysis_averageimage = np.mean(self.videostack, axis = 0)
         self.pw_averageimage.setImage(self.imganalysis_averageimage)
+        #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
+        
+    def calculateweight(self):
+        self.downsample_ratio = int(self.samplingrate_curve/250)
+        self.Vp_downsample = self.Vp.reshape(-1, self.downsample_ratio).mean(axis=1)
+
+        weight_ins = extractV(self.videostack, self.Vp_downsample)
+        self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
+        print(np.amax(self.corrimage))
+        self.pw_weightimage.setImage(self.corrimage)
         #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         #--------------------------------------------------------------------------------------------------------------------------------------
