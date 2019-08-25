@@ -8,7 +8,7 @@ from __future__ import division
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QFileDialog
+from PyQt5.QtWidgets import QWidget, QLabel, QSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QFileDialog
 
 import pyqtgraph as pg
 
@@ -587,10 +587,17 @@ class Mainbody(QWidget):
         self.button_load = QPushButton('Load', self)
         self.readimageLayout.addWidget(self.button_load, 0, 3) 
         
+        self.Spincamsamplingrate = QSpinBox(self)
+        self.Spincamsamplingrate.setMaximum(2000)
+        self.Spincamsamplingrate.setValue(250)
+        self.Spincamsamplingrate.setSingleStep(250)
+        self.readimageLayout.addWidget(self.Spincamsamplingrate, 0, 7)
+        self.readimageLayout.addWidget(QLabel("Camera FPS:"), 0, 6)
+        
         self.button_load.clicked.connect(self.loadtiffile)
         self.button_load.clicked.connect(lambda: self.loadcurve(self.fileName))
         self.button_load.clicked.connect(lambda: self.displayElectricalsignal())
-
+        self.button_load.clicked.connect(lambda: self.displaycamtrace())
         
         readimageContainer.setLayout(self.readimageLayout)
 
@@ -609,11 +616,17 @@ class Mainbody(QWidget):
         self.pw_patch_current = pg.PlotWidget(title='Current plot')
         self.pw_patch_current.setLabel('bottom', 'Time', units='s')
         self.pw_patch_current.setLabel('left', 'Current', units='pA')
-        
-        self.Curvedisplay_Layout.addWidget(self.pw_patch_current, 1,0)
+        self.Curvedisplay_Layout.addWidget(self.pw_patch_current, 1,0) 
+        #Camera trace window
+        self.pw_patch_camtrace = pg.PlotWidget(title='Trace plot')
+        self.pw_patch_camtrace.setLabel('bottom', 'Time', units='s')
+        self.pw_patch_camtrace.setLabel('left', 'signal', units=' counts/ms')
+        self.pw_patch_camtrace.addLegend(offset=(20,5)) # Add legend here, Plotitem with name will be automated displayed.
+        self.Curvedisplay_Layout.addWidget(self.pw_patch_camtrace, 2,0) 
+
         
         Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
-        Curvedisplay_Container.setMaximumHeight(400)
+        Curvedisplay_Container.setMaximumHeight(550)
         #------------------------------------------------------Image Analysis-Average window-------------------------------------------------------
         imageanalysis_average_Container = QGroupBox("Image Analysis-Average window")
         self.imageanalysisLayout_average = QGridLayout()
@@ -638,9 +651,14 @@ class Mainbody(QWidget):
         self.imageanalysisLayout_weight.addWidget(self.pw_weightimage, 0, 0, 3, 3)
         
         self.button_weight = QPushButton('Cal. weight', self)
-        self.button_weight.setMaximumWidth(70)
+        self.button_weight.setMaximumWidth(83)
         self.imageanalysisLayout_weight.addWidget(self.button_weight, 0, 3) 
         self.button_weight.clicked.connect(self.calculateweight)
+        
+        self.button_weighttrace = QPushButton('Weighted Trace', self)
+        self.button_weighttrace.setMaximumWidth(83)
+        self.imageanalysisLayout_weight.addWidget(self.button_weighttrace, 1, 3) 
+        self.button_weighttrace.clicked.connect(self.calculateweighttrace)
         
         imageanalysis_weight_Container.setLayout(self.imageanalysisLayout_weight)
         imageanalysis_weight_Container.setMinimumHeight(200)
@@ -690,23 +708,55 @@ class Mainbody(QWidget):
         
         self.patchvoltagelabel = np.arange(len(self.Vp))/self.samplingrate_curve
         
-        self.PlotDataItem_patchvoltage = PlotDataItem(self.patchvoltagelabel, self.Vp*1000/self.OC)
+        self.PlotDataItem_patchvoltage = PlotDataItem(self.patchvoltagelabel, self.Vp*1000/10)
         self.PlotDataItem_patchvoltage.setPen('w')
         self.pw_patch_voltage.addItem(self.PlotDataItem_patchvoltage)
-    
+        
+    def displaycamtrace(self):
+        self.samplingrate_cam = self.Spincamsamplingrate.value()
+        
+        self.camsignalsum = np.zeros(len(self.videostack))
+        for i in range(len(self.videostack)):
+            self.camsignalsum[i] = np.sum(self.videostack[i])
+            
+        self.patchcamtracelabel = np.arange(len(self.camsignalsum))/self.samplingrate_cam
+        
+        self.PlotDataItem_patchcam = PlotDataItem(self.patchcamtracelabel, self.camsignalsum, name = 'Pixel sum trace')
+        self.PlotDataItem_patchcam.setPen('w')
+        self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam)        
+        
     def calculateaverage(self):
         self.imganalysis_averageimage = np.mean(self.videostack, axis = 0)
         self.pw_averageimage.setImage(self.imganalysis_averageimage)
         #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
         
     def calculateweight(self):
-        self.downsample_ratio = int(self.samplingrate_curve/250)
+        self.samplingrate_cam = self.Spincamsamplingrate.value()
+        self.downsample_ratio = int(self.samplingrate_curve/self.samplingrate_cam)
         self.Vp_downsample = self.Vp.reshape(-1, self.downsample_ratio).mean(axis=1)
 
-        weight_ins = extractV(self.videostack, self.Vp_downsample)
+        weight_ins = extractV(self.videostack, self.Vp_downsample*1000/10)
         self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
-        print(np.amax(self.corrimage))
-        self.pw_weightimage.setImage(self.corrimage)
+
+        self.pw_weightimage.setImage(self.weightimage)
+        
+    def calculateweighttrace(self):     
+        self.samplingrate_cam = self.Spincamsamplingrate.value()
+        self.videolength = len(self.videostack)
+        self.pw_patch_camtrace.clear()
+        
+        k=np.tile(self.weightimage/np.sum(self.weightimage)*self.videostack.shape[1]*self.videostack.shape[2], (self.videolength,1,1))
+        self.weighttrace_tobetime = self.videostack*k
+        
+        self.weighttrace_data = np.zeros(self.videolength)
+        for i in range(self.videolength):
+            self.weighttrace_data[i] = np.mean(self.weighttrace_tobetime[i])
+            
+        self.patchcamtracelabel_weighted = np.arange(self.videolength)/self.samplingrate_cam
+        
+        self.PlotDataItem_patchcam_weighted = PlotDataItem(self.patchcamtracelabel_weighted, self.weighttrace_data, name = 'Weighted signal trace')
+        self.PlotDataItem_patchcam_weighted.setPen('c')
+        self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam_weighted)           
         #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         #--------------------------------------------------------------------------------------------------------------------------------------

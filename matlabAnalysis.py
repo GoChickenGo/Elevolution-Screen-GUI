@@ -52,8 +52,6 @@ class extractV():
         #self.readin_images_patch
         self.readin_voltage_patch = Vin.copy()
         
-        self.readin_voltage_patch = self.readin_voltage_patch*100#??????????
-        
         sizex = self.readin_images_patch.shape[1]
         sizey = self.readin_images_patch.shape[2]
         
@@ -75,8 +73,7 @@ class extractV():
         self.corrimage = self.readin_images_patch.copy()
         #for i in range(self.voltagelength):
         for i in range(self.voltagelength):
-            self.corrimage[i] = self.corrimage[i]*self.dv2[i]  #????????????????????????????
-    
+            self.corrimage[i] = self.corrimage[i]*self.dv2[i]  
         self.corrimage = np.mean(self.corrimage, axis = 0)/np.mean(((self.voltage_diff)**2)) #normalize to magnitude of voltage changes (DV*DF./DV^2)
         
         #calculate a dV estimate at each pixel, based on the linear regression.
@@ -97,5 +94,12 @@ class extractV():
         self.weightimage[np.isnan(self.weightimage)] = 0
         self.weightimage = self.weightimage/np.mean(self.weightimage)
         
+        self.images2[np.isnan(self.images2)] = 0 #Set places where imgs2 == NaN to zero
+        '''
+        dVout = squeeze(mean(mean(imgs2.*repmat(weightimg, [1 1 L])))) #squeeze takes something along the time axis and puts it 1xn vector
+
+        Vout = dVout + avgV
+        offsetimg = avgimg - avgV*corrimg
+        '''
     def cal(self):
         return self.corrimage, self.weightimage, self.sigmaimage
