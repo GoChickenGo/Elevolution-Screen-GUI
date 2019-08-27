@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 #import pyqtgraph as pg
 from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
-import adsignalsgenerator_v1
+import adsignalsgenerator_v2
 #from adsignalsgenerator_v1 import adgenerator
 
 
@@ -75,8 +75,29 @@ class MyWindow(QtWidgets.QWidget):
         self.textboxG = QComboBox()
         self.textboxG.addItems(['200','100'])
         ipLayout.addWidget(self.textboxG, 0, 3)
-        ipLayout.addWidget(QLabel("Smallest size:"), 0, 2)        
+        ipLayout.addWidget(QLabel("Smallest size:"), 0, 2)   
         
+        self.opening_factorBox = QSpinBox(self)
+        self.opening_factorBox.setMaximum(2000)
+        self.opening_factorBox.setValue(2)
+        self.opening_factorBox.setSingleStep(1)
+        ipLayout.addWidget(self.opening_factorBox, 0, 5)
+        ipLayout.addWidget(QLabel("Mask opening factor:"), 0, 4)
+        
+        self.closing_factorBox = QSpinBox(self)
+        self.closing_factorBox.setMaximum(2000)
+        self.closing_factorBox.setValue(3)
+        self.closing_factorBox.setSingleStep(1)
+        ipLayout.addWidget(self.closing_factorBox, 0, 7)
+        ipLayout.addWidget(QLabel("Mask closing factor:"), 0, 6)   
+        
+        self.binary_adaptive_block_sizeBox = QSpinBox(self)
+        self.binary_adaptive_block_sizeBox.setMaximum(2000)
+        self.binary_adaptive_block_sizeBox.setValue(335)
+        self.binary_adaptive_block_sizeBox.setSingleStep(50)
+        ipLayout.addWidget(self.binary_adaptive_block_sizeBox, 1, 1)
+        ipLayout.addWidget(QLabel("Adaptive mask size:"), 1, 0)
+                
         imageprocessingContainer.setLayout(ipLayout)
         
         #----------------------------------------------------------------------
@@ -131,7 +152,11 @@ class MyWindow(QtWidgets.QWidget):
         textboxValue6 = self.textboxF.currentText()
         UI_selectnum = int(textboxValue6)
 
-        UI_smallestsize = int(self.textboxG.currentText())        
+        UI_smallestsize = int(self.textboxG.currentText())    
+        
+        UI_openingfactor = int(self.opening_factorBox.value())
+        UI_closingfactor = int(self.closing_factorBox.value())
+        UI_binary_adaptive_block_size = int(self.binary_adaptive_block_sizeBox.value())
         
         #------------------------------------before start, set Spyder graphic back to inline-------------------------------
         get_ipython().run_line_magic('matplotlib', 'inline') # before start, set spyder back to inline
@@ -142,12 +167,12 @@ class MyWindow(QtWidgets.QWidget):
         print(self.readin[0])
         print(self.samplingrate)
         
-        self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, self.samplingrate, self.analogwave, self.digitalwave, self.readin, UI_selectnum, UI_smallestsize)
-        #self.S.start()
+        self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, self.samplingrate, self.analogwave, self.digitalwave, self.readin, UI_selectnum, UI_smallestsize, UI_openingfactor, UI_closingfactor, UI_binary_adaptive_block_size)
+        self.S.start()
 
 
     def get_login(self):
-        self.adgeneratorthread = adsignalsgenerator_v1.adgenerator()
+        self.adgeneratorthread = adsignalsgenerator_v2.adgenerator()
         self.adgeneratorthread.measurement.connect(self.get_data)
         self.adgeneratorthread.show()
         # if "Generate & show" is pressed, the generated waves are fed to main program.

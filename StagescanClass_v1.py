@@ -17,7 +17,7 @@ from trymageAnalysis import ImageAnalysis
 import numpy.lib.recfunctions as rfn
 
 class Stagescan():
-    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11):
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13, value14):
         # Settings for stage scan
         self.ludlStage = LudlStage("COM7")
         self.UI_row_start_stagescan = value1
@@ -31,6 +31,9 @@ class Stagescan():
         self.readinchannels = value9
         self.selected_num = value10
         self.smallestsize = value11
+        self.opening_factor = value12
+        self.closing_factor = value13
+        self.binary_adaptive_block_size = value14
         
     def start(self):
         # settings for scanning index
@@ -128,7 +131,7 @@ class Stagescan():
                 # Image processing
                 #kkk = Data_dict_1[Pic_name]/Data_dict_0[Pic_name]
                 S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
-                v1, v2, bw, thres = S.applyMask()
+                v1, v2, bw, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
                 #R = S.ratio(v1, v2)
                 L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(self.smallestsize, bw, thres, v1, v2, i, j, 8)
                 S.showlabel(self.smallestsize, bw, v1, thres, i, j, cp)

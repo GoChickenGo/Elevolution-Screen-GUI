@@ -37,7 +37,7 @@ pg.setConfigOption('useOpenGL', True)
 pg.setConfigOption('leftButtonPan', False)
 """
 pg.setConfigOptions(imageAxisOrder='row-major')
-
+'''
 class pmtwindow(pg.GraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs) 
@@ -73,12 +73,6 @@ class pmtwindow(pg.GraphicsView):
         
         self.imgroi = pg.ImageItem()
         self.vb2.addItem(self.imgroi)        
-        '''
-        # create ROI
-        self.rois = []
-        self.rois.append(pg.RectROI([20, 20], [20, 20], pen=(0,9)))
-        self.rois[-1].addRotateHandle([1,0], [0.5, 0.5])
-        '''
         self.roi = pg.RectROI([20, 20], [20, 20], pen=(0,9))
         self.roi.addRotateFreeHandle([1,0], [0.5, 0.5])
         
@@ -91,33 +85,34 @@ class pmtwindow(pg.GraphicsView):
         self.pmt_img.setImage(data)
         self.imgroi.setImage(self.roi.getArrayRegion(data, self.pmt_img), levels=(0, data.max()))
 
-class averageimagewindow(pg.GraphicsView):
+class weightedimagewindow(pg.GraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs) 
-        self.l_averageimagewindow = pg.GraphicsLayout(border=(50,50,50))
-        self.setCentralItem(self.l_averageimagewindow)
+        self.l_weightedimgwindow = pg.GraphicsLayout(border=(10,10,10))
+        self.setCentralItem(self.l_weightedimgwindow)
         self.show()
-        self.setWindowTitle('pyqtgraph example: GraphicsLayout')
-        self.resize(400,300)
+        self.setWindowTitle('weightedimgwindow')
+        self.resize(300,250)
         #self.win = pg.GraphicsLayoutWidget()
         
         #block 1 containing pmt image
-        self.w0_averageimagewindow = self.l_averageimagewindow.addLayout(row=0, col=0)        
-        self.w0_averageimagewindow.addLabel('Average image', row=0, col=0) 
-        self.vb_averageimagewindow = self.w0_averageimagewindow.addViewBox(row=1, col=0, lockAspect=True, colspan=2)       
+        self.w0_weightedimgwindow = self.l_weightedimgwindow.addLayout(row=0, col=0)        
+        #self.w0_weightedimgwindow.addLabel('Average image', row=0, col=0) 
+        self.vb_weightedimgwindow = self.w0_weightedimgwindow.addViewBox(row=0, col=0, lockAspect=True, colspan=1, invertY=True)# ImageItem issue! invertY : https://github.com/pyqtgraph/pyqtgraph/issues/315
         ## lock the aspect ratio so pixels are always square
         self.setAspectLocked(True)
         
         ## Create image item
-        self.average_imgItem = pg.ImageItem(border='w')
-        self.vb_averageimagewindow.addItem(self.average_imgItem)
+        self.weightedimgItem = pg.ImageItem(border='w')
+        self.vb_weightedimgwindow.addItem(self.weightedimgItem)
         # Add histogram
         #self.w1 = self.l.addLayout(row=0, col=1)
-        self.hiswidget_ave = pg.HistogramLUTItem()
-        self.l_averageimagewindow.addItem(self.hiswidget_ave)
-        self.hiswidget_ave.setImageItem(self.average_imgItem)
-        self.hiswidget_ave.autoHistogramRange()
-        '''
+        self.hiswidget_weight = pg.HistogramLUTItem()
+        self.hiswidget_weight.autoHistogramRange()
+        self.l_weightedimgwindow.addItem(self.hiswidget_weight)
+        self.hiswidget_weight.setImageItem(self.weightedimgItem)
+        
+
         # create ROI
         self.w2 = self.l_averageimagewindow.addLayout()
         self.w2.addLabel('ROI', row=0, col=0)        
@@ -132,12 +127,14 @@ class averageimagewindow(pg.GraphicsView):
         self.rois.append(pg.RectROI([20, 20], [20, 20], pen=(0,9)))
         self.rois[-1].addRotateHandle([1,0], [0.5, 0.5])
         
-        self.roi = pg.RectROI([20, 20], [20, 20], pen=(0,9))
-        self.roi.addRotateFreeHandle([1,0], [0.5, 0.5])
-        '''
+        self.roi_weighted = pg.RectROI([20, 20], [20, 20], pen=(0,9))
+        self.roi_weighted.addRotateFreeHandle([1,0], [0.5, 0.5])
+        
         #for self.roi in self.rois:
             #roi.sigRegionChanged.connect(update)
-        #self.vb_averageimagewindow.addItem(self.roi)# add ROIs to main image
+        self.vb_weightedimgwindow.addItem(self.roi_weighted)# add ROIs to main image
+
+'''        
         
 class Mainbody(QWidget):
     
@@ -171,13 +168,40 @@ class Mainbody(QWidget):
         #-----------------------------------------------------------GUI for PMT tab------------------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------  
         #**************************************************************************************************************************************        
-        pmtimageContainer = QGroupBox("Output")
+        pmtimageContainer = QGroupBox("PMT image")
         self.pmtimageLayout = QGridLayout()
         
-        self.pmtvideoWidget = pmtwindow()
+        self.pmtvideoWidget = pg.ImageView()
+        self.pmtvideoWidget.ui.roiBtn.hide()
+        self.pmtvideoWidget.ui.menuBtn.hide()  
+        self.pmtvideoWidget.resize(500,500)
         self.pmtimageLayout.addWidget(self.pmtvideoWidget, 0, 0)
         
+        pmtroiContainer = QGroupBox("PMT ROI")
+        self.pmtimageroiLayout = QGridLayout()
+        
+        self.pmt_roiwidget = pg.GraphicsLayoutWidget()
+        self.pmtvideoWidget.resize(200,200)
+        self.pmt_roiwidget.addLabel('ROI', row=0, col=0) 
+        # create ROI
+        self.vb_2 = self.pmt_roiwidget.addViewBox(row=1, col=0, lockAspect=True, colspan=1)
+        self.vb_2.name = 'ROI'
+        
+        self.pmtimgroi = pg.ImageItem()
+        self.vb_2.addItem(self.pmtimgroi)        
+        self.roi = pg.RectROI([20, 20], [20, 20], pen=(0,9))
+        self.roi.addRotateFreeHandle([1,0], [0.5, 0.5])
+        
+        self.pmtvb = self.pmtvideoWidget.getView()
+        self.pmtimageitem = self.pmtvideoWidget.getImageItem()
+        self.pmtvb.addItem(self.roi)# add ROIs to main image
+        
+        self.pmtimageroiLayout.addWidget(self.pmt_roiwidget, 0, 0)
+        
+        pmtimageContainer.setMinimumWidth(800)
+        
         pmtimageContainer.setLayout(self.pmtimageLayout)
+        pmtroiContainer.setLayout(self.pmtimageroiLayout)
         #----------------------------Control-----------------------------------
         controlContainer = QGroupBox("Galvo Scanning Panel")
         self.controlLayout = QGridLayout()
@@ -241,9 +265,10 @@ class Mainbody(QWidget):
         controlContainer.setLayout(self.controlLayout)
         
         #---------------------------Set tab1 layout---------------------------
-        pmtmaster = QVBoxLayout()
-        pmtmaster.addWidget(pmtimageContainer)
-        pmtmaster.addWidget(controlContainer)
+        pmtmaster = QGridLayout()
+        pmtmaster.addWidget(pmtimageContainer, 0,0)
+        pmtmaster.addWidget(pmtroiContainer,0,1)        
+        pmtmaster.addWidget(controlContainer,1,0,1,2)
         
         self.tab1.setLayout(pmtmaster)
         #**************************************************************************************************************************************
@@ -617,22 +642,41 @@ class Mainbody(QWidget):
         self.pw_patch_current.setLabel('bottom', 'Time', units='s')
         self.pw_patch_current.setLabel('left', 'Current', units='pA')
         self.Curvedisplay_Layout.addWidget(self.pw_patch_current, 1,0) 
+        
+        '''        
+        self.datadislay_label = pg.LabelItem(justify='right')
+        self.pw_patch_current.addItem(self.datadislay_label)
+        '''
+        #cross hair
+        self.vLine = pg.InfiniteLine(pos=0.4, angle=90, movable=True)
+        self.pw_patch_current.addItem(self.vLine, ignoreBounds=True)
+        
         #Camera trace window
         self.pw_patch_camtrace = pg.PlotWidget(title='Trace plot')
         self.pw_patch_camtrace.setLabel('bottom', 'Time', units='s')
         self.pw_patch_camtrace.setLabel('left', 'signal', units=' counts/ms')
-        self.pw_patch_camtrace.addLegend(offset=(20,5)) # Add legend here, Plotitem with name will be automated displayed.
+        
+        
+        #self.pw_patch_camtrace.addLegend(offset=(20,5)) # Add legend here, Plotitem with name will be automated displayed.
         self.Curvedisplay_Layout.addWidget(self.pw_patch_camtrace, 2,0) 
 
-        
+        self.vLine_cam = pg.InfiniteLine(pos=0.4, angle=90, movable=True)
+        self.pw_patch_camtrace.addItem(self.vLine_cam, ignoreBounds=True)
+
         Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
         Curvedisplay_Container.setMaximumHeight(550)
+        
+        self.vLine.sigPositionChangeFinished.connect(self.showpointdata)
+        self.vLine_cam.sigPositionChangeFinished.connect(self.showpointdata_camtrace)
         #------------------------------------------------------Image Analysis-Average window-------------------------------------------------------
         imageanalysis_average_Container = QGroupBox("Image Analysis-Average window")
         self.imageanalysisLayout_average = QGridLayout()
                 
         #self.pw_averageimage = averageimagewindow()
         self.pw_averageimage = pg.ImageView()
+        self.pw_averageimage.ui.roiBtn.hide()
+        self.pw_averageimage.ui.menuBtn.hide()        
+    
         self.imageanalysisLayout_average.addWidget(self.pw_averageimage, 0, 0, 3, 3)
         
         self.button_average = QPushButton('Cal. average', self)
@@ -648,6 +692,12 @@ class Mainbody(QWidget):
                 
         #self.pw_averageimage = averageimagewindow()
         self.pw_weightimage = pg.ImageView()
+        self.pw_weightimage.ui.roiBtn.hide()
+        self.pw_weightimage.ui.menuBtn.hide()
+        
+        self.roi_weighted = pg.PolyLineROI([[0,0], [10,10], [10,30], [30,10]], closed=True)
+        self.pw_weightimage.view.addItem(self.roi_weighted)
+        #self.pw_weightimage = weightedimagewindow()
         self.imageanalysisLayout_weight.addWidget(self.pw_weightimage, 0, 0, 3, 3)
         
         self.button_weight = QPushButton('Cal. weight', self)
@@ -658,7 +708,7 @@ class Mainbody(QWidget):
         self.button_weighttrace = QPushButton('Weighted Trace', self)
         self.button_weighttrace.setMaximumWidth(83)
         self.imageanalysisLayout_weight.addWidget(self.button_weighttrace, 1, 3) 
-        self.button_weighttrace.clicked.connect(self.calculateweighttrace)
+        self.button_weighttrace.clicked.connect(self.displayweighttrace)
         
         imageanalysis_weight_Container.setLayout(self.imageanalysisLayout_weight)
         imageanalysis_weight_Container.setMinimumHeight(200)
@@ -703,7 +753,7 @@ class Mainbody(QWidget):
         self.patchcurrentlabel = np.arange(len(self.Ip))/self.samplingrate_curve
         
         self.PlotDataItem_patchcurrent = PlotDataItem(self.patchcurrentlabel, self.Ip*1000/self.OC)
-        self.PlotDataItem_patchcurrent.setPen('w')
+        self.PlotDataItem_patchcurrent.setPen('b')
         self.pw_patch_current.addItem(self.PlotDataItem_patchcurrent)
         
         self.patchvoltagelabel = np.arange(len(self.Vp))/self.samplingrate_curve
@@ -712,7 +762,69 @@ class Mainbody(QWidget):
         self.PlotDataItem_patchvoltage.setPen('w')
         self.pw_patch_voltage.addItem(self.PlotDataItem_patchvoltage)
         
+    def showpointdata(self):
+        try:
+            self.pw_patch_current.removeItem(self.currenttextitem)
+        except:
+            self.currenttextitem=pg.TextItem(text='0',color=(255,204,255), anchor=(0, 1))
+            self.currenttextitem.setPos(round(self.vLine.value(), 2), 0)
+            self.pw_patch_current.addItem(self.currenttextitem)
+            
+            index = (np.abs(np.arange(len(self.Ip))-self.vLine.value()*self.samplingrate_curve)).argmin()
+            
+            self.currenttextitem.setText(str(round(self.vLine.value(), 2))+' s,I='+str(round(self.Ip[int(index)]*1000/self.OC, 2))+' pA')
+        else:
+            self.currenttextitem=pg.TextItem(text='0',color=(255,204,255), anchor=(0, 1))
+            self.currenttextitem.setPos(round(self.vLine.value(), 2), 0)
+            self.pw_patch_current.addItem(self.currenttextitem)
+            
+            index = (np.abs(np.arange(len(self.Ip))-self.vLine.value()*self.samplingrate_curve)).argmin()
+            
+            self.currenttextitem.setText(str(round(self.vLine.value(), 2))+' s,I='+str(round(self.Ip[int(index)]*1000/self.OC, 2))+' pA')    
+
+    def showpointdata_camtrace(self):
+        if self.line_cam_trace_selection == 1:
+            try:
+                self.pw_patch_camtrace.removeItem(self.camtracetextitem)
+            except:
+                self.camtracetextitem=pg.TextItem(text='0',color=(255,204,255), anchor=(0, 1))
+                self.camtracetextitem.setPos(round(self.vLine_cam.value(), 2), 0)
+                self.pw_patch_camtrace.addItem(self.camtracetextitem)
+                
+                index = (np.abs(np.arange(len(self.camsignalsum))-self.vLine_cam.value()*self.samplingrate_cam)).argmin()
+                
+                self.camtracetextitem.setText('Sum of pixel values:'+str(self.camsignalsum[int(index)]))
+            else:
+                self.camtracetextitem=pg.TextItem(text='0',color=(255,204,255), anchor=(0, 1))
+                self.camtracetextitem.setPos(round(self.vLine_cam.value(), 2), 0)
+                self.pw_patch_camtrace.addItem(self.camtracetextitem)
+                
+                index = (np.abs(np.arange(len(self.camsignalsum))-self.vLine_cam.value()*self.samplingrate_cam)).argmin()
+                
+                self.camtracetextitem.setText('Sum of pixel values:'+str(self.camsignalsum[int(index)]))
+        else:
+            try:
+                self.pw_patch_camtrace.removeItem(self.camtracetextitem)
+            except:
+                self.camtracetextitem=pg.TextItem(text='0',color=(255,204,255), anchor=(0, 1))
+                self.camtracetextitem.setPos(round(self.vLine_cam.value(), 2), 0)
+                self.pw_patch_camtrace.addItem(self.camtracetextitem)
+                
+                index = (np.abs(np.arange(len(self.weighttrace_data))-self.vLine_cam.value()*self.samplingrate_cam)).argmin()
+                
+                self.camtracetextitem.setText('Weighted trace:'+str(self.weighttrace_data[int(index)]))
+            else:
+                self.camtracetextitem=pg.TextItem(text='0',color=(255,204,255), anchor=(0, 1))
+                self.camtracetextitem.setPos(round(self.vLine_cam.value(), 2), 0)
+                self.pw_patch_camtrace.addItem(self.camtracetextitem)
+                
+                index = (np.abs(np.arange(len(self.weighttrace_data))-self.vLine_cam.value()*self.samplingrate_cam)).argmin()
+                
+                self.camtracetextitem.setText('Weighted trace:'+str(self.weighttrace_data[int(index)]))
     def displaycamtrace(self):
+        self.line_cam_trace_selection = 1
+        self.line_cam_weightedtrace_selection = 0
+        
         self.samplingrate_cam = self.Spincamsamplingrate.value()
         
         self.camsignalsum = np.zeros(len(self.videostack))
@@ -739,24 +851,56 @@ class Mainbody(QWidget):
         self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
 
         self.pw_weightimage.setImage(self.weightimage)
+        #print(self.pw_weightimage.levelMax)
+        #print(self.pw_weightimage.levelMin)
+        #self.pw_weightimage.weightedimgItem.setImage(self.weightimage)
+        #k=self.pw_weightimage.hiswidget_weight.getLevels()
+        #print(k)
         
-    def calculateweighttrace(self):     
-        self.samplingrate_cam = self.Spincamsamplingrate.value()
-        self.videolength = len(self.videostack)
-        self.pw_patch_camtrace.clear()
-        
-        k=np.tile(self.weightimage/np.sum(self.weightimage)*self.videostack.shape[1]*self.videostack.shape[2], (self.videolength,1,1))
-        self.weighttrace_tobetime = self.videostack*k
-        
-        self.weighttrace_data = np.zeros(self.videolength)
-        for i in range(self.videolength):
-            self.weighttrace_data[i] = np.mean(self.weighttrace_tobetime[i])
+    def displayweighttrace(self):     
+        try:
+            self.pw_patch_camtrace.removeItem(self.camtracetextitem) # try to remove text besides line, not a good way to do so.
             
-        self.patchcamtracelabel_weighted = np.arange(self.videolength)/self.samplingrate_cam
+            self.line_cam_trace_selection = 0
+            self.line_cam_weightedtrace_selection = 1
+            
+            self.samplingrate_cam = self.Spincamsamplingrate.value()
+            self.videolength = len(self.videostack)
+            self.pw_patch_camtrace.removeItem(self.PlotDataItem_patchcam)      
+    
+            k=np.tile(self.weightimage/np.sum(self.weightimage)*self.videostack.shape[1]*self.videostack.shape[2], (self.videolength,1,1))
+            self.weighttrace_tobetime = self.videostack*k
+            
+            self.weighttrace_data = np.zeros(self.videolength)
+            for i in range(self.videolength):
+                self.weighttrace_data[i] = np.mean(self.weighttrace_tobetime[i])
+                
+            self.patchcamtracelabel_weighted = np.arange(self.videolength)/self.samplingrate_cam
+            
+            self.PlotDataItem_patchcam_weighted = PlotDataItem(self.patchcamtracelabel_weighted, self.weighttrace_data, name = 'Weighted signal trace')
+            self.PlotDataItem_patchcam_weighted.setPen('c')
+            self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam_weighted)       
+        except:
+            self.line_cam_trace_selection = 0
+            self.line_cam_weightedtrace_selection = 1
+            
+            self.samplingrate_cam = self.Spincamsamplingrate.value()
+            self.videolength = len(self.videostack)
+            self.pw_patch_camtrace.removeItem(self.PlotDataItem_patchcam)      
+    
+            k=np.tile(self.weightimage/np.sum(self.weightimage)*self.videostack.shape[1]*self.videostack.shape[2], (self.videolength,1,1))
+            self.weighttrace_tobetime = self.videostack*k
+            
+            self.weighttrace_data = np.zeros(self.videolength)
+            for i in range(self.videolength):
+                self.weighttrace_data[i] = np.mean(self.weighttrace_tobetime[i])
+                
+            self.patchcamtracelabel_weighted = np.arange(self.videolength)/self.samplingrate_cam
+            
+            self.PlotDataItem_patchcam_weighted = PlotDataItem(self.patchcamtracelabel_weighted, self.weighttrace_data, name = 'Weighted signal trace')
+            self.PlotDataItem_patchcam_weighted.setPen('c')
+            self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam_weighted)
         
-        self.PlotDataItem_patchcam_weighted = PlotDataItem(self.patchcamtracelabel_weighted, self.weighttrace_data, name = 'Weighted signal trace')
-        self.PlotDataItem_patchcam_weighted.setPen('c')
-        self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam_weighted)           
         #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         #--------------------------------------------------------------------------------------------------------------------------------------
@@ -786,9 +930,13 @@ class Mainbody(QWidget):
         
     def update_pmt_Graphs(self, data):
         """Update graphs."""
+        
         self.data_pmtcontineous = data
+        self.pmtvideoWidget.setImage(data)
+        self.pmtimgroi.setImage(self.roi.getArrayRegion(data, self.pmtimageitem), levels=(0, data.max()))
+        #
 
-        self.pmtvideoWidget.update_pmt_Window(self.data_pmtcontineous)
+        #self.pmtvideoWidget.update_pmt_Window(self.data_pmtcontineous)
     
         
     def stopMeasurement_pmt(self):

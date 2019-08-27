@@ -6,7 +6,6 @@ Created on Wed May  1 20:20:32 2019
 """
 
 import numpy as np
-import cv2
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import math
@@ -22,26 +21,29 @@ from skimage.restoration import denoise_tv_chambolle
 import numpy.lib.recfunctions as rfn
 
 class ImageAnalysis():
-    def __init__(self, value1, value2):
+    def __init__(self, value1, value2, ):
         self.img_before_tem = value1
         self.img_after_tem = value2
         self.Img_before = self.img_before_tem.copy()
         self.Img_after = self.img_after_tem.copy()
-    def applyMask(self):
+
         
+    def applyMask(self, openingfactor, closingfactor, binary_adaptive_block_size):
+        self.openingfactor=int(openingfactor)#2
+        self.closingfactor=int(closingfactor) #3       
         self.Img_before = denoise_tv_chambolle(self.Img_before, weight=0.01)
         self.Img_after = denoise_tv_chambolle(self.Img_after, weight=0.01)
         
         thresh = threshold_otsu(self.Img_before)#-0.7#-55
         # -----------------------------------------------Adaptive thresholding-----------------------------------------------
-        block_size = 335
+        block_size = binary_adaptive_block_size#335
         binary_adaptive = threshold_local(self.Img_before, block_size, offset=0)
         
         #mask = img_before > thresh # generate mask
         #binarymask = opening(self.Img_before > thresh, square(1))
         binary_adaptive1 = self.Img_before >= binary_adaptive
-        binarymask = opening(binary_adaptive1, square(2))
-        self.mask = closing(binarymask, square(3))
+        binarymask = opening(binary_adaptive1, square(self.openingfactor))
+        self.mask = closing(binarymask, square(self.closingfactor))
         
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(bw)# fig 2
