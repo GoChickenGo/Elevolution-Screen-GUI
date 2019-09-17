@@ -27,6 +27,7 @@ from pyqtgraph import PlotDataItem, TextItem
 from matlabAnalysis import readbinaryfile, extractV
 import os
 import scipy.signal as sg
+import ui_patchclamp_sealtest  
 
 from skimage.io import imread
 #Setting graph settings
@@ -149,7 +150,7 @@ class Mainbody(QWidget):
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------
         #----------------------------------------------------------------------
-        self.setMinimumSize(1200,950)
+        self.setMinimumSize(1050,1200)
         self.setWindowTitle("Tupolev v1.0")
         self.layout = QGridLayout(self)
         # Setting tabs
@@ -174,14 +175,14 @@ class Mainbody(QWidget):
         self.pmtvideoWidget = pg.ImageView()
         self.pmtvideoWidget.ui.roiBtn.hide()
         self.pmtvideoWidget.ui.menuBtn.hide()  
-        self.pmtvideoWidget.resize(500,500)
+        self.pmtvideoWidget.resize(400,400)
         self.pmtimageLayout.addWidget(self.pmtvideoWidget, 0, 0)
         
         pmtroiContainer = QGroupBox("PMT ROI")
         self.pmtimageroiLayout = QGridLayout()
         
         self.pmt_roiwidget = pg.GraphicsLayoutWidget()
-        self.pmtvideoWidget.resize(200,200)
+        self.pmtvideoWidget.resize(150,150)
         self.pmt_roiwidget.addLabel('ROI', row=0, col=0) 
         # create ROI
         self.vb_2 = self.pmt_roiwidget.addViewBox(row=1, col=0, lockAspect=True, colspan=1)
@@ -198,7 +199,7 @@ class Mainbody(QWidget):
         
         self.pmtimageroiLayout.addWidget(self.pmt_roiwidget, 0, 0)
         
-        pmtimageContainer.setMinimumWidth(800)
+        pmtimageContainer.setMinimumWidth(700)
         
         pmtimageContainer.setLayout(self.pmtimageLayout)
         pmtroiContainer.setLayout(self.pmtimageroiLayout)
@@ -228,22 +229,22 @@ class Mainbody(QWidget):
         #self.controlLayout.addWidget(QLabel("Galvo raster scanning : "), 1, 0)
         
         self.textbox1B_pmt = QComboBox()
-        self.textbox1B_pmt.addItems(['-5','-3','-1'])
+        self.textbox1B_pmt.addItems(['-5','-3','-2','-1'])
         self.controlLayout.addWidget(self.textbox1B_pmt, 1, 2)
         self.controlLayout.addWidget(QLabel("voltXMin"), 1, 1)
 
         self.textbox1C_pmt = QComboBox()
-        self.textbox1C_pmt.addItems(['5','3','1'])
+        self.textbox1C_pmt.addItems(['5','3','2','1'])
         self.controlLayout.addWidget(self.textbox1C_pmt, 2, 2)
         self.controlLayout.addWidget(QLabel("voltXMax"), 2, 1)
 
         self.textbox1D_pmt = QComboBox()
-        self.textbox1D_pmt.addItems(['-5','-3','-1'])
+        self.textbox1D_pmt.addItems(['-5','-3','-2','-1'])
         self.controlLayout.addWidget(self.textbox1D_pmt, 1, 4)
         self.controlLayout.addWidget(QLabel("voltYMin"), 1, 3)
 
         self.textbox1E_pmt = QComboBox()
-        self.textbox1E_pmt.addItems(['5','3','1'])
+        self.textbox1E_pmt.addItems(['5','3','2','1'])
         self.controlLayout.addWidget(self.textbox1E_pmt, 2, 4)
         self.controlLayout.addWidget(QLabel("voltYMax"), 2, 3)
 
@@ -420,22 +421,22 @@ class Mainbody(QWidget):
         self.galvotablayout= QGridLayout()
         
         self.textbox1B = QComboBox()
-        self.textbox1B.addItems(['-5','-3','-1'])
+        self.textbox1B.addItems(['-5','-3','-2','-1'])
         self.galvotablayout.addWidget(self.textbox1B, 0, 1)
         self.galvotablayout.addWidget(QLabel("voltXMin"), 0, 0)
 
         self.textbox1C = QComboBox()
-        self.textbox1C.addItems(['5','3','1'])
+        self.textbox1C.addItems(['5','3','2','1'])
         self.galvotablayout.addWidget(self.textbox1C, 1, 1)
         self.galvotablayout.addWidget(QLabel("voltXMax"), 1, 0)
 
         self.textbox1D = QComboBox()
-        self.textbox1D.addItems(['-5','-3','-1'])
+        self.textbox1D.addItems(['-5','-3','-2','-1'])
         self.galvotablayout.addWidget(self.textbox1D, 0, 3)
         self.galvotablayout.addWidget(QLabel("voltYMin"), 0, 2)
 
         self.textbox1E = QComboBox()
-        self.textbox1E.addItems(['5','3','1'])
+        self.textbox1E.addItems(['5','3','2','1'])
         self.galvotablayout.addWidget(self.textbox1E, 1, 3)
         self.galvotablayout.addWidget(QLabel("voltYMax"), 1, 2)
 
@@ -619,6 +620,11 @@ class Mainbody(QWidget):
         self.readimageLayout.addWidget(self.Spincamsamplingrate, 0, 7)
         self.readimageLayout.addWidget(QLabel("Camera FPS:"), 0, 6)
         
+        self.button_clearpolts = QPushButton('Clear', self)
+        self.readimageLayout.addWidget(self.button_clearpolts, 0, 8)         
+        
+        self.button_clearpolts.clicked.connect(self.clearplots)
+        
         self.button_load.clicked.connect(self.loadtiffile)
         self.button_load.clicked.connect(lambda: self.loadcurve(self.fileName))
         self.button_load.clicked.connect(lambda: self.displayElectricalsignal())
@@ -627,7 +633,7 @@ class Mainbody(QWidget):
         readimageContainer.setLayout(self.readimageLayout)
 
         #------------------------------------------------------V, I curve display window-------------------------------------------------------
-        Curvedisplay_Container = QGroupBox("Electrical signal window")
+        self.Curvedisplay_Container = QGroupBox("Electrical signal window")
         self.Curvedisplay_Layout = QGridLayout()
         
         #Voltage window
@@ -663,8 +669,8 @@ class Mainbody(QWidget):
         self.vLine_cam = pg.InfiniteLine(pos=0.4, angle=90, movable=True)
         self.pw_patch_camtrace.addItem(self.vLine_cam, ignoreBounds=True)
 
-        Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
-        Curvedisplay_Container.setMaximumHeight(550)
+        self.Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
+        self.Curvedisplay_Container.setMaximumHeight(550)
         
         self.vLine.sigPositionChangeFinished.connect(self.showpointdata)
         self.vLine_cam.sigPositionChangeFinished.connect(self.showpointdata_camtrace)
@@ -715,7 +721,7 @@ class Mainbody(QWidget):
         
         master_data_analysis = QGridLayout()
         master_data_analysis.addWidget(readimageContainer, 0, 0, 1, 2)
-        master_data_analysis.addWidget(Curvedisplay_Container, 1, 0, 1, 2)
+        master_data_analysis.addWidget(self.Curvedisplay_Container, 1, 0, 1, 2)
         master_data_analysis.addWidget(imageanalysis_average_Container, 2, 0, 1,1)
         master_data_analysis.addWidget(imageanalysis_weight_Container, 2, 1, 1,1)
         self.tab4.setLayout(master_data_analysis)         
@@ -846,7 +852,9 @@ class Mainbody(QWidget):
         self.samplingrate_cam = self.Spincamsamplingrate.value()
         self.downsample_ratio = int(self.samplingrate_curve/self.samplingrate_cam)
         self.Vp_downsample = self.Vp.reshape(-1, self.downsample_ratio).mean(axis=1)
-
+        
+        self.Vp_downsample = self.Vp_downsample[0:len(self.videostack)]
+        
         weight_ins = extractV(self.videostack, self.Vp_downsample*1000/10)
         self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
 
@@ -900,6 +908,21 @@ class Mainbody(QWidget):
             self.PlotDataItem_patchcam_weighted = PlotDataItem(self.patchcamtracelabel_weighted, self.weighttrace_data, name = 'Weighted signal trace')
             self.PlotDataItem_patchcam_weighted.setPen('c')
             self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam_weighted)
+            
+    def clearplots(self):
+        self.pw_patch_voltage.clear()
+        self.pw_patch_current.clear()
+        self.pw_patch_camtrace.clear()
+                
+        self.vLine_cam = pg.InfiniteLine(pos=0.4, angle=90, movable=True)
+        self.pw_patch_camtrace.addItem(self.vLine_cam, ignoreBounds=True)
+        self.vLine = pg.InfiniteLine(pos=0.4, angle=90, movable=True)
+        self.pw_patch_current.addItem(self.vLine, ignoreBounds=True)
+        
+        self.vLine.sigPositionChangeFinished.connect(self.showpointdata)
+        self.vLine_cam.sigPositionChangeFinished.connect(self.showpointdata_camtrace)
+        
+
         
         #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -1832,6 +1855,8 @@ class Mainbody(QWidget):
         self.adcollector.set_waves(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         self.adcollector.collected_data.connect(self.recive_data)
         self.adcollector.start()
+        self.adcollector.save_as_binary()
+        self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
         
     def execute(self):
         

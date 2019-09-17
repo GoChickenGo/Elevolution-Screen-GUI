@@ -6,7 +6,7 @@ Created on Wed Jul 10 10:38:29 2019
 """
 # The adaptive NI DAQ tool
 
-import time
+#import time
 import nidaqmx
 import numpy as np
 from nidaqmx.constants import AcquisitionType, TaskMode, LineGrouping, Signal
@@ -14,7 +14,8 @@ from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalMultiChannel
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogMultiChannelReader
 from PyQt5.QtCore import pyqtSignal, QThread
 import matplotlib.pyplot as plt
-from PIL import Image
+from datetime import datetime
+#from PIL import Image
 
 from configuration import Configuration
 
@@ -154,6 +155,8 @@ class execute_analog_readin_optional_digital_thread(QThread):
             if 'Ip' in self.readinchannels:
                 master_Task_readin.ai_channels.add_ai_current_chan(self.configdictionary['Ip'])
             
+
+            
             # setting clock
             # Analog clock  USE clock on Dev1 as center clock
             slave_Task_1_analog_dev1.timing.cfg_samp_clk_timing(self.Daq_sample_rate, source='ai/SampleClock', sample_mode= AcquisitionType.FINITE, samps_per_chan=self.Totalscansamplesnumber)
@@ -251,6 +254,24 @@ class execute_analog_readin_optional_digital_thread(QThread):
             
             self.collected_data.emit(self.Dataholder)
             print('^^^^^^^^^^^^^^^^^^Daq tasks finish^^^^^^^^^^^^^^^^^^')
+            
+            #get scaling coefficients
+            self.aichannelnames=master_Task_readin.ai_channels.channel_names
+
+            self.ai_dev_scaling_coeff_vp = []
+            self.ai_dev_scaling_coeff_ip = []
+            if "Vp" in self.readinchannels:
+                self.ai_dev_scaling_coeff_vp = nidaqmx._task_modules.channels.ai_channel.AIChannel(master_Task_readin._handle, self.configdictionary['Vp'])#https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019TuoSAE&l=nl-NL
+                #self.ai_dev_scaling_coeff.ai_dev_scaling_coeff
+                self.ai_dev_scaling_coeff_vp = np.array(self.ai_dev_scaling_coeff_vp.ai_dev_scaling_coeff)
+                
+            if "Ip" in self.readinchannels:
+                self.ai_dev_scaling_coeff_ip = nidaqmx._task_modules.channels.ai_channel.AIChannel(master_Task_readin._handle, self.configdictionary['Ip'])#https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019TuoSAE&l=nl-NL
+                #self.ai_dev_scaling_coeff.ai_dev_scaling_coeff
+                self.ai_dev_scaling_coeff_ip = np.array(self.ai_dev_scaling_coeff_ip.ai_dev_scaling_coeff)           
+            
+            self.ai_dev_scaling_coeff_list = np.append(self.ai_dev_scaling_coeff_vp, self.ai_dev_scaling_coeff_ip)
+            
         # set the keys of galvos back for next round
         for i in range(len(self.analogsignals['Sepcification'])):
             if 'galvosx' in self.analogsignals['Sepcification'][i]:
@@ -258,8 +279,30 @@ class execute_analog_readin_optional_digital_thread(QThread):
             elif 'galvosy' in self.analogsignals['Sepcification'][i]:
                 self.analogsignals['Sepcification'][i] = self.galvosy_originalkey
                
+    def save_as_binary(self):
+        print(self.ai_dev_scaling_coeff_vp)
+        if 'Vp' in self.readinchannels:
+            
+            if 'PMT' not in self.readinchannels:
+                self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[0,:]))
+                np.save('Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_vp_data)
+               
+                if 'Ip' in self.readinchannels:
+                    self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[1,:]))
+                    np.save('Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_Ip_data)                    
+            else:
+                self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[1,:]))
+                np.save('Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_vp_data)
+                
+                if 'Ip' in self.readinchannels:
+                    self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[2,:]))
+                    np.save('Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_Ip_data) 
+               
     def read(self):
         return self.data_PMT
+    
+    def get_ai_dev_scaling_coeff(self):
+        return self.ai_dev_scaling_coeff_list
     
     def aboutToQuitHandler(self):
         self.requestInterruption()
