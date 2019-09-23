@@ -21,7 +21,7 @@ import numpy as np
 import math
 from scipy.optimize import curve_fit
 
-from patchclamp import PatchclampSealTest, PatchclampSealTest_hold
+from patchclamp import PatchclampSealTest, PatchclampSealTest_hold, PatchclampSealTest_currentclamp
 from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
 
@@ -79,7 +79,10 @@ class PatchclampSealTestUI(QWidget):
         self.sealTest.measurementThread.measurement.connect(self.handleMeasurement) #Connecting to the measurement signal
         
         self.holdTest = PatchclampSealTest_hold()
-        self.holdTest.measurementThread_hold.measurement.connect(self.handleMeasurement) #Connecting to the measurement signal        
+        self.holdTest.measurementThread_hold.measurement.connect(self.handleMeasurement) #Connecting to the measurement signal    
+        
+        self.currentclampTest = PatchclampSealTest_currentclamp()
+        self.currentclampTest.measurementThread_currentclamp.measurement.connect(self.handleMeasurement) #Connecting to the measurement signal            
         
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------
@@ -116,7 +119,7 @@ class PatchclampSealTestUI(QWidget):
         
         gainContainer.setLayout(gainLayout)
         #------------------------------Wavesettings-----------------------------------
-        WavesettingsContainer = QGroupBox("Wavesettings")
+        WavesettingsContainer = QGroupBox("Wave settings")
         WavesettingsContainerLayout = QGridLayout()
         
         WavesettingsContainerLayout.addWidget(QLabel("Voltage step(mV)"), 0, 0)
@@ -136,7 +139,30 @@ class PatchclampSealTestUI(QWidget):
         WavesettingsContainerLayout.addWidget(self.LowerVoltagebox, 0, 3)
         
         WavesettingsContainer.setLayout(WavesettingsContainerLayout)
+        #------------------------------Membrane potential-----------------------------------
+        Vm_measureContainer = QGroupBox("Vm measurement")
+        Vm_measureContainerLayout = QGridLayout()
+
+        Vm_measureContainerLayout.addWidget(QLabel("Clamping current(pA)"), 0, 0)
+        self.clampingcurrentbox = QSpinBox(self)
+        self.clampingcurrentbox.setMaximum(2000)
+        self.clampingcurrentbox.setMinimum(-2000)
+        self.clampingcurrentbox.setValue(0)
+        self.clampingcurrentbox.setSingleStep(100)
+        Vm_measureContainerLayout.addWidget(self.clampingcurrentbox, 0, 1)    
         
+        self.membraneVoltLabel = QLabel("Vm: ")
+        Vm_measureContainerLayout.addWidget(self.membraneVoltLabel, 0, 2)
+        
+        self.VmstartButton = QPushButton("Start")
+        self.VmstartButton.clicked.connect(lambda: self.measure_currentclamp())
+        Vm_measureContainerLayout.addWidget(self.VmstartButton, 0, 3)
+        
+        self.VmstopButton = QPushButton("Stop")
+        self.VmstopButton.clicked.connect(lambda: self.stopMeasurement_currentclamp())
+        Vm_measureContainerLayout.addWidget(self.VmstopButton, 0, 4)
+        
+        Vm_measureContainer.setLayout(Vm_measureContainerLayout)
         #----------------------------Control-----------------------------------
         controlContainer = QGroupBox("Control")
         controlLayout = QGridLayout()
@@ -152,7 +178,7 @@ class PatchclampSealTestUI(QWidget):
         
         controlLayout.addWidget(QLabel("Holding Vm:"), 1, 0)
         self.HoldingList = QComboBox()
-        self.HoldingList.addItems(['-30 mV', '-50 mV', '-40 mV', '-60 mV'])
+        self.HoldingList.addItems(['000 mV', '-30 mV', '-50 mV', '-40 mV', '-60 mV'])
         controlLayout.addWidget(self.HoldingList, 2, 0)
         
         self.iconlabel = QLabel(self)
@@ -181,6 +207,7 @@ class PatchclampSealTestUI(QWidget):
         '''
         controlLayout.addWidget(gainContainer, 0, 3)
         controlLayout.addWidget(WavesettingsContainer, 1, 3)
+        controlLayout.addWidget(Vm_measureContainer, 2, 3)
         controlContainer.setLayout(controlLayout)
         
         #-----------------------------Plots------------------------------------
@@ -253,8 +280,24 @@ class PatchclampSealTestUI(QWidget):
         and 
         False if not.
         """
-        self.holdTest.setWave(float(self.HoldingList.currentText()[0:3]))
+        self.holdTest.setWave(self.inVolGain, float(self.HoldingList.currentText()[0:3]))
         self.holdTest.start()
+        
+    def measure_currentclamp(self):
+        """Pop up window asking to check the gains.
+        Returns 
+        True if the measurement can be done
+        and 
+        False if not.
+        """
+        #check = QMessageBox.question(self, 'GAINS!', "Are all the gains corresponding?",
+                                     #QMessageBox.Yes | QMessageBox.No)
+        
+        #if check == QMessageBox.Yes:
+        """Start the patchclamp measurement"""
+        self.currentclamp_value = self.clampingcurrentbox.value()
+        self.currentclampTest.setWave(self.inVolGain, self.probeGain, self.currentclamp_value)
+        self.currentclampTest.start()
             
     def hold(self):
         constant = float(self.HoldingList.currentText()[0:3])
@@ -324,6 +367,12 @@ class PatchclampSealTestUI(QWidget):
             self.resistanceLabel.setText("Resistance:  %s" % 'NaN')
             
         try:
+            measured_vlotage = np.mean(voltData)*1000
+            self.membraneVoltLabel.setText("Vm:  %.2f mV" % measured_vlotage)
+            self.membraneVoltLabel.setStyleSheet('color: red')
+        except: 
+            self.membraneVoltLabel.setText("Vm:  %s" % 'NaN')            
+        try:
             #Computing capacitance
             points = 10
             maxCur = np.amax(curData)
@@ -354,14 +403,17 @@ class PatchclampSealTestUI(QWidget):
             self.ratioLabel.setText("Ratio:  %s" % 'NaN')
         
     def stopMeasurement(self):
-        """Stop the seal test."""
+        """Stop the seal test."""        
         self.sealTest.aboutToQuitHandler()
-        
+        #constant = float(self.HoldingList.currentText()[0:3])
+        #self.executer = execute_constant_vpatch(constant/1000*10)
+        #print("Holding vm at "+str(constant)+' mV')
+    '''        
     def closeEvent(self, event):
         """On closing the application we have to make sure that the measuremnt
         stops and the device gets freed."""
         self.stopMeasurement()
-        
+    '''       
     def stop_hold_Measurement(self):
         """Stop the seal test."""
         self.holdTest.aboutToQuitHandler()
@@ -370,6 +422,10 @@ class PatchclampSealTestUI(QWidget):
         """On closing the application we have to make sure that the measuremnt
         stops and the device gets freed."""
         self.stop_hold_Measurement()
+        
+    def stopMeasurement_currentclamp(self):
+        """Stop the seal test."""
+        self.currentclampTest.aboutToQuitHandler()
     
     #Change gain
     def changeVolInGain(self, gain):

@@ -157,7 +157,7 @@ class Mainbody(QWidget):
         self.tabs = QTabWidget()
         self.tab1 = QWidget()
         self.tab2 = QWidget()
-        self.tab3 = QWidget()
+        self.tab3 = ui_patchclamp_sealtest.PatchclampSealTestUI()
         self.tab4 = QWidget()        
         # Add tabs
         self.tabs.addTab(self.tab1,"PMT imaging")
@@ -745,15 +745,26 @@ class Mainbody(QWidget):
         for file in os.listdir(os.path.dirname(self.fileName)):
             if file.endswith(".Ip"):
                 self.Ipfilename = os.path.dirname(self.fileName) + '/'+file
+                curvereadingobjective_i =  readbinaryfile(self.Ipfilename)               
+                self.Ip, self.samplingrate_curve = curvereadingobjective_i.readbinarycurve()                
+                
             elif file.endswith(".Vp"):
                 self.Vpfilename = os.path.dirname(self.fileName) + '/'+file
+                curvereadingobjective_V =  readbinaryfile(self.Vpfilename)               
+                self.Vp, self.samplingrate_curve = curvereadingobjective_V.readbinarycurve()                
                 
-        curvereadingobjective_i =  readbinaryfile(self.Ipfilename)               
-        self.Ip, self.samplingrate_curve = curvereadingobjective_i.readbinarycurve()
-        
-        curvereadingobjective_V =  readbinaryfile(self.Vpfilename)               
-        self.Vp, self.samplingrate_curve = curvereadingobjective_V.readbinarycurve()
-        
+            elif file.startswith('Vp'):
+                self.Vpfilename_npy = os.path.dirname(self.fileName) + '/'+file
+                curvereadingobjective_V =  np.load(self.Vpfilename_npy)
+                self.Vp = curvereadingobjective_V[5:len(curvereadingobjective_V)]
+                self.samplingrate_curve = curvereadingobjective_V[0]
+                
+            elif file.startswith('Ip'):
+                self.Ipfilename_npy = os.path.dirname(self.fileName) + '/'+file
+                curvereadingobjective_I =  np.load(self.Ipfilename_npy)
+                self.Ip = curvereadingobjective_I[5:len(curvereadingobjective_I)]
+                self.samplingrate_curve = curvereadingobjective_I[0]
+
     def displayElectricalsignal(self):
         
         self.patchcurrentlabel = np.arange(len(self.Ip))/self.samplingrate_curve
@@ -1011,7 +1022,9 @@ class Mainbody(QWidget):
                 self.generate_patchAO()
                 self.generate_patchAO_graphy()
                 self.set_switch('patchAO')
-            elif self.textbox2A.currentText() == 'galvos':
+                
+        if self.wavetabs.currentIndex() == 3:
+            if self.textbox2A.currentText() == 'galvos':
                 if self.Galvo_samples is not None:
                     self.pw.removeItem(self.PlotDataItem_galvos) 
                     self.pw.removeItem(self.textitem_galvos)
@@ -1757,8 +1770,8 @@ class Mainbody(QWidget):
             if len(self.analog_data_container[key]) >= self.reference_length:
                 self.analog_data_container[key] = self.analog_data_container[key][0:self.reference_length]
             else:
-                append_zeros = np.zeros(self.reference_length-len(self.analog_data_container[key]))
-                self.analog_data_container[key] = np.append(self.analog_data_container[key], append_zeros)
+                append_waveforms = np.zeros(self.reference_length-len(self.analog_data_container[key]))
+                self.analog_data_container[key] = np.append(self.analog_data_container[key], append_waveforms)
             #print(len(self.analog_data_container[key]))
         self.analogcontainer_array = np.zeros(len(self.analog_data_container), dtype =tp_analog)
         analogloopnum = 0
@@ -1780,9 +1793,12 @@ class Mainbody(QWidget):
         for key in self.digital_data_container:
             if len(self.digital_data_container[key]) >= self.reference_length:
                 self.digital_data_container[key] = self.digital_data_container[key][0:self.reference_length]
+            elif key == 'blankingall':
+                append_waveforms = np.ones(self.reference_length-len(self.digital_data_container[key]))
+                self.digital_data_container[key] = np.append(self.digital_data_container[key], append_waveforms)                
             else:
-                append_zeros = np.zeros(self.reference_length-len(self.digital_data_container[key]))
-                self.digital_data_container[key] = np.append(self.digital_data_container[key], append_zeros)
+                append_waveforms = np.zeros(self.reference_length-len(self.digital_data_container[key]))
+                self.digital_data_container[key] = np.append(self.digital_data_container[key], append_waveforms)
             #print(len(self.digital_data_container[key]))
         self.digitalcontainer_array = np.zeros(len(self.digital_data_container), dtype =tp_digital)
         digitalloopnum = 0
