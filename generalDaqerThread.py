@@ -10,7 +10,7 @@ Created on Wed Jul 10 10:38:29 2019
 import nidaqmx
 import numpy as np
 from nidaqmx.constants import AcquisitionType, TaskMode, LineGrouping, Signal
-from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalMultiChannelWriter
+from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalMultiChannelWriter, DigitalSingleChannelWriter
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogMultiChannelReader
 from PyQt5.QtCore import pyqtSignal, QThread
 import matplotlib.pyplot as plt
@@ -18,6 +18,7 @@ from datetime import datetime
 #from PIL import Image
 
 from configuration import Configuration
+#!!!!!!!!!!!Change start() to run() will cause issues to get scaling coffs!!!!!!!!!!!!!!!!!!!!!!!
 
 class execute_analog_readin_optional_digital_thread(QThread):
     collected_data = pyqtSignal(np.ndarray)
@@ -280,7 +281,7 @@ class execute_analog_readin_optional_digital_thread(QThread):
                 self.analogsignals['Sepcification'][i] = self.galvosy_originalkey
                
     def save_as_binary(self):
-        print(self.ai_dev_scaling_coeff_vp)
+        #print(self.ai_dev_scaling_coeff_vp)
         if 'Vp' in self.readinchannels:
             
             if 'PMT' not in self.readinchannels:
@@ -307,3 +308,99 @@ class execute_analog_readin_optional_digital_thread(QThread):
     def aboutToQuitHandler(self):
         self.requestInterruption()
         self.wait()            
+        
+class execute_tread_singlesample_analog(QThread):    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.configs = Configuration()
+        self.configdictionary = {'galvosx':self.configs.galvoXChannel,
+                            'galvosy':'Dev1/ao1',#self.configs.galvoYChannel, 
+                            '640AO':'Dev1/ao3',
+                            '488AO':'Dev2/ao1',
+                            '532AO':'Dev2/ao0',
+                            'patchAO':self.configs.patchVoltInChannel,
+                            'cameratrigger':"Dev1/port0/line25",
+                            'galvotrigger':"Dev1/port0/line25",
+                            'blankingall':"Dev1/port0/line4",
+                            '640blanking':"Dev1/port0/line4",
+                            '532blanking':"Dev1/port0/line6",
+                            '488blanking':"Dev1/port0/line3",
+                            'PMT':"Dev1/ai0",
+                            'Vp':"Dev1/ai22",
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
+                            }
+    def set_waves(self, channel, value):
+        self.channelname = self.configdictionary[channel]
+        self.writting_value = value/100
+    def start(self):
+        # Assume that dev1 is always employed
+        with nidaqmx.Task() as writingtask:
+            writingtask.ao_channels.add_ao_voltage_chan(self.channelname)
+            writingtask.write(self.writting_value)
+            
+class execute_tread_singlesample_digital(QThread):    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.configs = Configuration()
+        self.configdictionary = {'galvosx':self.configs.galvoXChannel,
+                            'galvosy':'Dev1/ao1',#self.configs.galvoYChannel, 
+                            '640AO':'Dev1/ao3',
+                            '488AO':'Dev2/ao1',
+                            '532AO':'Dev2/ao0',
+                            'patchAO':self.configs.patchVoltInChannel,
+                            'cameratrigger':"Dev1/port0/line25",
+                            'galvotrigger':"Dev1/port0/line25",
+                            'blankingall':"Dev1/port0/line4",
+                            '640blanking':"Dev1/port0/line4",
+                            '532blanking':"Dev1/port0/line6",
+                            '488blanking':"Dev1/port0/line3",
+                            'PMT':"Dev1/ai0",
+                            'Vp':"Dev1/ai22",
+                            'Ip':"Dev1/ai20",
+                            'Perfusion_1':"Dev1/port0/line20"
+                            }
+    def set_waves(self, channel, value):
+        self.channelname = self.configdictionary[channel]
+        if channel == '640blanking':
+            if value ==1:
+                b=np.array([1], dtype = bool)
+                self.writting_value = b
+                
+            if value ==0:
+                b=np.array([0], dtype = bool)
+                self.writting_value = b
+        elif channel == '532blanking':
+            if value ==1:
+                b=np.array([1], dtype = bool)
+                self.writting_value = b
+                
+            if value ==0:
+                b=np.array([0], dtype = bool)
+                self.writting_value = b
+        elif channel == '488blanking':
+            if value ==1:
+                b=np.array([1], dtype = bool)
+                self.writting_value = b
+                
+            if value ==0:
+                b=np.array([0], dtype = bool)
+                self.writting_value = b
+
+    def start(self):
+        # Assume that dev1 is always employed
+        with nidaqmx.Task() as writingtask:
+            writingtask.do_channels.add_do_chan(self.channelname)
+            writingtask.write(self.writting_value)
+            '''
+            # Configure the writer and reader
+            #writingtask.timing.cfg_samp_clk_timing(5000, sample_mode= AcquisitionType.FINITE, samps_per_chan=1)            
+            digitalWriter = nidaqmx.stream_writers.DigitalSingleChannelWriter(writingtask.out_stream)   
+
+            # ---------------------------------------------------------------------------------------------------------------------
+            #-----------------------------------------------------Begin to execute in DAQ------------------------------------------
+            digitalWriter.write_one_sample_one_line(self.writting_value, timeout = 16.0)
+            writingtask.start()
+            writingtask.wait_until_done()
+            writingtask.stop()
+            '''
