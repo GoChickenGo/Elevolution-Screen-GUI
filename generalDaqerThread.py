@@ -15,7 +15,8 @@ from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogMultiChannel
 from PyQt5.QtCore import pyqtSignal, QThread
 import matplotlib.pyplot as plt
 from datetime import datetime
-#from PIL import Image
+import os
+from PIL import Image
 
 from configuration import Configuration
 #!!!!!!!!!!!Change start() to run() will cause issues to get scaling coffs!!!!!!!!!!!!!!!!!!!!!!!
@@ -280,25 +281,28 @@ class execute_analog_readin_optional_digital_thread(QThread):
             elif 'galvosy' in self.analogsignals['Sepcification'][i]:
                 self.analogsignals['Sepcification'][i] = self.galvosy_originalkey
                
-    def save_as_binary(self):
+    def save_as_binary(self, directory):
         #print(self.ai_dev_scaling_coeff_vp)
         if 'Vp' in self.readinchannels:
             
             if 'PMT' not in self.readinchannels:
                 self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[0,:]))
-                np.save('Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_vp_data)
+                np.save(os.path.join(directory, 'Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_vp_data)
                
                 if 'Ip' in self.readinchannels:
                     self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[1,:]))
-                    np.save('Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_Ip_data)                    
+                    np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data)                    
             else:
                 self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[1,:]))
-                np.save('Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_vp_data)
+                np.save(os.path.join(directory, 'Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_vp_data)
                 
                 if 'Ip' in self.readinchannels:
                     self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[2,:]))
-                    np.save('Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), self.binaryfile_Ip_data) 
-               
+                    np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data) 
+        if 'PMT' in self.readinchannels:     
+                self.pmtimage = Image.fromarray(self.data_PMT) #generate an image object
+                self.pmtimage.save(os.path.join(directory, 'PMT'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))) #save as tif
+                
     def read(self):
         return self.data_PMT
     

@@ -8,7 +8,7 @@ from __future__ import division
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QFileDialog
+from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, QFileDialog
 
 import pyqtgraph as pg
 
@@ -158,12 +158,42 @@ class Mainbody(QWidget):
         self.tab1 = QWidget()
         self.tab2 = QWidget()
         self.tab3 = ui_patchclamp_sealtest.PatchclampSealTestUI()
-        self.tab4 = QWidget()        
+        self.tab4 = QWidget()
+        self.tab5 = QWidget()
+        
         # Add tabs
         self.tabs.addTab(self.tab1,"PMT imaging")
         self.tabs.addTab(self.tab2,"Waveform")
         self.tabs.addTab(self.tab3,"Patch clamp")
-        self.tabs.addTab(self.tab4,"Image analysis")
+        self.tabs.addTab(self.tab4,"Camera")        
+        self.tabs.addTab(self.tab5,"Image analysis")
+        
+        self.savedirectory = 'M:/tnw/ist/do/projects/Neurophotonics/Brinkslab/Data'
+        
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------GUI for set directory------------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #**************************************************************************************************************************************
+        setdirectoryContainer = QGroupBox("Set directory")
+        self.setdirectorycontrolLayout = QGridLayout()        
+        
+        self.savedirectorytextbox = QtWidgets.QLineEdit(self)
+        self.setdirectorycontrolLayout.addWidget(self.savedirectorytextbox, 0, 0)
+        
+        self.toolButtonOpenDialog = QtWidgets.QPushButton('Click me!')
+        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                "QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+
+        self.toolButtonOpenDialog.setObjectName("toolButtonOpenDialog")
+        self.toolButtonOpenDialog.clicked.connect(self._open_file_dialog)
+        
+        self.setdirectorycontrolLayout.addWidget(self.toolButtonOpenDialog, 0, 1)
+        
+        setdirectoryContainer.setLayout(self.setdirectorycontrolLayout)
+        setdirectoryContainer.setMaximumHeight(100)
+        
+        self.layout.addWidget(setdirectoryContainer, 0, 0)        
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #-----------------------------------------------------------GUI for AOTF---------------------------------------------------------------
@@ -185,7 +215,8 @@ class Mainbody(QWidget):
         self.line640.returnPressed.connect(lambda:self.updatesider(640))
         
         self.switchbutton_640 = QPushButton("640")
-        self.switchbutton_640.setStyleSheet("background-color: red")
+        self.switchbutton_640.setStyleSheet("QPushButton {color:white;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:black;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.switchbutton_640.setCheckable(True)
         #self.holdingbutton.toggle()
         
@@ -205,7 +236,8 @@ class Mainbody(QWidget):
         self.line532.returnPressed.connect(lambda:self.updatesider(532))
         
         self.switchbutton_532 = QPushButton("532")
-        self.switchbutton_532.setStyleSheet("background-color: green")
+        self.switchbutton_532.setStyleSheet("QPushButton {color:white;background-color: green; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:black;background-color: green; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.switchbutton_532.setCheckable(True)
         #self.holdingbutton.toggle()
         
@@ -225,7 +257,8 @@ class Mainbody(QWidget):
         self.line488.returnPressed.connect(lambda:self.updatesider(488))
         
         self.switchbutton_488 = QPushButton("488")
-        self.switchbutton_488.setStyleSheet("background-color: blue")
+        self.switchbutton_488.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:black;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.switchbutton_488.setCheckable(True)
         #self.holdingbutton.toggle()
         
@@ -240,7 +273,47 @@ class Mainbody(QWidget):
         self.AOTFcontrolLayout.addWidget(self.line488, 2, 3)
         
         AOTFcontrolContainer.setLayout(self.AOTFcontrolLayout)
-        self.layout.addWidget(AOTFcontrolContainer, 0, 0)
+        self.layout.addWidget(AOTFcontrolContainer, 1, 0)
+        
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------GUI for AOTF---------------------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #**************************************************************************************************************************************
+        stagecontrolContainer = QGroupBox("Stage control")
+        self.stagecontrolLayout = QGridLayout()
+        
+        self.stage_upwards = QPushButton("↑")
+        self.stage_upwards.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.stagecontrolLayout.addWidget(self.stage_upwards, 1, 2)
+        
+        self.stage_left = QPushButton("←")
+        self.stage_left.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.stagecontrolLayout.addWidget(self.stage_left, 2, 1)
+        
+        self.stage_right = QPushButton("→")
+        self.stage_right.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.stagecontrolLayout.addWidget(self.stage_right, 2, 3)
+        
+        self.stage_down = QPushButton("↓")
+        self.stage_down.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.stagecontrolLayout.addWidget(self.stage_down, 2, 2)
+        
+        self.stage_speed = QSpinBox(self)
+        self.stage_speed.setMinimum(-100)
+        self.stage_speed.setMaximum(100)
+        self.stage_speed.setValue(10)
+        self.stage_speed.setSingleStep(2)        
+        self.stagecontrolLayout.addWidget(self.stage_speed, 0, 1)
+        self.stagecontrolLayout.addWidget(QLabel("Move speed:"), 0, 0)
+        
+        stagecontrolContainer.setLayout(self.stagecontrolLayout)
+        stagecontrolContainer.setMaximumHeight(200)
+        self.layout.addWidget(stagecontrolContainer, 2, 0)        
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #-----------------------------------------------------------GUI for PMT tab------------------------------------------------------------
@@ -283,17 +356,26 @@ class Mainbody(QWidget):
         #----------------------------Control-----------------------------------
         controlContainer = QGroupBox("Galvo Scanning Panel")
         self.controlLayout = QGridLayout()
+        
+        self.pmt_fps_Label = QLabel("Per frame: ")
+        self.controlLayout.addWidget(self.pmt_fps_Label, 3, 5)
     
         self.saveButton_pmt = QPushButton("Save image")
+        self.saveButton_pmt.setStyleSheet("QPushButton {color:DarkGreen;background-color: LimeGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                          "QPushButton:pressed {color:DarkGreen;background-color: DarkOliveGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.saveButton_pmt.clicked.connect(lambda: self.saveimage_pmt())
         self.controlLayout.addWidget(self.saveButton_pmt, 3, 6)
     
         self.startButton_pmt = QPushButton("Start")
+        self.startButton_pmt.setStyleSheet("QPushButton {color:black;background-color: Aquamarine; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                           "QPushButton:pressed {color:black;background-color: Turquoise; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.startButton_pmt.clicked.connect(lambda: self.measure_pmt())
 
         self.controlLayout.addWidget(self.startButton_pmt, 3, 7)
         
         self.stopButton = QPushButton("Stop")
+        self.stopButton.setStyleSheet("QPushButton {color:white;background-color: FireBrick; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                      "QPushButton:pressed {color:black;background-color: FireBrick; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.stopButton.clicked.connect(lambda: self.stopMeasurement_pmt())
         self.controlLayout.addWidget(self.stopButton, 3, 8)
         
@@ -304,24 +386,35 @@ class Mainbody(QWidget):
         self.controlLayout.addWidget(QLabel("Sampling rate:"), 1, 0)
         
         #self.controlLayout.addWidget(QLabel("Galvo raster scanning : "), 1, 0)
-        
-        self.textbox1B_pmt = QComboBox()
-        self.textbox1B_pmt.addItems(['-5','-3','-2','-1'])
+        self.textbox1B_pmt = QSpinBox(self)
+        self.textbox1B_pmt.setMinimum(-10)
+        self.textbox1B_pmt.setMaximum(10)
+        self.textbox1B_pmt.setValue(-5)
+        self.textbox1B_pmt.setSingleStep(1)        
         self.controlLayout.addWidget(self.textbox1B_pmt, 1, 2)
         self.controlLayout.addWidget(QLabel("voltXMin"), 1, 1)
 
-        self.textbox1C_pmt = QComboBox()
-        self.textbox1C_pmt.addItems(['5','3','2','1'])
+        self.textbox1C_pmt = QSpinBox(self)
+        self.textbox1C_pmt.setMinimum(-10)
+        self.textbox1C_pmt.setMaximum(10)
+        self.textbox1C_pmt.setValue(5)
+        self.textbox1C_pmt.setSingleStep(1)   
         self.controlLayout.addWidget(self.textbox1C_pmt, 2, 2)
         self.controlLayout.addWidget(QLabel("voltXMax"), 2, 1)
 
-        self.textbox1D_pmt = QComboBox()
-        self.textbox1D_pmt.addItems(['-5','-3','-2','-1'])
+        self.textbox1D_pmt = QSpinBox(self)
+        self.textbox1D_pmt.setMinimum(-10)
+        self.textbox1D_pmt.setMaximum(10)
+        self.textbox1D_pmt.setValue(-5)
+        self.textbox1D_pmt.setSingleStep(1)   
         self.controlLayout.addWidget(self.textbox1D_pmt, 1, 4)
         self.controlLayout.addWidget(QLabel("voltYMin"), 1, 3)
 
-        self.textbox1E_pmt = QComboBox()
-        self.textbox1E_pmt.addItems(['5','3','2','1'])
+        self.textbox1E_pmt = QSpinBox(self)
+        self.textbox1E_pmt.setMinimum(-10)
+        self.textbox1E_pmt.setMaximum(10)
+        self.textbox1E_pmt.setValue(5)
+        self.textbox1E_pmt.setSingleStep(1)   
         self.controlLayout.addWidget(self.textbox1E_pmt, 2, 4)
         self.controlLayout.addWidget(QLabel("voltYMax"), 2, 3)
 
@@ -334,9 +427,12 @@ class Mainbody(QWidget):
         self.textbox1G_pmt.addItems(['500','256'])
         self.controlLayout.addWidget(self.textbox1G_pmt, 2, 6)
         self.controlLayout.addWidget(QLabel("Y pixel number"), 2, 5)
-        
-        self.textbox1H_pmt = QComboBox()
-        self.textbox1H_pmt.addItems(['5','2','3','8','1'])
+
+        self.textbox1H_pmt = QSpinBox(self)
+        self.textbox1H_pmt.setMinimum(1)
+        self.textbox1H_pmt.setMaximum(20)
+        self.textbox1H_pmt.setValue(1)
+        self.textbox1H_pmt.setSingleStep(1)
         self.controlLayout.addWidget(self.textbox1H_pmt, 1, 8)
         self.controlLayout.addWidget(QLabel("average over:"), 1, 7)
         
@@ -362,6 +458,8 @@ class Mainbody(QWidget):
         
         
         self.button_execute = QPushButton('EXECUTE AD', self)
+        self.button_execute.setStyleSheet("QPushButton {color:white;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                          "QPushButton:pressed {color:black;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.AnalogLayout.addWidget(self.button_execute, 3, 3)
         
         self.button_execute.clicked.connect(self.execute_tread)    
@@ -371,9 +469,13 @@ class Mainbody(QWidget):
         self.AnalogLayout.addWidget(self.textbox2A, 3, 0)
         
         self.button2 = QPushButton('Add', self)
+        self.button2.setStyleSheet("QPushButton {color:white;background-color: LimeGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                   "QPushButton:pressed {color:OrangeRed;background-color: LimeGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.AnalogLayout.addWidget(self.button2, 3, 1)
         
         self.button_del_analog = QPushButton('Delete', self)
+        self.button_del_analog.setStyleSheet("QPushButton {color:white;background-color: Crimson; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                             "QPushButton:pressed {color:black;background-color: Crimson; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}") 
         self.AnalogLayout.addWidget(self.button_del_analog, 3, 2)        
         
         
@@ -407,10 +509,14 @@ class Mainbody(QWidget):
         self.ReadLayout.addWidget(QLabel("Reference waveform:"), 0, 0)
 
         self.button_all = QPushButton('Show waveforms', self)
+        self.button_all.setStyleSheet("QPushButton {color:white;background-color: DeepSkyBlue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                      "QPushButton:pressed {color:black;background-color: DeepSkyBlue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.ReadLayout.addWidget(self.button_all, 0, 4)
         self.button_all.clicked.connect(self.show_all)
 
         self.button_stop_waveforms = QPushButton('Stop', self)
+        self.button_stop_waveforms.setStyleSheet("QPushButton {color:white;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                 "QPushButton:pressed {color:black;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.ReadLayout.addWidget(self.button_stop_waveforms, 0, 5)
         self.button_stop_waveforms.clicked.connect(self.stopMeasurement_daqer)        
                 
@@ -425,13 +531,16 @@ class Mainbody(QWidget):
         self.ReadLayout.addWidget(QLabel("Sampling rate for all:"), 0, 2)
         
         # Read-in channels
-        self.textbox111A = QCheckBox("PMT")
+        self.textbox111A = QCheckBox("---PMT---")
+        self.textbox111A.setStyleSheet('color:CadetBlue;font:bold "Times New Roman"')
         self.ReadLayout.addWidget(self.textbox111A, 1, 1)     
 
-        self.textbox222A = QCheckBox("Vp")
+        self.textbox222A = QCheckBox("---Vp---")
+        self.textbox222A.setStyleSheet('color:Indigo;font:bold "Times New Roman"')
         self.ReadLayout.addWidget(self.textbox222A, 1, 2)   
         
-        self.textbox333A = QCheckBox("Ip")
+        self.textbox333A = QCheckBox("---Ip---")
+        self.textbox333A.setStyleSheet('color:DarkSlateGray	;font:bold "Times New Roman"')
         self.ReadLayout.addWidget(self.textbox333A, 1, 3)
         
         self.ReadLayout.addWidget(QLabel("Recording channels: "), 1, 0)
@@ -471,8 +580,11 @@ class Mainbody(QWidget):
         self.wavetablayout.addWidget(QLabel("Gap between repeat (samples):"), 1, 4)
         
         self.wavetablayout.addWidget(QLabel("Starting amplitude (V):"), 2, 0)
-        self.textbox2H = QComboBox()
-        self.textbox2H.addItems(['5','1'])
+        self.textbox2H = QSpinBox(self)
+        self.textbox2H.setMinimum(-10)
+        self.textbox2H.setMaximum(10)
+        self.textbox2H.setValue(5)
+        self.textbox2H.setSingleStep(1)  
         self.wavetablayout.addWidget(self.textbox2H, 2, 1)        
 
         self.textbox2I = QLineEdit(self)
@@ -481,8 +593,11 @@ class Mainbody(QWidget):
         self.wavetablayout.addWidget(QLabel("Baseline (V):"), 3, 0)
 
         self.wavetablayout.addWidget(QLabel("Step (V):"), 2, 2)
-        self.textbox2J = QComboBox()
-        self.textbox2J.addItems(['0','1', '2'])
+        self.textbox2J = QSpinBox(self)
+        self.textbox2J.setMinimum(-10)
+        self.textbox2J.setMaximum(10)
+        self.textbox2J.setValue(5)
+        self.textbox2J.setSingleStep(1) 
         self.wavetablayout.addWidget(self.textbox2J, 2, 3)
 
         self.wavetablayout.addWidget(QLabel("Cycles:"), 3, 2)
@@ -536,11 +651,23 @@ class Mainbody(QWidget):
         self.textbox1J.setPlaceholderText('0')
         self.galvotablayout.addWidget(self.textbox1J, 2, 3)
         self.galvotablayout.addWidget(QLabel("Gap between scans:"), 2, 2)       
-        
-        self.textbox1H = QComboBox()
-        self.textbox1H.addItems(['5','2','3','8','1'])
+
+        self.textbox1H = QSpinBox(self)
+        self.textbox1H.setMinimum(1)
+        self.textbox1H.setMaximum(20)
+        self.textbox1H.setValue(1)
+        self.textbox1H.setSingleStep(1)
         self.galvotablayout.addWidget(self.textbox1H, 2, 5)
-        self.galvotablayout.addWidget(QLabel("average over:"), 2, 4)
+        self.galvotablayout.addWidget(QLabel("average over:"), 2, 4)        
+
+        self.textbox1K = QSpinBox(self)
+        self.textbox1K.setMinimum(1)
+        self.textbox1K.setMaximum(20)
+        self.textbox1K.setValue(1)
+        self.textbox1K.setSingleStep(1)
+        self.galvotablayout.addWidget(self.textbox1K, 0, 7)
+        self.galvotablayout.addWidget(QLabel("Repeat:"), 0, 6)  
+
         '''
         self.button1 = QPushButton('SHOW WAVE', self)
         self.galvotablayout.addWidget(self.button1, 1, 11)
@@ -581,13 +708,20 @@ class Mainbody(QWidget):
         self.DigitalLayout.addWidget(self.textbox3A, 0, 0)
         
         self.button3 = QPushButton('Add', self)
+        self.button3.setStyleSheet("QPushButton {color:white;background-color: LimeGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                   "QPushButton:pressed {color:OrangeRed;background-color: LimeGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.DigitalLayout.addWidget(self.button3, 0, 1)
         self.button3.clicked.connect(self.chosen_wave_digital)
         #---------------------------------------------------------------------------------------------------------------------------        
         self.button_execute_digital = QPushButton('EXECUTE DIGITAL', self)
+        self.button_execute_digital.setStyleSheet("QPushButton {color:white;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                  "QPushButton:pressed {color:black;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.DigitalLayout.addWidget(self.button_execute_digital, 0, 3)
         
         self.button_del_digital = QPushButton('Delete', self)
+        self.button_del_digital.setStyleSheet("QPushButton {color:white;background-color: Crimson; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                              "QPushButton:pressed {color:black;background-color: Crimson; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+  
         self.DigitalLayout.addWidget(self.button_del_digital, 0, 2)
         
         self.button_execute_digital.clicked.connect(self.execute_digital)
@@ -688,6 +822,8 @@ class Mainbody(QWidget):
         self.button_browse.clicked.connect(self.getfile)
 
         self.button_load = QPushButton('Load', self)
+        self.button_load.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                       "QPushButton:pressed {color:black;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.readimageLayout.addWidget(self.button_load, 0, 3) 
         
         self.Spincamsamplingrate = QSpinBox(self)
@@ -708,7 +844,7 @@ class Mainbody(QWidget):
         self.button_load.clicked.connect(lambda: self.displaycamtrace())
         
         readimageContainer.setLayout(self.readimageLayout)
-
+        readimageContainer.setMaximumHeight(120)
         #------------------------------------------------------V, I curve display window-------------------------------------------------------
         self.Curvedisplay_Container = QGroupBox("Electrical signal window")
         self.Curvedisplay_Layout = QGridLayout()
@@ -801,7 +937,7 @@ class Mainbody(QWidget):
         master_data_analysis.addWidget(self.Curvedisplay_Container, 1, 0, 1, 2)
         master_data_analysis.addWidget(imageanalysis_average_Container, 2, 0, 1,1)
         master_data_analysis.addWidget(imageanalysis_weight_Container, 2, 1, 1,1)
-        self.tab4.setLayout(master_data_analysis)    
+        self.tab5.setLayout(master_data_analysis)    
         '''
         ***************************************************************************************************************************************
         ************************************************************END of GUI*****************************************************************
@@ -1025,16 +1161,18 @@ class Mainbody(QWidget):
         self.Daq_sample_rate_pmt = int(self.textboxAA_pmt.currentText())
         
         #Scanning settings
-        Value_voltXMin = int(self.textbox1B_pmt.currentText())
-        Value_voltXMax = int(self.textbox1C_pmt.currentText())
-        Value_voltYMin = int(self.textbox1D_pmt.currentText())
-        Value_voltYMax = int(self.textbox1E_pmt.currentText())
+        Value_voltXMin = int(self.textbox1B_pmt.value())
+        Value_voltXMax = int(self.textbox1C_pmt.value())
+        Value_voltYMin = int(self.textbox1D_pmt.value())
+        Value_voltYMax = int(self.textbox1E_pmt.value())
         Value_xPixels = int(self.textbox1F_pmt.currentText())
         Value_yPixels = int(self.textbox1G_pmt.currentText())
-        self.averagenum =int(self.textbox1H_pmt.currentText())
+        self.averagenum =int(self.textbox1H_pmt.value())
         
-        self.pmtTest.setWave(self.Daq_sample_rate_pmt, Value_voltXMin, Value_voltXMax, Value_voltYMin, Value_voltYMax, Value_xPixels, Value_yPixels, self.averagenum)
+        Totalscansamples = self.pmtTest.setWave(self.Daq_sample_rate_pmt, Value_voltXMin, Value_voltXMax, Value_voltYMin, Value_voltYMax, Value_xPixels, Value_yPixels, self.averagenum)
+        time_per_frame_pmt = Totalscansamples/self.Daq_sample_rate_pmt
         self.pmtTest.pmtimagingThread.measurement.connect(self.update_pmt_Graphs) #Connecting to the measurement signal 
+        self.pmt_fps_Label.setText("Per frame:  %.4f s" % time_per_frame_pmt)
         self.pmtTest.start()
         
     def saveimage_pmt(self):
@@ -1244,8 +1382,8 @@ class Mainbody(QWidget):
         Value_voltYMax = int(self.textbox1E.currentText())
         Value_xPixels = int(self.textbox1F.currentText())
         Value_yPixels = int(self.textbox1G.currentText())
-        self.averagenum =int(self.textbox1H.currentText())
-        
+        self.averagenum =int(self.textbox1H.value())
+        repeatnum = int(self.textbox1K.value())
         if not self.textbox1I.text():
             self.Galvo_samples_offset = 1
             self.offsetsamples_galvo = []
@@ -1262,11 +1400,26 @@ class Mainbody(QWidget):
         #ScanArrayX = wavegenerator.xValuesSingleSawtooth(sampleRate = Daq_sample_rate, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, xPixels = Value_xPixels, sawtooth = True)
         #Totalscansamples = len(self.samples_1)*self.averagenum # Calculate number of samples to feed to scanner, by default it's one frame 
         self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
-        
+        if not self.textbox1J.text():
+            gap_sample = 0
+            self.gapsamples_number_galvo = 0
+        else:
+            gap_sample = int(self.textbox1J.text())
+            
+            self.gapsamples_number_galvo = int((gap_sample/1000)*self.uiDaq_sample_rate) 
+
         #print(self.Digital_container_feeder[:, 0])
         
         self.repeated_samples_1 = np.tile(self.samples_1, self.averagenum)
         self.repeated_samples_2_yaxis = np.tile(self.samples_2, self.averagenum)
+        #Adding gap between scans
+        self.gap_samples_1 =self.repeated_samples_1[-1]*np.ones(self.gapsamples_number_galvo)
+        self.repeated_samples_1 = np.append(self.repeated_samples_1, self.gap_samples_1)     
+        self.gap_samples_2 =self.repeated_samples_2_yaxis[-1]*np.ones(self.gapsamples_number_galvo)
+        self.repeated_samples_2_yaxis = np.append(self.repeated_samples_2_yaxis, self.gap_samples_2) 
+        
+        self.repeated_samples_1 = np.tile(self.repeated_samples_1, repeatnum)
+        self.repeated_samples_2_yaxis = np.tile(self.repeated_samples_2_yaxis, repeatnum)        
 
         self.repeated_samples_1 = np.append(self.offsetsamples_galvo, self.repeated_samples_1)
         self.repeated_samples_2_yaxis = np.append(self.offsetsamples_galvo, self.repeated_samples_2_yaxis)
@@ -1277,9 +1430,11 @@ class Mainbody(QWidget):
             
     def generate_galvos_graphy(self):
 
-        self.xlabelhere_galvos = np.arange(len(self.repeated_samples_2_yaxis))/self.uiDaq_sample_rate
+        self.xlabelhere_galvos = np.arange(len(self.repeated_samples_2_yaxis))/self.uiDaq_sample_rate    
         self.PlotDataItem_galvos = PlotDataItem(self.xlabelhere_galvos, self.repeated_samples_2_yaxis)
+        self.PlotDataItem_galvos.setDownsampling(auto=True, method='mean')            
         self.PlotDataItem_galvos.setPen('w')
+
         self.pw.addItem(self.PlotDataItem_galvos)
         self.textitem_galvos = pg.TextItem(text='galvos', color=('w'), anchor=(1, 1))
         self.textitem_galvos.setPos(0, 5)
@@ -1296,8 +1451,8 @@ class Mainbody(QWidget):
         Value_voltYMax = int(self.textbox1E.currentText())
         Value_xPixels = int(self.textbox1F.currentText())
         Value_yPixels = int(self.textbox1G.currentText())
-        self.averagenum =int(self.textbox1H.currentText())
-        
+        self.averagenum =int(self.textbox1H.value())
+        repeatnum = int(self.textbox1K.value())
         if not self.textbox1I.text():
             self.Galvo_samples_offset = 1
             self.offsetsamples_galvo = []
@@ -1312,15 +1467,30 @@ class Mainbody(QWidget):
                          voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
                          sawtooth = True)
         self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
-        
+        if not self.textbox1J.text():
+            gap_sample = 0
+            self.gapsamples_number_galvo = 0
+        else:
+            gap_sample = int(self.textbox1J.text())
+            
+            self.gapsamples_number_galvo = int((gap_sample/1000)*self.uiDaq_sample_rate)         
         #print(self.Digital_container_feeder[:, 0])
         
         self.repeated_samples_1 = np.tile(self.samples_1, self.averagenum)
         self.repeated_samples_2_yaxis = np.tile(self.samples_2, self.averagenum)
 
+        #Adding gap between scans
+        self.gap_samples_1 =self.repeated_samples_1[-1]*np.ones(self.gapsamples_number_galvo)
+        self.repeated_samples_1 = np.append(self.repeated_samples_1, self.gap_samples_1)     
+        self.gap_samples_2 =self.repeated_samples_2_yaxis[-1]*np.ones(self.gapsamples_number_galvo)
+        self.repeated_samples_2_yaxis = np.append(self.repeated_samples_2_yaxis, self.gap_samples_2) 
+        
+        self.repeated_samples_1 = np.tile(self.repeated_samples_1, repeatnum)
+        self.repeated_samples_2_yaxis = np.tile(self.repeated_samples_2_yaxis, repeatnum) 
+
         self.repeated_samples_1 = np.append(self.offsetsamples_galvo, self.repeated_samples_1)
         self.repeated_samples_2_yaxis = np.append(self.offsetsamples_galvo, self.repeated_samples_2_yaxis)
-   
+        
         samplenumber_oneframe = len(self.samples_1)
         
         self.true_sample_num_singleperiod_galvotrigger = round((20/1000)*self.uiDaq_sample_rate) # Default the trigger lasts for 20 ms.
@@ -1333,9 +1503,12 @@ class Mainbody(QWidget):
         
         self.sample_repeatedperiod_galvotrigger = np.tile(self.sample_singleperiod_galvotrigger, self.averagenum)
         
+        self.gap_samples_galvotrigger =np.zeros(self.gapsamples_number_galvo, dtype=bool)
+        self.gap_samples_galvotrigger = np.append(self.sample_repeatedperiod_galvotrigger, self.gap_samples_galvotrigger)         
+        self.repeated_gap_samples_galvotrigger = np.tile(self.gap_samples_galvotrigger, repeatnum)
         self.offset_galvotrigger = np.array(self.offsetsamples_galvo, dtype=bool)
         
-        self.final_galvotrigger = np.append(self.offset_galvotrigger, self.sample_repeatedperiod_galvotrigger)
+        self.final_galvotrigger = np.append(self.offset_galvotrigger, self.repeated_gap_samples_galvotrigger)
         return self.final_galvotrigger
         
     def generate_galvotrigger_graphy(self):
@@ -1343,6 +1516,7 @@ class Mainbody(QWidget):
         self.final_galvotrigger_forgraphy = self.final_galvotrigger.astype(int)
         self.PlotDataItem_galvotrigger = PlotDataItem(self.xlabelhere_galvos, self.final_galvotrigger_forgraphy)
         self.PlotDataItem_galvotrigger.setPen(100,100,200)
+        self.PlotDataItem_galvotrigger.setDownsampling(auto=True, method='mean')
         self.pw.addItem(self.PlotDataItem_galvotrigger)
         
         self.textitem_galvotrigger = pg.TextItem(text='galvotrigger', color=(100,100,200), anchor=(1, 1))
@@ -1368,12 +1542,12 @@ class Mainbody(QWidget):
             self.uiwavegap_2 = 0
         else:
             self.uiwavegap_2 = int(self.textbox2G.text())
-        self.uiwavestartamplitude_2 = float(self.textbox2H.currentText())
+        self.uiwavestartamplitude_2 = float(self.textbox2H.value())
         if not self.textbox2I.text():
             self.uiwavebaseline_2 = 0
         else:
             self.uiwavebaseline_2 = float(self.textbox2I.text())
-        self.uiwavestep_2 = int(self.textbox2J.currentText())
+        self.uiwavestep_2 = int(self.textbox2J.value())
         self.uiwavecycles_2 = int(self.textbox2K.currentText())   
         
             
@@ -1387,6 +1561,7 @@ class Mainbody(QWidget):
         #plt.plot(xlabelhere_galvo, samples_1)
         self.PlotDataItem_640AO = PlotDataItem(xlabelhere_640, self.finalwave_640)
         self.PlotDataItem_640AO.setPen('r')
+        self.PlotDataItem_640AO.setDownsampling(auto=True, method='mean')
         self.pw.addItem(self.PlotDataItem_640AO)
         
         self.textitem_640AO = pg.TextItem(text='640 AO', color=('r'), anchor=(1, 1))
@@ -1412,12 +1587,12 @@ class Mainbody(QWidget):
             self.uiwavegap_488AO = 0
         else:
             self.uiwavegap_488AO = int(self.textbox2G.text())
-        self.uiwavestartamplitude_488AO = float(self.textbox2H.currentText())
+        self.uiwavestartamplitude_488AO = float(self.textbox2H.value())
         if not self.textbox2I.text():
             self.uiwavebaseline_488AO = 0
         else:
             self.uiwavebaseline_488AO = float(self.textbox2I.text())
-        self.uiwavestep_488AO = int(self.textbox2J.currentText())
+        self.uiwavestep_488AO = int(self.textbox2J.value())
         self.uiwavecycles_488AO = int(self.textbox2K.currentText())   
                     
         s = generate_AO_for488(self.uiDaq_sample_rate, self.uiwavefrequency_488AO, self.uiwaveoffset_488AO, self.uiwaveperiod_488AO, self.uiwaveDC_488AO
@@ -1430,6 +1605,7 @@ class Mainbody(QWidget):
         #plt.plot(xlabelhere_galvo, samples_1)
         self.PlotDataItem_488AO = PlotDataItem(xlabelhere_488, self.finalwave_488)
         self.PlotDataItem_488AO.setPen('b')
+        self.PlotDataItem_488AO.setDownsampling(auto=True, method='mean')
         self.pw.addItem(self.PlotDataItem_488AO)
         
         self.textitem_488AO = pg.TextItem(text='488 AO', color=('b'), anchor=(1, 1))
@@ -1455,12 +1631,12 @@ class Mainbody(QWidget):
             self.uiwavegap_532AO = 0
         else:
             self.uiwavegap_532AO = int(self.textbox2G.text())
-        self.uiwavestartamplitude_532AO = float(self.textbox2H.currentText())
+        self.uiwavestartamplitude_532AO = float(self.textbox2H.value())
         if not self.textbox2I.text():
             self.uiwavebaseline_532AO = 0
         else:
             self.uiwavebaseline_532AO = float(self.textbox2I.text())
-        self.uiwavestep_532AO = int(self.textbox2J.currentText())
+        self.uiwavestep_532AO = int(self.textbox2J.value())
         self.uiwavecycles_532AO = int(self.textbox2K.currentText())   
         
         #if int(self.textbox4A.currentText()) == 1:
@@ -1474,6 +1650,7 @@ class Mainbody(QWidget):
         xlabelhere_532 = np.arange(len(self.finalwave_532))/self.uiDaq_sample_rate
         self.PlotDataItem_532AO = PlotDataItem(xlabelhere_532, self.finalwave_532)
         self.PlotDataItem_532AO.setPen('g')
+        self.PlotDataItem_532AO.setDownsampling(auto=True, method='mean')
         self.pw.addItem(self.PlotDataItem_532AO)
         
         self.textitem_532AO = pg.TextItem(text='532 AO', color=('g'), anchor=(1, 1))
@@ -1498,12 +1675,12 @@ class Mainbody(QWidget):
             self.uiwavegap_patchAO = 0
         else:
             self.uiwavegap_patchAO = int(self.textbox2G.text())
-        self.uiwavestartamplitude_patchAO = float(self.textbox2H.currentText())
+        self.uiwavestartamplitude_patchAO = float(self.textbox2H.value())
         if not self.textbox2I.text():
             self.uiwavebaseline_patchAO = 0
         else:
             self.uiwavebaseline_patchAO = float(self.textbox2I.text())
-        self.uiwavestep_patchAO = int(self.textbox2J.currentText())
+        self.uiwavestep_patchAO = int(self.textbox2J.value())
         self.uiwavecycles_patchAO = int(self.textbox2K.currentText())   
         
         #if int(self.textbox5A.currentText()) == 1:
@@ -1556,6 +1733,7 @@ class Mainbody(QWidget):
         self.finalwave_cameratrigger_forgraphy = self.finalwave_cameratrigger.astype(int)
         self.PlotDataItem_cameratrigger = PlotDataItem(xlabelhere_cameratrigger, self.finalwave_cameratrigger_forgraphy)
         self.PlotDataItem_cameratrigger.setPen('c')
+        self.PlotDataItem_cameratrigger.setDownsampling(auto=True, method='mean')
         self.pw.addItem(self.PlotDataItem_cameratrigger)
         
         self.textitem_cameratrigger = pg.TextItem(text='cameratrigger '+str(self.uiwavefrequency_cameratrigger)+'hz', color=('c'), anchor=(1, 1))
@@ -1841,7 +2019,7 @@ class Mainbody(QWidget):
         
         # set galvos sampele stack apart
         if 'galvos' in self.analog_data_container:
-            self.analog_data_container['galvosx'+'avgnum_'+str(int(self.textbox1H.currentText()))] = self.generate_galvos()[0, :]
+            self.analog_data_container['galvosx'+'avgnum_'+str(int(self.textbox1H.value()))] = self.generate_galvos()[0, :]
             self.analog_data_container['galvosy'+'ypixels_'+str(int(self.textbox1G.currentText()))] = self.generate_galvos()[1, :]
             del self.analog_data_container['galvos']
         
@@ -1892,7 +2070,7 @@ class Mainbody(QWidget):
         self.pw.clear()
         for i in range(analogloopnum):
                                         
-            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())): #skip the galvoX, as it is too intense
                 if self.analogcontainer_array['Sepcification'][i] == 'galvosy'+'ypixels_'+str(int(self.textbox1G.currentText())):
                     self.PlotDataItem_final = PlotDataItem(self.xlabelhere_all, self.analogcontainer_array['Waveform'][i])
                     #use the same color as before, taking advantages of employing same keys in dictionary
@@ -1925,7 +2103,7 @@ class Mainbody(QWidget):
         '''
         plt.figure()
         for i in range(analogloopnum):
-            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.currentText())): #skip the galvoX, as it is too intense
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())): #skip the galvoX, as it is too intense
                 plt.plot(xlabelhere_all, self.analogcontainer_array['Waveform'][i])
         for i in range(digitalloopnum):
             plt.plot(xlabelhere_all, self.digitalcontainer_array['Waveform'][i])
@@ -1951,7 +2129,7 @@ class Mainbody(QWidget):
         self.adcollector.set_waves(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         self.adcollector.collected_data.connect(self.recive_data)
         self.adcollector.start()
-        self.adcollector.save_as_binary()
+        self.adcollector.save_as_binary(self.savedirectory)
         self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
         
     def execute(self):
@@ -1966,17 +2144,51 @@ class Mainbody(QWidget):
         
         self.channel_number = len(data_waveformreceived)
         if self.channel_number == 1:            
+            if 'Vp' in self.readinchan:
+                self.data_collected_0 = data_waveformreceived[0]
+            
+                self.PlotDataItem_patch_voltage = PlotDataItem(self.xlabelhere_all, self.data_collected_0)
+                #use the same color as before, taking advantages of employing same keys in dictionary
+                self.PlotDataItem_patch_voltage.setPen('w')
+                self.pw_data.addItem(self.PlotDataItem_patch_voltage)
+            
+                self.textitem_patch_voltage = pg.TextItem(('Vp'), color=('w'), anchor=(1, 1))
+                self.textitem_patch_voltage.setPos(0, 1)
+                self.pw_data.addItem(self.textitem_patch_voltage)
+            else:
+                self.data_collected_0 = data_waveformreceived[0]
+            
+                self.PlotDataItem_patch_current = PlotDataItem(self.xlabelhere_all, self.data_collected_0)
+                #use the same color as before, taking advantages of employing same keys in dictionary
+                self.PlotDataItem_patch_current.setPen('c')
+                self.pw_data.addItem(self.PlotDataItem_patch_current)
+            
+                self.textitem_patch_current = pg.TextItem(('Ip'), color=('w'), anchor=(1, 1))
+                self.textitem_patch_current.setPos(0, 1)
+                self.pw_data.addItem(self.textitem_patch_current) 
+        elif self.channel_number == 2: 
             self.data_collected_0 = data_waveformreceived[0]
         
-        self.PlotDataItem_patch_voltage = PlotDataItem(self.xlabelhere_all, self.data_collected_0)
-        #use the same color as before, taking advantages of employing same keys in dictionary
-        self.PlotDataItem_patch_voltage.setPen('w')
-        self.pw_data.addItem(self.PlotDataItem_patch_voltage)
-    
-        self.textitem_patch_voltage = pg.TextItem(('Vp'), color=('w'), anchor=(1, 1))
-        self.textitem_patch_voltage.setPos(0, 1)
-        self.pw_data.addItem(self.textitem_patch_voltage)
+            self.PlotDataItem_patch_voltage = PlotDataItem(self.xlabelhere_all, self.data_collected_0)
+            #use the same color as before, taking advantages of employing same keys in dictionary
+            self.PlotDataItem_patch_voltage.setPen('w')
+            self.pw_data.addItem(self.PlotDataItem_patch_voltage)
         
+            self.textitem_patch_voltage = pg.TextItem(('Vp'), color=('w'), anchor=(1, 1))
+            self.textitem_patch_voltage.setPos(0, 1)
+            self.pw_data.addItem(self.textitem_patch_voltage)   
+            
+            self.data_collected_1 = data_waveformreceived[1]
+        
+            self.PlotDataItem_patch_current = PlotDataItem(self.xlabelhere_all, self.data_collected_1)
+            #use the same color as before, taking advantages of employing same keys in dictionary
+            self.PlotDataItem_patch_current.setPen('c')
+            self.pw_data.addItem(self.PlotDataItem_patch_current)
+        
+            self.textitem_patch_current = pg.TextItem(('Ip'), color=('w'), anchor=(1, 1))
+            self.textitem_patch_current.setPos(0, 1)
+            self.pw_data.addItem(self.textitem_patch_current)             
+            
     def stopMeasurement_daqer(self):
         """Stop """
         self.adcollector.aboutToQuitHandler()
@@ -2047,6 +2259,16 @@ class Mainbody(QWidget):
                 execute_tread_singlesample_AOTF_digital = execute_tread_singlesample_digital()
                 execute_tread_singlesample_AOTF_digital.set_waves(channel, 0)
                 execute_tread_singlesample_AOTF_digital.start()  
+                
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------Fucs for set directory-----------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #**************************************************************************************************************************************
+    def _open_file_dialog(self):
+        self.savedirectory = str(QtWidgets.QFileDialog.getExistingDirectory())
+        self.savedirectorytextbox.setText(self.savedirectory)
+        
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)

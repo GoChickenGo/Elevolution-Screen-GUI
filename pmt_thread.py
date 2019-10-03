@@ -122,6 +122,7 @@ class pmtimagingTest:
         
         self.pmtimagingThread = pmtimaging_continuous_Thread(self.Galvo_samples, self.Daq_sample_rate, self.Totalscansamples, self.averagenum, self.ScanArrayXnum)
         #self.pmtimagingThread.wave = self.Galvo_samples
+        return self.Totalscansamples
         
     def start(self):
         self.pmtimagingThread.start() #Start executing what is inside run()

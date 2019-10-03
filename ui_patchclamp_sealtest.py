@@ -12,16 +12,16 @@ from __future__ import division
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QGroupBox, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QSpinBox
+from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QDoubleSpinBox, QPushButton, QGroupBox, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QSpinBox
 
 import pyqtgraph as pg
-
+import time
 import sys
 import numpy as np
 import math
 from scipy.optimize import curve_fit
 
-from patchclamp import PatchclampSealTest, PatchclampSealTest_hold, PatchclampSealTest_currentclamp
+from patchclamp import PatchclampSealTest, PatchclampSealTest_hold, PatchclampSealTest_currentclamp, PatchclampSealTest_zap
 from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
 
@@ -84,6 +84,7 @@ class PatchclampSealTestUI(QWidget):
         self.currentclampTest = PatchclampSealTest_currentclamp()
         self.currentclampTest.measurementThread_currentclamp.measurement.connect(self.handleMeasurement) #Connecting to the measurement signal            
         
+        self.zapfunction = PatchclampSealTest_zap()
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------
         #----------------------------------------------------------------------
@@ -155,24 +156,66 @@ class PatchclampSealTestUI(QWidget):
         Vm_measureContainerLayout.addWidget(self.membraneVoltLabel, 0, 2)
         
         self.VmstartButton = QPushButton("Start")
+        self.VmstartButton.setStyleSheet("QPushButton {color:white;background-color: SpringGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                         "QPushButton:pressed {color:black;background-color: SpringGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.VmstartButton.clicked.connect(lambda: self.measure_currentclamp())
         Vm_measureContainerLayout.addWidget(self.VmstartButton, 0, 3)
         
         self.VmstopButton = QPushButton("Stop")
+        self.VmstopButton.setStyleSheet("QPushButton {color:white;background-color: IndianRed; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                        "QPushButton:pressed {color:black;background-color: IndianRed; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.VmstopButton.clicked.connect(lambda: self.stopMeasurement_currentclamp())
         Vm_measureContainerLayout.addWidget(self.VmstopButton, 0, 4)
         
         Vm_measureContainer.setLayout(Vm_measureContainerLayout)
+        #------------------------------zap-----------------------------------
+        zapContainer = QGroupBox("ZAP")
+        zapContainerLayout = QGridLayout()
+        
+        self.ICON_zap = 'zap.jpg'
+        self.zapiconlabel = QLabel()
+        self.zapiconlabel.setPixmap(QPixmap(self.ICON_zap))
+        zapContainerLayout.addWidget(self.zapiconlabel, 0, 0) 
+        
+        self.zapButton = QPushButton("ZAP!")
+        self.zapButton.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                      "QPushButton:pressed {color:black;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+        self.zapButton.setShortcut('z')
+        zapContainerLayout.addWidget(self.zapButton, 0, 1)        
+        self.zapButton.clicked.connect(self.zap)
+        
+        zapContainerLayout.addWidget(QLabel("ZAP voltage(V)"), 0, 2)
+        self.zapVbox = QDoubleSpinBox(self)
+        self.zapVbox.setMaximum(1)
+        self.zapVbox.setMinimum(-2000)
+        self.zapVbox.setValue(1)
+        self.zapVbox.setSingleStep(0.1)
+        zapContainerLayout.addWidget(self.zapVbox, 0, 3)   
+        
+        zapContainerLayout.addWidget(QLabel("ZAP duration(us)"), 0, 4)
+        self.zaptimebox = QSpinBox(self)
+        self.zaptimebox.setMaximum(200000000)
+        self.zaptimebox.setMinimum(-200000000)
+        self.zaptimebox.setValue(200)
+        self.zaptimebox.setSingleStep(200)
+        zapContainerLayout.addWidget(self.zaptimebox, 0, 5)
+        
+        zapContainer.setLayout(zapContainerLayout)
         #----------------------------Control-----------------------------------
         controlContainer = QGroupBox("Control")
         controlLayout = QGridLayout()
     
         self.startButton = QPushButton("Start")
+        self.startButton.setStyleSheet("QPushButton {color:white;background-color: MediumSeaGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                       "QPushButton:pressed {color:black;background-color: MediumSeaGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+
         self.startButton.clicked.connect(lambda: self.measure())
         self.startButton.clicked.connect(self.setRedlight) 
         controlLayout.addWidget(self.startButton, 0, 0)
         
         self.stopButton = QPushButton("Stop")
+        self.stopButton.setStyleSheet("QPushButton {color:white;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                      "QPushButton:pressed {color:black;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.stopButton.clicked.connect(lambda: self.stopMeasurement())
         controlLayout.addWidget(self.stopButton, 0, 1)
         
@@ -208,6 +251,7 @@ class PatchclampSealTestUI(QWidget):
         controlLayout.addWidget(gainContainer, 0, 3)
         controlLayout.addWidget(WavesettingsContainer, 1, 3)
         controlLayout.addWidget(Vm_measureContainer, 2, 3)
+        controlLayout.addWidget(zapContainer, 3, 3)        
         controlContainer.setLayout(controlLayout)
         
         #-----------------------------Plots------------------------------------
@@ -447,7 +491,21 @@ class PatchclampSealTestUI(QWidget):
             self.probeGain = 100*10**6
         elif gain == '10G\u03A9':
             self.probeGain = 10*10**9
-        
+            
+    def zap(self):
+        self.zap_v = self.zapVbox.value()        
+        self.zap_time = self.zaptimebox.value()     
+        self.sealTest.aboutToQuitHandler()
+        self.zapfunction.setWave(self.inVolGain, self.zap_v, self.zap_time)
+        self.zapfunction.start()
+        time.sleep(0.06)
+        self.zapfunction.aboutToQuitHandler()
+        """Start the patchclamp measurement"""
+        self.diffvoltage = self.DiffVoltagebox.value()/1000
+        self.lowervoltage = self.LowerVoltagebox.value()/1000
+        self.sealTest.setWave(self.inVolGain, self.diffvoltage, self.lowervoltage)
+        self.sealTest.start()
+
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)
