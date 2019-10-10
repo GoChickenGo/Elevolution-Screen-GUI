@@ -6,16 +6,16 @@ Created on Sat Aug 10 20:54:40 2019
 """
 from __future__ import division
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QRectF, QPoint
 from PyQt5.QtGui import QColor, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, QFileDialog
+from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QSpinBox, QDoubleSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, QFileDialog
 
 import pyqtgraph as pg
 
 import sys
 import numpy as np
 
-from pmt_thread import pmtimagingTest
+from pmt_thread import pmtimagingTest, pmtimagingTest_contour
 from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
 import wavegenerator
@@ -28,8 +28,10 @@ from matlabAnalysis import readbinaryfile, extractV
 import os
 import scipy.signal as sg
 import ui_patchclamp_sealtest  
+from scipy import interpolate
 
 from skimage.io import imread
+from constants import HardwareConstants
 #Setting graph settings
 """
 pg.setConfigOption('background', 'w')
@@ -146,6 +148,7 @@ class Mainbody(QWidget):
         
         #------------------------Initiating patchclamp class-------------------
         self.pmtTest = pmtimagingTest()
+        self.pmtTest_contour = pmtimagingTest_contour()
         self.OC = 0.1
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------
@@ -340,8 +343,11 @@ class Mainbody(QWidget):
         
         self.pmtimgroi = pg.ImageItem()
         self.vb_2.addItem(self.pmtimgroi)        
-        self.roi = pg.RectROI([20, 20], [20, 20], pen=(0,9))
-        self.roi.addRotateFreeHandle([1,0], [0.5, 0.5])
+        #self.roi = pg.RectROI([20, 20], [20, 20], pen=(0,9))
+        #r1 = QRectF(0, 0, 895, 500)
+        self.roi = pg.PolyLineROI([[0,0], [80,0], [80,80], [0,80]], closed=True, pen=(0,9))#, maxBounds=r1
+        #self.roi.addScaleHandle([1,0], [1, 0])
+        self.roi.sigHoverEvent.connect(lambda: self.show_handle_num()) # update handle numbers
         
         self.pmtvb = self.pmtvideoWidget.getView()
         self.pmtimageitem = self.pmtvideoWidget.getImageItem()
@@ -349,10 +355,57 @@ class Mainbody(QWidget):
         
         self.pmtimageroiLayout.addWidget(self.pmt_roiwidget, 0, 0)
         
-        pmtimageContainer.setMinimumWidth(700)
+        pmtimageContainer.setMinimumWidth(1000)
+        pmtroiContainer.setMaximumHeight(500)
+        pmtroiContainer.setMaximumWidth(300)
         
         pmtimageContainer.setLayout(self.pmtimageLayout)
         pmtroiContainer.setLayout(self.pmtimageroiLayout)
+        #----------------------------Contour-----------------------------------        
+        pmtContourContainer = QGroupBox("Contour selection")
+        self.pmtContourLayout = QGridLayout()
+        #contour_Description = QLabel("Handle number updates when parking mouse cursor upon ROI. Points in contour are divided evenly between handles.")
+        #contour_Description.setStyleSheet('color: blue')        
+        #self.pmtContourLayout.addWidget(contour_Description,0,0)
+       
+        self.pmt_handlenum_Label = QLabel("Handle number: ")
+        self.pmtContourLayout.addWidget(self.pmt_handlenum_Label,1,0)
+        
+        self.contour_strategy = QComboBox()
+        self.contour_strategy.addItems(['Manual','Uniform'])
+        self.pmtContourLayout.addWidget(self.contour_strategy, 1, 1)        
+        
+        self.pointsinContour = QSpinBox(self)
+        self.pointsinContour.setMinimum(1)
+        self.pointsinContour.setMaximum(1000)
+        self.pointsinContour.setValue(100)
+        self.pointsinContour.setSingleStep(100)        
+        self.pmtContourLayout.addWidget(self.pointsinContour, 2, 1)
+        self.pmtContourLayout.addWidget(QLabel("Points in contour:"), 2, 0)
+        
+        self.contour_samprate = QComboBox()
+        self.contour_samprate.addItems(['Sampling rate: 50000', 'Sampling rate: 500000'])
+        self.pmtContourLayout.addWidget(self.contour_samprate, 3, 0)
+        
+        self.generate_contour_sacn = QPushButton("Generate contour")
+        self.generate_contour_sacn.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                 "QPushButton:pressed {color:red;background-color: DarkOliveGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.pmtContourLayout.addWidget(self.generate_contour_sacn, 3, 1)
+        self.generate_contour_sacn.clicked.connect(lambda: self.generate_contour())
+        
+        self.do_contour_sacn = QPushButton("Continuous scan")
+        self.do_contour_sacn.setStyleSheet("QPushButton {color:black;background-color: Aquamarine; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                           "QPushButton:pressed {color:red;background-color: Turquoise; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.pmtContourLayout.addWidget(self.do_contour_sacn, 4, 0)
+        self.do_contour_sacn.clicked.connect(lambda: self.measure_pmt_contourscan())
+        
+        self.stopButton_contour = QPushButton("Stop")
+        self.stopButton_contour.setStyleSheet("QPushButton {color:white;background-color: FireBrick; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                      "QPushButton:pressed {color:black;background-color: FireBrick; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+        self.stopButton_contour.clicked.connect(lambda: self.stopMeasurement_pmt_contour())
+        self.pmtContourLayout.addWidget(self.stopButton_contour, 4, 1)
+        
+        pmtContourContainer.setLayout(self.pmtContourLayout)
         #----------------------------Control-----------------------------------
         controlContainer = QGroupBox("Galvo Scanning Panel")
         self.controlLayout = QGridLayout()
@@ -389,7 +442,7 @@ class Mainbody(QWidget):
         self.textbox1B_pmt = QSpinBox(self)
         self.textbox1B_pmt.setMinimum(-10)
         self.textbox1B_pmt.setMaximum(10)
-        self.textbox1B_pmt.setValue(-5)
+        self.textbox1B_pmt.setValue(-3)
         self.textbox1B_pmt.setSingleStep(1)        
         self.controlLayout.addWidget(self.textbox1B_pmt, 1, 2)
         self.controlLayout.addWidget(QLabel("voltXMin"), 1, 1)
@@ -397,7 +450,7 @@ class Mainbody(QWidget):
         self.textbox1C_pmt = QSpinBox(self)
         self.textbox1C_pmt.setMinimum(-10)
         self.textbox1C_pmt.setMaximum(10)
-        self.textbox1C_pmt.setValue(5)
+        self.textbox1C_pmt.setValue(3)
         self.textbox1C_pmt.setSingleStep(1)   
         self.controlLayout.addWidget(self.textbox1C_pmt, 2, 2)
         self.controlLayout.addWidget(QLabel("voltXMax"), 2, 1)
@@ -405,7 +458,7 @@ class Mainbody(QWidget):
         self.textbox1D_pmt = QSpinBox(self)
         self.textbox1D_pmt.setMinimum(-10)
         self.textbox1D_pmt.setMaximum(10)
-        self.textbox1D_pmt.setValue(-5)
+        self.textbox1D_pmt.setValue(-3)
         self.textbox1D_pmt.setSingleStep(1)   
         self.controlLayout.addWidget(self.textbox1D_pmt, 1, 4)
         self.controlLayout.addWidget(QLabel("voltYMin"), 1, 3)
@@ -413,7 +466,7 @@ class Mainbody(QWidget):
         self.textbox1E_pmt = QSpinBox(self)
         self.textbox1E_pmt.setMinimum(-10)
         self.textbox1E_pmt.setMaximum(10)
-        self.textbox1E_pmt.setValue(5)
+        self.textbox1E_pmt.setValue(3)
         self.textbox1E_pmt.setSingleStep(1)   
         self.controlLayout.addWidget(self.textbox1E_pmt, 2, 4)
         self.controlLayout.addWidget(QLabel("voltYMax"), 2, 3)
@@ -440,9 +493,10 @@ class Mainbody(QWidget):
         
         #---------------------------Set tab1 layout---------------------------
         pmtmaster = QGridLayout()
-        pmtmaster.addWidget(pmtimageContainer, 0,0)
-        pmtmaster.addWidget(pmtroiContainer,0,1)        
-        pmtmaster.addWidget(controlContainer,1,0,1,2)
+        pmtmaster.addWidget(pmtimageContainer, 0,0,2,1)
+        pmtmaster.addWidget(pmtroiContainer,0,1)       
+        pmtmaster.addWidget(pmtContourContainer,1,1)
+        pmtmaster.addWidget(controlContainer,2,0,1,2)
         
         self.tab1.setLayout(pmtmaster)
         #**************************************************************************************************************************************
@@ -580,11 +634,11 @@ class Mainbody(QWidget):
         self.wavetablayout.addWidget(QLabel("Gap between repeat (samples):"), 1, 4)
         
         self.wavetablayout.addWidget(QLabel("Starting amplitude (V):"), 2, 0)
-        self.textbox2H = QSpinBox(self)
+        self.textbox2H = QDoubleSpinBox(self)
         self.textbox2H.setMinimum(-10)
         self.textbox2H.setMaximum(10)
         self.textbox2H.setValue(5)
-        self.textbox2H.setSingleStep(1)  
+        self.textbox2H.setSingleStep(0.5)  
         self.wavetablayout.addWidget(self.textbox2H, 2, 1)        
 
         self.textbox2I = QLineEdit(self)
@@ -1162,18 +1216,37 @@ class Mainbody(QWidget):
         
         #Scanning settings
         Value_voltXMin = int(self.textbox1B_pmt.value())
-        Value_voltXMax = int(self.textbox1C_pmt.value())
+        self.Value_voltXMax = int(self.textbox1C_pmt.value())
         Value_voltYMin = int(self.textbox1D_pmt.value())
         Value_voltYMax = int(self.textbox1E_pmt.value())
-        Value_xPixels = int(self.textbox1F_pmt.currentText())
+        self.Value_xPixels = int(self.textbox1F_pmt.currentText())
         Value_yPixels = int(self.textbox1G_pmt.currentText())
         self.averagenum =int(self.textbox1H_pmt.value())
         
-        Totalscansamples = self.pmtTest.setWave(self.Daq_sample_rate_pmt, Value_voltXMin, Value_voltXMax, Value_voltYMin, Value_voltYMax, Value_xPixels, Value_yPixels, self.averagenum)
+        Totalscansamples = self.pmtTest.setWave(self.Daq_sample_rate_pmt, Value_voltXMin, self.Value_voltXMax, Value_voltYMin, Value_voltYMax, self.Value_xPixels, Value_yPixels, self.averagenum)
         time_per_frame_pmt = Totalscansamples/self.Daq_sample_rate_pmt
+        
+        ScanArrayXnum=int((Totalscansamples/self.averagenum)/Value_yPixels)
+        
+        #r1 = QRectF(500, 500, ScanArrayXnum, int(Value_yPixels))
+        #self.pmtimageitem.setRect(r1)
+        
         self.pmtTest.pmtimagingThread.measurement.connect(self.update_pmt_Graphs) #Connecting to the measurement signal 
         self.pmt_fps_Label.setText("Per frame:  %.4f s" % time_per_frame_pmt)
         self.pmtTest.start()
+        
+    def measure_pmt_contourscan(self):
+        self.Daq_sample_rate_pmt = int(self.contour_samprate.currentText()[15:len(self.contour_samprate.currentText())])
+        
+        self.pmtTest_contour.setWave_contourscan(self.Daq_sample_rate_pmt, self.handle_viewbox_coordinate_position_array_expanded_forDaq, self.contour_point_number)
+        contour_freq = self.Daq_sample_rate_pmt/self.contour_point_number
+        
+        #r1 = QRectF(500, 500, ScanArrayXnum, int(Value_yPixels))
+        #self.pmtimageitem.setRect(r1)
+        
+        #self.pmtTest_contour.pmtimagingThread_contour.measurement.connect(self.update_pmt_Graphs) #Connecting to the measurement signal 
+        self.pmt_fps_Label.setText("Contour frequency:  %.4f Hz" % contour_freq)
+        self.pmtTest_contour.start()
         
     def saveimage_pmt(self):
         Localimg = Image.fromarray(self.data_pmtcontineous) #generate an image object
@@ -1189,11 +1262,125 @@ class Mainbody(QWidget):
         #
 
         #self.pmtvideoWidget.update_pmt_Window(self.data_pmtcontineous)
+    def show_handle_num(self):
+        self.ROIhandles = self.roi.getHandles()
+        self.ROIhandles_nubmer = len(self.ROIhandles)
+        self.pmt_handlenum_Label.setText("Handle number: %.d" % self.ROIhandles_nubmer)
+        
+    def generate_contour(self):
+        self.ROIhandles = self.roi.getHandles()
+        self.ROIhandles_nubmer = len(self.ROIhandles)
+        self.contour_point_number = int(self.pointsinContour.value())
+        self.handle_scene_coordinate_position_raw_list = self.roi.getSceneHandlePositions()
+        self.handle_local_coordinate_position_raw_list = self.roi.getLocalHandlePositions()
+        
+        #put scene positions into numpy array
+        self.handle_scene_coordinate_position_array = np.zeros((self.ROIhandles_nubmer, 2))# n rows, 2 columns
+        for i in range(self.ROIhandles_nubmer):
+            self.handle_scene_coordinate_position_array[i] = np.array([self.handle_scene_coordinate_position_raw_list[i][1].x(), self.handle_scene_coordinate_position_raw_list[i][1].y()])
+        
+        if self.contour_strategy.currentText() == 'Manual':
+            #Interpolation
+            self.point_num_per_line = int(self.contour_point_number/self.ROIhandles_nubmer)
+            self.Interpolation_number = self.point_num_per_line-1
+            
+            # try to initialize an array then afterwards we can append on it
+            #self.handle_scene_coordinate_position_array_expanded = np.array([[self.handle_scene_coordinate_position_array[0][0], self.handle_scene_coordinate_position_array[0][1]], [self.handle_scene_coordinate_position_array[1][0], self.handle_scene_coordinate_position_array[1][1]]])
+            
+            # Interpolation from first to last
+            for i in range(self.ROIhandles_nubmer-1):
+                self.Interpolation_x_diff = self.handle_scene_coordinate_position_array[i+1][0] - self.handle_scene_coordinate_position_array[i][0]
+                self.Interpolation_y_diff = self.handle_scene_coordinate_position_array[i+1][1] - self.handle_scene_coordinate_position_array[i][1]
+                
+                self.Interpolation_x_step = self.Interpolation_x_diff/self.point_num_per_line
+                self.Interpolation_y_step = self.Interpolation_y_diff/self.point_num_per_line
+                
+                Interpolation_temp = np.array([[self.handle_scene_coordinate_position_array[i][0], self.handle_scene_coordinate_position_array[i][1]], [self.handle_scene_coordinate_position_array[i+1][0], self.handle_scene_coordinate_position_array[i+1][1]]])
     
+                for j in range(self.Interpolation_number):
+                    Interpolation_temp=np.insert(Interpolation_temp,1,[self.handle_scene_coordinate_position_array[i+1][0] - (j+1)*self.Interpolation_x_step,self.handle_scene_coordinate_position_array[i+1][1] - (j+1)*self.Interpolation_y_step],axis = 0)
+                Interpolation_temp = np.delete(Interpolation_temp, 0, 0)
+                if i == 0:
+                    self.handle_scene_coordinate_position_array_expanded = Interpolation_temp
+                else:
+                    self.handle_scene_coordinate_position_array_expanded=np.append(self.handle_scene_coordinate_position_array_expanded, Interpolation_temp, axis=0)
+                    #self.handle_scene_coordinate_position_array_expanded=np.delete(self.handle_scene_coordinate_position_array_expanded, 0, 0)
+            
+            # Interpolation between last and first
+            self.Interpolation_x_diff = self.handle_scene_coordinate_position_array[0][0] - self.handle_scene_coordinate_position_array[-1][0]
+            self.Interpolation_y_diff = self.handle_scene_coordinate_position_array[0][1] - self.handle_scene_coordinate_position_array[-1][1]
+            
+            self.Interpolation_x_step = self.Interpolation_x_diff/self.point_num_per_line
+            self.Interpolation_y_step = self.Interpolation_y_diff/self.point_num_per_line
+            
+            Interpolation_temp = np.array([[self.handle_scene_coordinate_position_array[-1][0], self.handle_scene_coordinate_position_array[-1][1]], [self.handle_scene_coordinate_position_array[0][0], self.handle_scene_coordinate_position_array[0][1]]])
+    
+            for j in range(self.Interpolation_number):
+                Interpolation_temp=np.insert(Interpolation_temp,1,[self.handle_scene_coordinate_position_array[0][0] - (j+1)*self.Interpolation_x_step,self.handle_scene_coordinate_position_array[0][1] - (j+1)*self.Interpolation_y_step],axis = 0)
+            Interpolation_temp = np.delete(Interpolation_temp, 0, 0)
+            #Interpolation_temp = np.flip(Interpolation_temp, 0)
+            
+            self.handle_scene_coordinate_position_array_expanded=np.append(self.handle_scene_coordinate_position_array_expanded, Interpolation_temp, axis=0)
+            #self.handle_scene_coordinate_position_array_expanded=np.delete(self.handle_scene_coordinate_position_array_expanded, 0, 0)
+            
+            self.handle_viewbox_coordinate_position_array_expanded = np.zeros((self.contour_point_number, 2))# n rows, 2 columns
+            # Maps from scene coordinates to the coordinate system displayed inside the ViewBox
+            for i in range(self.contour_point_number):
+                qpoint_Scene = QPoint(self.handle_scene_coordinate_position_array_expanded[i][0], self.handle_scene_coordinate_position_array_expanded[i][1])
+                qpoint_viewbox = self.pmtvb.mapSceneToView(qpoint_Scene)
+                self.handle_viewbox_coordinate_position_array_expanded[i] = np.array([qpoint_viewbox.x(),qpoint_viewbox.y()])
+                
+            #print(self.handle_scene_coordinate_position_array)
+            #print(self.handle_scene_coordinate_position_array_expanded)
+            #print(self.handle_viewbox_coordinate_position_array_expanded)
+            
+            '''Transform into Voltages to galvos'''
+            if self.Value_xPixels == 500:
+                if self.Value_voltXMax == 3:
+                    # for 500 x axis, the real ramp region sits around 52~552 out of 0~758
+                    self.handle_viewbox_coordinate_position_array_expanded[:,0] = ((self.handle_viewbox_coordinate_position_array_expanded[:,0]-52)/500)*6-3
+                    self.handle_viewbox_coordinate_position_array_expanded[:,1] = ((self.handle_viewbox_coordinate_position_array_expanded[:,1])/500)*6-3
+                    self.handle_viewbox_coordinate_position_array_expanded = np.around(self.handle_viewbox_coordinate_position_array_expanded, decimals=3)
+                    # shape into (n,) and stack
+                    self.handle_viewbox_coordinate_position_array_expanded_x = np.resize(self.handle_viewbox_coordinate_position_array_expanded[:,0],(self.contour_point_number,))
+                    self.handle_viewbox_coordinate_position_array_expanded_y = np.resize(self.handle_viewbox_coordinate_position_array_expanded[:,1],(self.contour_point_number,))
+                    self.handle_viewbox_coordinate_position_array_expanded_forDaq = np.vstack((self.handle_viewbox_coordinate_position_array_expanded_x,self.handle_viewbox_coordinate_position_array_expanded_y))
+            print(self.handle_viewbox_coordinate_position_array_expanded)
+            #Speed and acceleration check
+            #for i in range(self.contour_point_number):
+             #   speed_between_points = ((self.handle_viewbox_coordinate_position_array_expanded_x[i+1]-self.handle_viewbox_coordinate_position_array_expanded_x[i])**2+(self.handle_viewbox_coordinate_position_array_expanded_y[i+1]-self.handle_viewbox_coordinate_position_array_expanded_y[i])**2)**(0.5)
+            self.Daq_sample_rate_pmt = int(self.contour_samprate.currentText()[15:len(self.contour_samprate.currentText())])
+            time_gap = 1/self.Daq_sample_rate_pmt
+            contour_x_speed = np.diff(self.handle_viewbox_coordinate_position_array_expanded_x)/time_gap
+            contour_y_speed = np.diff(self.handle_viewbox_coordinate_position_array_expanded_y)/time_gap
+            
+            contour_x_acceleration = np.diff(contour_x_speed)/time_gap
+            contour_y_acceleration = np.diff(contour_y_speed)/time_gap
+            
+            constants = HardwareConstants()
+            speedGalvo = constants.maxGalvoSpeed #Volt/s
+            aGalvo = constants.maxGalvoAccel #Acceleration galvo in volt/s^2
+            print(np.amax(abs(contour_x_speed)))
+            print(np.amax(abs(contour_y_speed)))
+            print(np.amax(abs(contour_x_acceleration)))
+            print(np.amax(abs(contour_y_acceleration)))  
+
+            print(str(np.mean(abs(contour_x_speed)))+' and mean y speed:'+str(np.mean(abs(contour_y_speed))))
+            print(str(np.mean(abs(contour_x_acceleration)))+' and mean y acceleration:'+str(np.mean(abs(contour_y_acceleration))))
+            
+            if speedGalvo > np.amax(abs(contour_x_speed)) and speedGalvo > np.amax(abs(contour_y_speed)):
+                print('Contour speed is OK')
+            if aGalvo > np.amax(abs(contour_x_acceleration)) and aGalvo > np.amax(abs(contour_y_acceleration)):
+                print('Contour acceleration is OK')
+        
         
     def stopMeasurement_pmt(self):
         """Stop the seal test."""
         self.pmtTest.aboutToQuitHandler()
+        
+    def stopMeasurement_pmt_contour(self):
+        """Stop the seal test."""
+        self.pmtTest_contour.aboutToQuitHandler()
     '''    
     def closeEvent(self, event):
         """On closing the application we have to make sure that the measuremnt
