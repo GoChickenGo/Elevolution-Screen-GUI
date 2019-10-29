@@ -16,28 +16,28 @@ import numpy.lib.recfunctions as rfn
 
 
 
-Rawimgbef = imread("D:/111out.tif", as_gray=True)
-Rawimgaft = imread("D:/111out.tif", as_gray=True)
+Rawimgbef = imread("D:/work/Phd work/avg5_1_sameview.tif", as_gray=True)
+Rawimgaft = imread("D:/work/Phd work/avg5_2_sameview.tif", as_gray=True)
 #Rawimgbef = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 #Rawimgaft = imread("D:/TUD/015001500out_1st.tif", as_gray=True)
 #Rawimgbef = cv2.imread('D:\\regiontest1.png',0)
 #Rawimgaft = cv2.imread('D:\\regiontest1.png',0)
 
 Data_dict_0 = {}
-Data_dict_0[str(-1500)+str(-1500)] = Rawimgbef#[40:100,300:350]
+Data_dict_0[str(-1500)+str(-1500)] = Rawimgbef[:, 53:553]#[134:360, 450:600]#[180:290, 220:330]###[40:100,300:350]
 imagrarray = Rawimgbef#[40:100,300:350]
 
 
 Data_dict_1 = {}
-Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft#[40:100,300:350]
+Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft[:, 53:553]#[134:360, 450:600]#[180:290, 220:330]##[:, 53:553]#[40:100,300:350]
 
 #img_before = Rawimgbef#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]  #crop image
 #img_after = Rawimgaft#[0:190, 0:250]#[0:22, 0:400]#[140:190, 155:205]#[200:400,300:500]#[483:483+600,690:690+600]
 
 S = ImageAnalysis(Data_dict_0[str(-1500)+str(-1500)], Data_dict_1[str(-1500)+str(-1500)])
-v1, v2, bw, thres = S.applyMask()
+v1, v2, bw, thres = S.applyMask(2,2,335)
 R = S.ratio(v1, v2)
-L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(200, bw, thres, v1, v2, -1500, -1500, 8)
+L, cp, coutourmask, coutourimg, intensityimage_intensity, r = S.get_intensity_properties(200, bw, thres, v1, v2, -1500, -1500, 0.001,8)
 #get_ipython().run_line_magic('matplotlib', 'qt')
 S.showlabel(200, bw, v1, thres, -1500, -1500, cp)
 #Fill, sliced, inten= S.showlabel(1000, bw, v2, thres, -1500, -1500, cp)
@@ -56,12 +56,12 @@ sorted_cp = S.sort_using_weight(cp, 'Circularity', 'Mean intensity in contour', 
 #mouse_select_points(cp['Circularity'], cp['Mean intensity in contour'])
 #app = highlightpoints(cp['Circularity'], cp['Mean intensity in contour'])
 #app.makePlot()
-selection = SelectFromCollection(cp['Circularity'], cp['Mean intensity in contour'])
+####selection = SelectFromCollection(cp['Circularity'], cp['Mean intensity in contour'])
 #input("Press Enter to continue...")
 #wait for space input
 
-points = selection.collection_of_point
-print(points)
+####points = selection.collection_of_point
+####print(points)
 #ppp=assd.get_container()
 '''
 fig1 = plt.figure(1)

@@ -65,7 +65,7 @@ class ImageAnalysis():
         #ax.imshow(Ratio) #fig 3 
         return Ratio
     
-    def get_intensity_properties(self, smallest_size, theMask, threshold, intensity_bef, intensty_aft, i, j, dilationdegree1):
+    def get_intensity_properties(self, smallest_size, theMask, threshold, intensity_bef, intensty_aft, i, j, contour_thres, contour_dilationparameter):
         # remove artifacts connected to image border
         self.Labelmask = theMask
         self.Imagbef = intensity_bef
@@ -73,7 +73,8 @@ class ImageAnalysis():
         self.column_num = j
         self.threshold = threshold
         self.Imageaft = intensty_aft
-        self.dilationdegree = dilationdegree1
+        self.contour_thres = contour_thres
+        self.contour_dilationparameter = contour_dilationparameter
         
         cleared = self.Labelmask.copy()
         clear_border(cleared)
@@ -84,7 +85,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(label_image)
         #contours = find_contours(original_intensity, self.threshold)
-        dtype = [('Row index', 'i4'), ('Column index', 'i4'), ('Mean intensity', float), ('Circularity', float), ('Mean intensity in contour', float), ('Change', float)]
+        dtype = [('Row index', 'i4'), ('Column index', 'i4'), ('Mean intensity', float), ('Mean intensity in contour', float), ('Circularity', float), ('Change', float)]
         
         region_mean_intensity_list = []
         region_circularit_list = []
@@ -100,7 +101,7 @@ class ImageAnalysis():
                 # draw rectangle around segmented coins
                 minr, minc, maxr, maxc = region.bbox
 
-                region_mean_intensity = region.mean_intensity #mean intensity of the region, 0 pixels are omitted.
+                region_mean_intensity = region.mean_intensity #mean intensity of the region, 0 pixels in label are omitted.
                 #allpixelnum = region.bbox_area
                 #labeledpixelnum = region.area #number of pixels in region omitting 0.
                 filledimg = region.filled_image
@@ -119,7 +120,7 @@ class ImageAnalysis():
                 #print(region_mean_intensity)
                 s=imageanalysistoolbox()
                 contourimage_intensity = s.contour(filledimg, self.intensityimage_intensity, 0.001) # after here self.intensityimage_intensity is changed with contour labeled with number 5
-                contour_mask_of_intensity = s.inwarddilationmask(contourimage_intensity ,filledimg, self.dilationdegree)   
+                contour_mask_of_intensity = s.inwarddilationmask(contourimage_intensity ,filledimg, self.contour_dilationparameter)   
 
 
                 #filledimg = region.filled_image #Binary region image with filled holes which has the same size as bounding box.
@@ -145,7 +146,7 @@ class ImageAnalysis():
                 region_circularit_list.append(regioncircularity)
                 region_meanintensity_contour_list.append(contour_mean_bef)
                 
-                dirforcellprp[loopmun] = (self.row_num, self.column_num, region_mean_intensity, regioncircularity, contour_mean_bef, ratio)
+                dirforcellprp[loopmun] = (self.row_num, self.column_num, region_mean_intensity, contour_mean_bef, regioncircularity, ratio)
                 
                 loopmun = loopmun+1
         

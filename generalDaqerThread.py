@@ -27,22 +27,23 @@ class execute_analog_readin_optional_digital_thread(QThread):
         super().__init__(*args, **kwargs)
         self.configs = Configuration()
         self.configdictionary = {'galvosx':self.configs.galvoXChannel,
-                            'galvosy':'Dev1/ao1',#self.configs.galvoYChannel, 
-                            '640AO':'Dev1/ao3',
-                            '488AO':'Dev2/ao1',
-                            '532AO':'Dev2/ao0',
-                            'patchAO':self.configs.patchVoltInChannel,
-                            'cameratrigger':"Dev1/port0/line25",
-                            'galvotrigger':"Dev1/port0/line25",
-                            'blankingall':"Dev1/port0/line4",
-                            '640blanking':"Dev1/port0/line4",
-                            '532blanking':"Dev1/port0/line6",
-                            '488blanking':"Dev1/port0/line3",
-                            'PMT':"Dev1/ai0",
-                            'Vp':"Dev1/ai22",
-                            'Ip':"Dev1/ai20",
-                            'Perfusion_1':"Dev1/port0/line20"
-                            }    
+                                 'galvosy':'Dev1/ao1',#self.configs.galvoYChannel, 
+                                 '640AO':'Dev1/ao3',
+                                 '488AO':'Dev2/ao1',
+                                 '532AO':'Dev2/ao0',
+                                 'patchAO':self.configs.patchVoltInChannel,
+                                 'cameratrigger':"Dev1/port0/line25",
+                                 'galvotrigger':"Dev1/port0/line25",
+                                 'blankingall':"Dev1/port0/line4",
+                                 '640blanking':"Dev1/port0/line4",
+                                 '532blanking':"Dev1/port0/line6",
+                                 '488blanking':"Dev1/port0/line3",
+                                 'PMT':"Dev1/ai0",
+                                 'Vp':"Dev1/ai22",
+                                 'Ip':"Dev1/ai20",
+                                 'Perfusion_1':"Dev1/port0/line20",
+                                 '2Pshutter':"Dev1/port0/line18"
+                                }    
     def set_waves(self, samplingrate, analogsignals, digitalsignals, readinchannels):
         
         self.analogsignals = analogsignals
@@ -67,7 +68,13 @@ class execute_analog_readin_optional_digital_thread(QThread):
                 self.ypixelnumber = int(self.analogsignals['Sepcification'][i][self.analogsignals['Sepcification'][i].index('_')+1:len(self.analogsignals['Sepcification'][i])])
                 self.galvosy_originalkey = self.analogsignals['Sepcification'][i]
                 self.analogsignals['Sepcification'][i] = 'galvosy'
-        
+            elif 'galvos_X_contour' in self.analogsignals['Sepcification'][i]:
+                self.galvosx_originalkey = self.analogsignals['Sepcification'][i]
+                self.analogsignals['Sepcification'][i] = 'galvosx'
+            elif 'galvos_Y_contour' in self.analogsignals['Sepcification'][i]:
+                self.galvosy_originalkey = self.analogsignals['Sepcification'][i]
+                self.analogsignals['Sepcification'][i] = 'galvosy'
+                
         # Devide samples from Dev1 or 2
         self.analogwritesamplesdev1_Sepcification = []
         self.analogwritesamplesdev2_Sepcification = []
@@ -362,7 +369,8 @@ class execute_tread_singlesample_digital(QThread):
                             'PMT':"Dev1/ai0",
                             'Vp':"Dev1/ai22",
                             'Ip':"Dev1/ai20",
-                            'Perfusion_1':"Dev1/port0/line20"
+                            'Perfusion_1':"Dev1/port0/line20",
+                            'LED':"Dev1/port0/line19"
                             }
     def set_waves(self, channel, value):
         self.channelname = self.configdictionary[channel]
@@ -383,6 +391,14 @@ class execute_tread_singlesample_digital(QThread):
                 b=np.array([0], dtype = bool)
                 self.writting_value = b
         elif channel == '488blanking':
+            if value ==1:
+                b=np.array([1], dtype = bool)
+                self.writting_value = b
+                
+            if value ==0:
+                b=np.array([0], dtype = bool)
+                self.writting_value = b
+        elif channel == 'LED':
             if value ==1:
                 b=np.array([1], dtype = bool)
                 self.writting_value = b

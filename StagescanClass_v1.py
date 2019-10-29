@@ -15,9 +15,10 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from trymageAnalysis import ImageAnalysis
 import numpy.lib.recfunctions as rfn
+import os
 
 class Stagescan():
-    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13, value14):
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13, value14, findcontour_thres, contour_dilationpara, saving_dir):
         # Settings for stage scan
         self.ludlStage = LudlStage("COM7")
         self.UI_row_start_stagescan = value1
@@ -34,6 +35,9 @@ class Stagescan():
         self.opening_factor = value12
         self.closing_factor = value13
         self.binary_adaptive_block_size = value14
+        self.findcontour_thres = findcontour_thres
+        self.contour_dilationpara = contour_dilationpara
+        self.saving_dir = saving_dir
         
     def start(self):
         # settings for scanning index
@@ -72,7 +76,7 @@ class Stagescan():
                 print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                 Data_dict_0[Pic_name] = data1#data1[:,:Value_yPixels]*-1
                 Localimg = Image.fromarray(Data_dict_0[Pic_name]) #generate an image object
-                Localimg.save(str(RepeatNum)+Pic_name+'out_1st.tif') #save as tif
+                Localimg.save(os.path.join(self.saving_dir, str(RepeatNum)+Pic_name+'out_1st.tif')) #save as tif
                 
                 plt.figure(loopnum)
                 plt.imshow(Data_dict_0[Pic_name], cmap = plt.cm.gray)
@@ -80,7 +84,7 @@ class Stagescan():
                 
                 time.sleep(1)
                
-                self.ludlStage.getPos()
+                #self.ludlStage.getPos()
                 loopnum = loopnum+1
                 
                 
@@ -123,7 +127,7 @@ class Stagescan():
                 print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                 Data_dict_1[Pic_name] = data1#[:,:Value_yPixels]*-1
                 Localimg = Image.fromarray(Data_dict_1[Pic_name]) #generate an image object
-                Localimg.save(str(RepeatNum)+Pic_name+'out.tif') #save as tif
+                Localimg.save(os.path.join(self.saving_dir, str(RepeatNum)+Pic_name+'out.tif')) #save as tif
                 plt.figure(loopnum)
                 plt.imshow(Data_dict_1[Pic_name], cmap = plt.cm.gray)
                 plt.show()
@@ -133,7 +137,7 @@ class Stagescan():
                 S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
                 v1, v2, bw, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
                 #R = S.ratio(v1, v2)
-                L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(self.smallestsize, bw, thres, v1, v2, i, j, 8)
+                L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(self.smallestsize, bw, thres, v1, v2, i, j, self.findcontour_thres, self.contour_dilationpara)
                 S.showlabel(self.smallestsize, bw, v1, thres, i, j, cp)
                 #print (L)
                 print (cp)
@@ -149,7 +153,7 @@ class Stagescan():
                                
                 time.sleep(1)
                
-                self.ludlStage.getPos()
+                #self.ludlStage.getPos()
                 loopnum = loopnum+1
                 
                 
@@ -164,17 +168,6 @@ class Stagescan():
         #Sorting and trace back
         #------------------------------------------CAN use 'import numpy.lib.recfunctions as rfn' to append field--------------
         original_cp = rfn.append_fields(All_cell_properties, 'Original_sequence', list(range(0, len(All_cell_properties))), usemask=False)
-        '''
-        original_dtype = np.dtype(All_cell_properties.dtype.descr + [('Original_sequence', '<i4')])
-        original_cp = np.zeros(All_cell_properties.shape, dtype=original_dtype)
-        original_cp['Row index'] = All_cell_properties['Row index']
-        original_cp['Column index'] = All_cell_properties['Column index']
-        original_cp['Mean intensity'] = All_cell_properties['Mean intensity']
-        original_cp['Circularity'] = All_cell_properties['Circularity']
-        original_cp['Mean intensity in contour'] = All_cell_properties['Mean intensity in contour']
-        original_cp['Change'] = All_cell_properties['Change']
-        original_cp['Original_sequence'] = list(range(0, len(All_cell_properties)))
-        '''
         #print (original_cp['Mean intensity in contour'])
         #print('*********************sorted************************')
         #sort
@@ -184,20 +177,6 @@ class Stagescan():
         #unsorted_cp = All_cell_properties[:selected_num]
         #targetcp = sortedcp[:selected_num]
         ranked_cp = rfn.append_fields(sortedcp, 'Ranking', list(range(0, len(All_cell_properties))), usemask=False)
-        '''
-        rank_dtype = np.dtype(sortedcp.dtype.descr + [('Ranking', '<i4')])
-        ranked_cp = np.zeros(sortedcp.shape, dtype=rank_dtype)
-        ranked_cp['Row index'] = sortedcp['Row index']
-        ranked_cp['Column index'] = sortedcp['Column index']
-        ranked_cp['Mean intensity'] = sortedcp['Mean intensity']
-        ranked_cp['Circularity'] = sortedcp['Circularity']
-        ranked_cp['Mean intensity in contour'] = sortedcp['Mean intensity in contour']
-        ranked_cp['Original_sequence'] = sortedcp['Original_sequence']
-        ranked_cp['Change'] = sortedcp['Change']
-        ranked_cp['Ranking according to Change'] = sortedcp['Ranking according to Change']
-        ranked_cp['Ranking according to Mean intensity in contour'] = sortedcp['Ranking according to Mean intensity in contour']
-        ranked_cp['Ranking'] = list(range(0, len(All_cell_properties)))
-        '''
         withranking_cp = np.sort(ranked_cp, order='Original_sequence')
         
         #print (ranked_cp)
@@ -235,7 +214,7 @@ class Stagescan():
             Pic_name_trace = str(merged_index_samples[i,:].tolist()[0])+str(merged_index_samples[i,:].tolist()[1])
                 
             S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #The same as ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name]), call the same image with same dictionary index.
-            v1, v2, bw, thres = S.applyMask()
+            v1, v2, bw, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
             S.showlabel_with_rank(100, bw, v1, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', self.selected_num)
             print ( ' i: '+ str(merged_index_samples[i,:].tolist()[0]) + ' j: '+ str(merged_index_samples[i,:].tolist()[1]))
             print ('-----------------------------------')

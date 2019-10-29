@@ -14,7 +14,7 @@ from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalMultiChannel
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogMultiChannelReader
 
 import matplotlib.pyplot as plt
-from PIL import Image
+#from PIL import Image
 
 from configuration import Configuration
 
@@ -232,10 +232,11 @@ class execute_analog_readin_optional_digital():
                 self.data_PMT = np.reshape(Dataholder_average, (self.ypixelnumber, ScanArrayXnum))
                 
                 self.data_PMT= self.data_PMT*-1
+                '''
                 plt.figure()
                 plt.imshow(self.data_PMT, cmap = plt.cm.gray)
                 plt.show()
-                
+                '''
             slave_Task_1_analog_dev1.stop()
             if analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.stop()

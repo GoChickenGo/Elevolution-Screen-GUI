@@ -7,7 +7,7 @@ Created on Fri Jun 28 10:55:20 2019
 
 import sys
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox, QSpinBox
+from PyQt5.QtWidgets import QWidget, QLabel, QDoubleSpinBox, QGridLayout, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox, QSpinBox, QFileDialog
 import numpy as np
 from StagescanClass_v1 import Stagescan
 from matplotlib import pyplot as plt
@@ -39,15 +39,15 @@ class MyWindow(QtWidgets.QWidget):
         self.textboxB.setMinimum(-20000)
         self.textboxB.setMaximum(20000)
         self.textboxB.setSingleStep(500)
-        Layout.addWidget(self.textboxB, 0, 3)
-        Layout.addWidget(QLabel("End index-row:"), 0, 2)
+        Layout.addWidget(self.textboxB, 0, 5)
+        Layout.addWidget(QLabel("End index-row:"), 0, 4)
         
         self.textboxC = QSpinBox(self)
         self.textboxC.setMinimum(-20000)
         self.textboxC.setMaximum(20000)
         self.textboxC.setSingleStep(500)
-        Layout.addWidget(self.textboxC, 0, 5)
-        Layout.addWidget(QLabel("Start index-column:"), 0, 4)   
+        Layout.addWidget(self.textboxC, 0, 3)
+        Layout.addWidget(QLabel("Start index-column:"), 0, 2)   
         
         self.textboxD = QSpinBox(self)
         self.textboxD.setMinimum(-20000)
@@ -55,22 +55,19 @@ class MyWindow(QtWidgets.QWidget):
         self.textboxD.setSingleStep(500)
         Layout.addWidget(self.textboxD, 0, 7)
         Layout.addWidget(QLabel("End index-column:"), 0, 6)      
-        
-        self.textboxE = QComboBox()
-        self.textboxE.addItems(['1500','2000'])
+
+        self.textboxE = QSpinBox(self)
+        self.textboxE.setMaximum(20000)
+        self.textboxE.setValue(1500)
+        self.textboxE.setSingleStep(500)
         Layout.addWidget(self.textboxE, 1, 1)
-        Layout.addWidget(QLabel("Step:"), 1, 0)
+        Layout.addWidget(QLabel("Step size:"), 1, 0)
         
         ScanContainer.setLayout(Layout)
         
         #----------------------------------------------------------------------
         imageprocessingContainer = QGroupBox("Image processing settings")
         ipLayout = QGridLayout()
-        
-        self.textboxF = QComboBox()
-        self.textboxF.addItems(['10','100'])
-        ipLayout.addWidget(self.textboxF, 0, 1)
-        ipLayout.addWidget(QLabel("Select number:"), 0, 0)
         
         self.textboxG = QComboBox()
         self.textboxG.addItems(['200','100'])
@@ -97,14 +94,55 @@ class MyWindow(QtWidgets.QWidget):
         self.binary_adaptive_block_sizeBox.setSingleStep(50)
         ipLayout.addWidget(self.binary_adaptive_block_sizeBox, 1, 1)
         ipLayout.addWidget(QLabel("Adaptive mask size:"), 1, 0)
+        
+        self.contour_dilation_box = QSpinBox(self)
+        self.contour_dilation_box.setMaximum(2000)
+        self.contour_dilation_box.setValue(8)
+        self.contour_dilation_box.setSingleStep(1)
+        ipLayout.addWidget(self.contour_dilation_box, 1, 3)
+        ipLayout.addWidget(QLabel("Contour thickness:"), 1, 2)
+        
+        ipLayout.addWidget(QLabel("Threshold-contour::"), 1, 4)
+        self.find_contour_thres_box = QDoubleSpinBox(self)
+        self.find_contour_thres_box.setDecimals(4)
+        self.find_contour_thres_box.setMinimum(-10)
+        self.find_contour_thres_box.setMaximum(10)
+        self.find_contour_thres_box.setValue(0.001)
+        self.find_contour_thres_box.setSingleStep(0.0001)  
+        ipLayout.addWidget(self.find_contour_thres_box, 1, 5)
                 
         imageprocessingContainer.setLayout(ipLayout)
+        #-----------------------------------------------------------RankingContainer-------------------------------------------------
+        RankingContainer = QGroupBox("Selection settings")
+        rankingLayout = QGridLayout()
         
+        self.selec_num_box = QSpinBox(self)
+        self.selec_num_box.setMaximum(2000)
+        self.selec_num_box.setValue(10)
+        self.selec_num_box.setSingleStep(1)
+        rankingLayout.addWidget(self.selec_num_box, 0, 1)
+        rankingLayout.addWidget(QLabel("Winners number:"), 0, 0)
+        
+        
+        RankingContainer.setLayout(rankingLayout)
         #----------------------------------------------------------------------
         
         # Create a button in the window
         overallcontainer = QGroupBox("Ready to go")
         finalLayout= QGridLayout()
+        
+        self.savedirectorytextbox_evolu = QtWidgets.QLineEdit(self)
+        finalLayout.addWidget(self.savedirectorytextbox_evolu, 0, 0)
+        self.savedirectory_evolution=''
+        
+        self.toolButtonOpenDialog_evolu = QtWidgets.QPushButton('Set saving dir')
+        #self.toolButtonOpenDialog_evolu.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                #"QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+
+        self.toolButtonOpenDialog_evolu.setObjectName("toolButtonOpenDialog")
+        self.toolButtonOpenDialog_evolu.clicked.connect(self.open_file_dialog)
+        
+        finalLayout.addWidget(self.toolButtonOpenDialog_evolu, 0, 1)
         
         self.button1 = QPushButton('Configure waveforms', self)
         finalLayout.addWidget(self.button1, 8, 0)
@@ -126,6 +164,7 @@ class MyWindow(QtWidgets.QWidget):
         master = QVBoxLayout()
         master.addWidget(ScanContainer)
         master.addWidget(imageprocessingContainer)
+        master.addWidget(RankingContainer)
         master.addWidget(overallcontainer)
         self.setLayout(master)
      
@@ -146,10 +185,10 @@ class MyWindow(QtWidgets.QWidget):
         textboxValue4 = self.textboxD.value()
         UI_column_end = int(textboxValue4)
         
-        textboxValue5 = self.textboxE.currentText()
+        textboxValue5 = int(self.textboxE.value())
         UI_step = int(textboxValue5) 
         
-        textboxValue6 = self.textboxF.currentText()
+        textboxValue6 = int(self.selec_num_box.value())
         UI_selectnum = int(textboxValue6)
 
         UI_smallestsize = int(self.textboxG.currentText())    
@@ -157,6 +196,8 @@ class MyWindow(QtWidgets.QWidget):
         UI_openingfactor = int(self.opening_factorBox.value())
         UI_closingfactor = int(self.closing_factorBox.value())
         UI_binary_adaptive_block_size = int(self.binary_adaptive_block_sizeBox.value())
+        UI_self_findcontour_thres = float(self.find_contour_thres_box.value())
+        UI_contour_dilation = int(self.contour_dilation_box.value())
         
         #------------------------------------before start, set Spyder graphic back to inline-------------------------------
         get_ipython().run_line_magic('matplotlib', 'inline') # before start, set spyder back to inline
@@ -167,7 +208,9 @@ class MyWindow(QtWidgets.QWidget):
         print(self.readin[0])
         print(self.samplingrate)
         
-        self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, self.samplingrate, self.analogwave, self.digitalwave, self.readin, UI_selectnum, UI_smallestsize, UI_openingfactor, UI_closingfactor, UI_binary_adaptive_block_size)
+        self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, self.samplingrate, self.analogwave, 
+                           self.digitalwave, self.readin, UI_selectnum, UI_smallestsize, UI_openingfactor, UI_closingfactor, 
+                           UI_binary_adaptive_block_size, UI_self_findcontour_thres, UI_contour_dilation, self.savedirectory_evolution)
         self.S.start()
 
 
@@ -188,6 +231,10 @@ class MyWindow(QtWidgets.QWidget):
             self.digitalwave = digitalwave
             self.readin = readin
             self.samplingrate = samplingrate  
+            
+    def open_file_dialog(self):
+        self.savedirectory_evolution = str(QtWidgets.QFileDialog.getExistingDirectory())
+        self.savedirectorytextbox_evolu.setText(self.savedirectory_evolution)
 
 if __name__ == "__main__":
     def run_app():

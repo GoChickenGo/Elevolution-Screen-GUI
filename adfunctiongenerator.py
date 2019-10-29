@@ -406,3 +406,39 @@ class generate_DO_forPerfusion():
         self.finalwave_Perfusion = np.append(self.offsetsamples_Perfusion, self.waverepeated_Perfusion)
         
         return self.finalwave_Perfusion
+    
+class generate_DO_for2Pshutter():
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7):
+        self.Daq_sample_rate = value1
+        self.wavefrequency_2Pshutter = value2
+        self.waveoffset_2Pshutter = value3
+        self.waveperiod_2Pshutter = value4
+        self.waveDC_2Pshutter = value5
+        self.waverepeat_2Pshutter_number = value6
+        self.wavegap_2Pshutter = value7
+        
+    def generate(self):
+        
+        self.offsetsamples_number_2Pshutter = int(1 + (self.waveoffset_2Pshutter/1000)*self.Daq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
+        self.offsetsamples_2Pshutter = np.zeros(self.offsetsamples_number_2Pshutter, dtype=bool) # Be default offsetsamples_number is an integer.
+        
+        self.sample_num_singleperiod_2Pshutter = round(self.Daq_sample_rate/self.wavefrequency_2Pshutter)
+        self.true_sample_num_singleperiod_2Pshutter = round((self.waveDC_2Pshutter/100)*self.sample_num_singleperiod_2Pshutter)
+        self.false_sample_num_singleperiod_2Pshutter = self.sample_num_singleperiod_2Pshutter - self.true_sample_num_singleperiod_2Pshutter
+        
+        self.sample_singleperiod_2Pshutter = np.append(np.ones(self.true_sample_num_singleperiod_2Pshutter, dtype=bool), np.zeros(self.false_sample_num_singleperiod_2Pshutter, dtype=bool))
+        self.repeatnumberintotal_2Pshutter = int(self.wavefrequency_2Pshutter*(self.waveperiod_2Pshutter/1000))
+        # In default, pulses * sample_singleperiod_2 = period
+        self.sample_singlecycle_2Pshutter = np.tile(self.sample_singleperiod_2Pshutter, int(self.repeatnumberintotal_2Pshutter)) # At least 1 rise and fall during one cycle
+        
+        if self.wavegap_2Pshutter != 0:
+            self.gapsample_2Pshutter = np.zeros(self.wavegap_2Pshutter, dtype=bool)
+            self.waveallcyclewithgap_2Pshutter = np.append(self.sample_singlecycle_2Pshutter, self.gapsample_2Pshutter)
+        else:
+            self.waveallcyclewithgap_2Pshutter = self.sample_singlecycle_2Pshutter
+            
+        self.waverepeated_2Pshutter = np.tile(self.waveallcyclewithgap_2Pshutter, self.waverepeat_2Pshutter_number)
+        
+        self.finalwave_2Pshutter = np.append(self.offsetsamples_2Pshutter, self.waverepeated_2Pshutter)
+        
+        return self.finalwave_2Pshutter

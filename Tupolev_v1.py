@@ -7,8 +7,9 @@ Created on Sat Aug 10 20:54:40 2019
 from __future__ import division
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal, QRectF, QPoint
-from PyQt5.QtGui import QColor, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QSpinBox, QDoubleSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, QFileDialog
+from PyQt5.QtGui import QColor, QPen, QPixmap, QIcon
+
+from PyQt5.QtWidgets import QWidget, QButtonGroup, QLabel, QSlider, QSpinBox, QDoubleSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, QFileDialog
 
 import pyqtgraph as pg
 
@@ -16,20 +17,23 @@ import sys
 import numpy as np
 
 from pmt_thread import pmtimagingTest, pmtimagingTest_contour
+from Stagemovement_Thread import StagemovementThread
+from Filtermovement_Thread import FiltermovementThread
 from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
 import wavegenerator
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
 from generalDaqerThread import execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog, execute_tread_singlesample_digital
 from PIL import Image
-from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion
+from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter
 from pyqtgraph import PlotDataItem, TextItem
 from matlabAnalysis import readbinaryfile, extractV
 import os
 import scipy.signal as sg
 import ui_patchclamp_sealtest  
 from scipy import interpolate
-
+import time
+from datetime import datetime
 from skimage.io import imread
 from constants import HardwareConstants
 #Setting graph settings
@@ -182,7 +186,12 @@ class Mainbody(QWidget):
         self.setdirectorycontrolLayout = QGridLayout()        
         
         self.savedirectorytextbox = QtWidgets.QLineEdit(self)
-        self.setdirectorycontrolLayout.addWidget(self.savedirectorytextbox, 0, 0)
+        self.setdirectorycontrolLayout.addWidget(self.savedirectorytextbox, 1, 0)
+        
+        self.prefixtextbox = QtWidgets.QLineEdit(self)
+        self.setdirectorycontrolLayout.addWidget(self.prefixtextbox, 0, 1)
+        
+        self.setdirectorycontrolLayout.addWidget(QLabel("Saving prefix:"), 0, 0)
         
         self.toolButtonOpenDialog = QtWidgets.QPushButton('Click me!')
         self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
@@ -191,7 +200,7 @@ class Mainbody(QWidget):
         self.toolButtonOpenDialog.setObjectName("toolButtonOpenDialog")
         self.toolButtonOpenDialog.clicked.connect(self._open_file_dialog)
         
-        self.setdirectorycontrolLayout.addWidget(self.toolButtonOpenDialog, 0, 1)
+        self.setdirectorycontrolLayout.addWidget(self.toolButtonOpenDialog, 1, 1)
         
         setdirectoryContainer.setLayout(self.setdirectorycontrolLayout)
         setdirectoryContainer.setMaximumHeight(100)
@@ -217,6 +226,11 @@ class Mainbody(QWidget):
         self.slider640.sliderReleased.connect(lambda:self.execute_tread_single_sample_analog('640AO'))
         self.line640.returnPressed.connect(lambda:self.updatesider(640))
         
+        self.ICON_off_AOTF = "AOTF_off.png"
+        self.AOTF_red_iconlabel = QLabel(self)
+        self.AOTF_red_iconlabel.setPixmap(QPixmap(self.ICON_off_AOTF))
+        self.AOTFcontrolLayout.addWidget(self.AOTF_red_iconlabel, 0, 0)
+        
         self.switchbutton_640 = QPushButton("640")
         self.switchbutton_640.setStyleSheet("QPushButton {color:white;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:black;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
@@ -224,8 +238,9 @@ class Mainbody(QWidget):
         #self.holdingbutton.toggle()
         
         self.switchbutton_640.clicked.connect(lambda: self.execute_tread_single_sample_digital('640blanking'))
+        self.switchbutton_640.clicked.connect(lambda: self.change_AOTF_icon('640blanking'))
         self.AOTFcontrolLayout.addWidget(self.switchbutton_640, 0, 1)
-        
+                
         self.slider532 = QSlider(Qt.Horizontal)
         self.slider532.setMinimum(0)
         self.slider532.setMaximum(500)
@@ -238,6 +253,10 @@ class Mainbody(QWidget):
         self.slider532.sliderReleased.connect(lambda:self.execute_tread_single_sample_analog('532AO'))
         self.line532.returnPressed.connect(lambda:self.updatesider(532))
         
+        self.AOTF_green_iconlabel = QLabel(self)
+        self.AOTF_green_iconlabel.setPixmap(QPixmap(self.ICON_off_AOTF))
+        self.AOTFcontrolLayout.addWidget(self.AOTF_green_iconlabel, 1, 0)
+        
         self.switchbutton_532 = QPushButton("532")
         self.switchbutton_532.setStyleSheet("QPushButton {color:white;background-color: green; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:black;background-color: green; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
@@ -245,6 +264,7 @@ class Mainbody(QWidget):
         #self.holdingbutton.toggle()
         
         self.switchbutton_532.clicked.connect(lambda: self.execute_tread_single_sample_digital('532blanking'))
+        self.switchbutton_532.clicked.connect(lambda: self.change_AOTF_icon('532blanking'))
         self.AOTFcontrolLayout.addWidget(self.switchbutton_532, 1, 1)
         
         self.slider488 = QSlider(Qt.Horizontal)
@@ -259,6 +279,10 @@ class Mainbody(QWidget):
         self.slider488.sliderReleased.connect(lambda:self.execute_tread_single_sample_analog('488AO'))
         self.line488.returnPressed.connect(lambda:self.updatesider(488))
         
+        self.AOTF_blue_iconlabel = QLabel(self)
+        self.AOTF_blue_iconlabel.setPixmap(QPixmap(self.ICON_off_AOTF))
+        self.AOTFcontrolLayout.addWidget(self.AOTF_blue_iconlabel, 2, 0)
+        
         self.switchbutton_488 = QPushButton("488")
         self.switchbutton_488.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:black;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
@@ -266,6 +290,7 @@ class Mainbody(QWidget):
         #self.holdingbutton.toggle()
         
         self.switchbutton_488.clicked.connect(lambda: self.execute_tread_single_sample_digital('488blanking'))
+        self.switchbutton_488.clicked.connect(lambda: self.change_AOTF_icon('488blanking'))
         self.AOTFcontrolLayout.addWidget(self.switchbutton_488, 2, 1)        
         
         self.AOTFcontrolLayout.addWidget(self.slider640, 0, 2)
@@ -276,47 +301,158 @@ class Mainbody(QWidget):
         self.AOTFcontrolLayout.addWidget(self.line488, 2, 3)
         
         AOTFcontrolContainer.setLayout(self.AOTFcontrolLayout)
+        AOTFcontrolContainer.setMaximumHeight(300)
         self.layout.addWidget(AOTFcontrolContainer, 1, 0)
         
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
-        #-----------------------------------------------------------GUI for AOTF---------------------------------------------------------------
+        #-----------------------------------------------------------GUI for Stage--------------------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #**************************************************************************************************************************************
         stagecontrolContainer = QGroupBox("Stage control")
         self.stagecontrolLayout = QGridLayout()
         
         self.stage_upwards = QPushButton("↑")
-        self.stage_upwards.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+        self.stage_upwards.setStyleSheet("QPushButton {color:white;background-color: Olive; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.stagecontrolLayout.addWidget(self.stage_upwards, 1, 2)
+        self.stage_upwards.clicked.connect(lambda: self.sample_stage_move_upwards())
+        self.stage_upwards.setShortcut('w')
         
         self.stage_left = QPushButton("←")
-        self.stage_left.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+        self.stage_left.setStyleSheet("QPushButton {color:white;background-color: Olive; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.stagecontrolLayout.addWidget(self.stage_left, 2, 1)
+        self.stage_left.clicked.connect(lambda: self.sample_stage_move_leftwards())
+        self.stage_left.setShortcut('a')
         
         self.stage_right = QPushButton("→")
-        self.stage_right.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+        self.stage_right.setStyleSheet("QPushButton {color:white;background-color: Olive; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.stagecontrolLayout.addWidget(self.stage_right, 2, 3)
+        self.stage_right.clicked.connect(lambda: self.sample_stage_move_rightwards())
+        self.stage_right.setShortcut('d')
         
         self.stage_down = QPushButton("↓")
-        self.stage_down.setStyleSheet("QPushButton {color:black;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+        self.stage_down.setStyleSheet("QPushButton {color:white;background-color: Olive; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.stagecontrolLayout.addWidget(self.stage_down, 2, 2)
+        self.stage_down.clicked.connect(lambda: self.sample_stage_move_downwards())
+        self.stage_down.setShortcut('s')
         
         self.stage_speed = QSpinBox(self)
-        self.stage_speed.setMinimum(-100)
-        self.stage_speed.setMaximum(100)
-        self.stage_speed.setValue(10)
-        self.stage_speed.setSingleStep(2)        
+        self.stage_speed.setMinimum(-10000)
+        self.stage_speed.setMaximum(10000)
+        self.stage_speed.setValue(300)
+        self.stage_speed.setSingleStep(100)        
         self.stagecontrolLayout.addWidget(self.stage_speed, 0, 1)
         self.stagecontrolLayout.addWidget(QLabel("Move speed:"), 0, 0)
         
+        self.led_Label = QLabel("White LED: ")
+        self.stagecontrolLayout.addWidget(self.led_Label, 0, 2)
+        
+        self.switchbutton_LED = QPushButton()
+        #self.switchbutton_LED.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            #"QPushButton:pressed {color:black;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+        self.switchbutton_LED.setCheckable(True)
+        self.switchbutton_LED.setIcon(QIcon('AOTF_off.png'))
+        #self.holdingbutton.toggle()
+        
+        self.switchbutton_LED.clicked.connect(lambda: self.execute_tread_single_sample_digital('LED'))
+        self.switchbutton_LED.clicked.connect(lambda: self.change_AOTF_icon('LED'))
+        self.stagecontrolLayout.addWidget(self.switchbutton_LED, 0, 3)
+        
+        self.stage_current_pos_Label = QLabel("Current position: ")
+        self.stagecontrolLayout.addWidget(self.stage_current_pos_Label, 1, 0)
+        
+        self.stage_goto = QPushButton("Go to: ")
+        self.stage_goto.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                            "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        self.stagecontrolLayout.addWidget(self.stage_goto, 3, 0)
+        self.stage_goto.clicked.connect(lambda: self.sample_stage_move_towards())
+        
+        self.stage_goto_x = QLineEdit(self)
+        self.stage_goto_x.setFixedWidth(60)
+        self.stagecontrolLayout.addWidget(self.stage_goto_x, 3, 1)
+        
+        self.stage_goto_y = QLineEdit(self)
+        self.stage_goto_y.setFixedWidth(60)
+        self.stagecontrolLayout.addWidget(self.stage_goto_y, 3, 2)
+        
+        self.stagecontrolLayout.addWidget(QLabel('Click arrow to enable WASD keyboard control'), 4, 0, 1, 3)
+        
         stagecontrolContainer.setLayout(self.stagecontrolLayout)
-        stagecontrolContainer.setMaximumHeight(200)
+        stagecontrolContainer.setMaximumHeight(300)
         self.layout.addWidget(stagecontrolContainer, 2, 0)        
+        
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------GUI for Filter movement----------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #**************************************************************************************************************************************
+        ND_filtercontrolContainer = QGroupBox("ND filter control")
+        self.NDfiltercontrolLayout = QGridLayout()      
+
+        self.NDfiltercontrolLayout.addWidget(QLabel('ND Filter-1 pos: '), 0, 0)
+        
+        bGBackupFromIntExt = QButtonGroup(self)
+
+        self.filter1_pos0 = QPushButton('0')
+        self.filter1_pos0.setCheckable(True)
+        bGBackupFromIntExt.addButton(self.filter1_pos0)
+        self.NDfiltercontrolLayout.addWidget(self.filter1_pos0, 0, 1)
+        self.filter1_pos0.clicked.connect(lambda: self.filter_move_towards("COM4", 0))
+
+        self.filter1_pos1 = QPushButton('1')
+        self.filter1_pos1.setCheckable(True)
+        bGBackupFromIntExt.addButton(self.filter1_pos1)
+        self.NDfiltercontrolLayout.addWidget(self.filter1_pos1, 0, 2)    
+        self.filter1_pos1.clicked.connect(lambda: self.filter_move_towards("COM4", 1))
+        
+        self.filter1_pos2 = QPushButton('2')
+        self.filter1_pos2.setCheckable(True)
+        bGBackupFromIntExt.addButton(self.filter1_pos2)
+        self.NDfiltercontrolLayout.addWidget(self.filter1_pos2, 0, 3)
+        self.filter1_pos2.clicked.connect(lambda: self.filter_move_towards("COM4", 2))
+        
+        self.filter1_pos3 = QPushButton('3')
+        self.filter1_pos3.setCheckable(True)
+        bGBackupFromIntExt.addButton(self.filter1_pos3)
+        self.NDfiltercontrolLayout.addWidget(self.filter1_pos3, 0, 4)
+        self.filter1_pos3.clicked.connect(lambda: self.filter_move_towards("COM4", 3)) 
+        
+        self.NDfiltercontrolLayout.addWidget(QLabel('ND Filter-1 pos: '), 0, 0)
+
+        self.NDfiltercontrolLayout.addWidget(QLabel('ND Filter-2 pos: '), 1, 0)        
+        bGBackupFromIntExt_1 = QButtonGroup(self)
+
+        self.filter2_pos0 = QPushButton('0')
+        self.filter2_pos0.setCheckable(True)
+        bGBackupFromIntExt_1.addButton(self.filter2_pos0)
+        self.NDfiltercontrolLayout.addWidget(self.filter2_pos0, 1, 1)
+        self.filter2_pos0.clicked.connect(lambda: self.filter_move_towards("COM7", 0))
+
+        self.filter2_pos1 = QPushButton('0.1')
+        self.filter2_pos1.setCheckable(True)
+        bGBackupFromIntExt_1.addButton(self.filter2_pos1)
+        self.NDfiltercontrolLayout.addWidget(self.filter2_pos1, 1, 2)    
+        self.filter2_pos1.clicked.connect(lambda: self.filter_move_towards("COM7", 1))
+        
+        self.filter2_pos2 = QPushButton('0.3')
+        self.filter2_pos2.setCheckable(True)
+        bGBackupFromIntExt_1.addButton(self.filter2_pos2)
+        self.NDfiltercontrolLayout.addWidget(self.filter2_pos2, 1, 3)
+        self.filter2_pos2.clicked.connect(lambda: self.filter_move_towards("COM7", 2))
+        
+        self.filter2_pos3 = QPushButton('0.5')
+        self.filter2_pos3.setCheckable(True)
+        bGBackupFromIntExt_1.addButton(self.filter2_pos3)
+        self.NDfiltercontrolLayout.addWidget(self.filter2_pos3, 1, 4)
+        self.filter2_pos3.clicked.connect(lambda: self.filter_move_towards("COM7", 3)) 
+       
+        ND_filtercontrolContainer.setLayout(self.NDfiltercontrolLayout)
+        ND_filtercontrolContainer.setMaximumHeight(200)
+        self.layout.addWidget(ND_filtercontrolContainer, 3, 0)         
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #-----------------------------------------------------------GUI for PMT tab------------------------------------------------------------
@@ -356,7 +492,7 @@ class Mainbody(QWidget):
         self.pmtimageroiLayout.addWidget(self.pmt_roiwidget, 0, 0)
         
         pmtimageContainer.setMinimumWidth(1000)
-        pmtroiContainer.setMaximumHeight(500)
+        pmtroiContainer.setMaximumHeight(380)
         pmtroiContainer.setMaximumWidth(300)
         
         pmtimageContainer.setLayout(self.pmtimageLayout)
@@ -382,28 +518,32 @@ class Mainbody(QWidget):
         self.pointsinContour.setSingleStep(100)        
         self.pmtContourLayout.addWidget(self.pointsinContour, 2, 1)
         self.pmtContourLayout.addWidget(QLabel("Points in contour:"), 2, 0)
-        
-        self.contour_samprate = QComboBox()
-        self.contour_samprate.addItems(['Sampling rate: 50000', 'Sampling rate: 500000'])
-        self.pmtContourLayout.addWidget(self.contour_samprate, 3, 0)
+
+        self.contour_samprate = QSpinBox(self)
+        self.contour_samprate.setMinimum(0)
+        self.contour_samprate.setMaximum(1000000)
+        self.contour_samprate.setValue(50000)
+        self.contour_samprate.setSingleStep(10000)        
+        self.pmtContourLayout.addWidget(self.contour_samprate, 3, 1)        
+        self.pmtContourLayout.addWidget(QLabel("Sampling rate:"), 3, 0)
         
         self.generate_contour_sacn = QPushButton("Generate contour")
         self.generate_contour_sacn.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                                  "QPushButton:pressed {color:red;background-color: DarkOliveGreen; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
-        self.pmtContourLayout.addWidget(self.generate_contour_sacn, 3, 1)
+        self.pmtContourLayout.addWidget(self.generate_contour_sacn, 4, 1)
         self.generate_contour_sacn.clicked.connect(lambda: self.generate_contour())
         
         self.do_contour_sacn = QPushButton("Continuous scan")
         self.do_contour_sacn.setStyleSheet("QPushButton {color:black;background-color: Aquamarine; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                            "QPushButton:pressed {color:red;background-color: Turquoise; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
-        self.pmtContourLayout.addWidget(self.do_contour_sacn, 4, 0)
+        self.pmtContourLayout.addWidget(self.do_contour_sacn, 5, 0)
         self.do_contour_sacn.clicked.connect(lambda: self.measure_pmt_contourscan())
         
         self.stopButton_contour = QPushButton("Stop")
         self.stopButton_contour.setStyleSheet("QPushButton {color:white;background-color: FireBrick; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                       "QPushButton:pressed {color:black;background-color: FireBrick; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.stopButton_contour.clicked.connect(lambda: self.stopMeasurement_pmt_contour())
-        self.pmtContourLayout.addWidget(self.stopButton_contour, 4, 1)
+        self.pmtContourLayout.addWidget(self.stopButton_contour, 5, 1)
         
         pmtContourContainer.setLayout(self.pmtContourLayout)
         #----------------------------Control-----------------------------------
@@ -433,9 +573,12 @@ class Mainbody(QWidget):
         self.controlLayout.addWidget(self.stopButton, 3, 8)
         
         #-----------------------------------Galvo scanning------------------------------------------------------------------------
-        self.textboxAA_pmt = QComboBox()
-        self.textboxAA_pmt.addItems(['500000', '50000'])
-        self.controlLayout.addWidget(self.textboxAA_pmt, 2, 0)
+        self.textboxAA_pmt = QSpinBox(self)
+        self.textboxAA_pmt.setMinimum(0)
+        self.textboxAA_pmt.setMaximum(1000000)
+        self.textboxAA_pmt.setValue(500000)
+        self.textboxAA_pmt.setSingleStep(100000)        
+        self.controlLayout.addWidget(self.textboxAA_pmt, 2, 0)        
         self.controlLayout.addWidget(QLabel("Sampling rate:"), 1, 0)
         
         #self.controlLayout.addWidget(QLabel("Galvo raster scanning : "), 1, 0)
@@ -504,8 +647,8 @@ class Mainbody(QWidget):
         #-----------------------------------------------------------GUI for Waveform tab-------------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #**************************************************************************************************************************************
-        self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =None
-        self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = None
+        self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform=None
+        self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = self.finalwave_2Pshutter =  None
         
         AnalogContainer = QGroupBox("Analog signals")
         self.AnalogLayout = QGridLayout() #self.AnalogLayout manager
@@ -558,7 +701,7 @@ class Mainbody(QWidget):
         self.ReadLayout = QGridLayout() #self.AnalogLayout manager
 
         self.textboxBB = QComboBox()
-        self.textboxBB.addItems(['galvos', '640AO', '488AO', '532AO', 'patchAO','cameratrigger', 'blankingall', '640blanking','532blanking','488blanking', 'Perfusion_1'])
+        self.textboxBB.addItems(['galvos', 'galvos_contour', '640AO', '488AO', '532AO', 'patchAO','cameratrigger', 'blankingall', '640blanking','532blanking','488blanking', 'Perfusion_1'])
         self.ReadLayout.addWidget(self.textboxBB, 0, 1)
         self.ReadLayout.addWidget(QLabel("Reference waveform:"), 0, 0)
 
@@ -579,8 +722,11 @@ class Mainbody(QWidget):
         
         self.button_clear_canvas.clicked.connect(self.clear_canvas)  
         
-        self.textboxAA = QComboBox()
-        self.textboxAA.addItems(['500000', '50000'])
+        self.textboxAA = QSpinBox(self)
+        self.textboxAA.setMinimum(0)
+        self.textboxAA.setMaximum(1000000)
+        self.textboxAA.setValue(500000)
+        self.textboxAA.setSingleStep(100000)        
         self.ReadLayout.addWidget(self.textboxAA, 0, 3)
         self.ReadLayout.addWidget(QLabel("Sampling rate for all:"), 0, 2)
         
@@ -625,7 +771,7 @@ class Mainbody(QWidget):
         
         self.wavetablayout.addWidget(QLabel("DC (%):"), 0, 4)
         self.textbox2F = QComboBox()
-        self.textbox2F.addItems(['50','10'])
+        self.textbox2F.addItems(['50','100','0'])
         self.wavetablayout.addWidget(self.textbox2F, 0, 5)
         
         self.textbox2G = QLineEdit(self)
@@ -647,16 +793,19 @@ class Mainbody(QWidget):
         self.wavetablayout.addWidget(QLabel("Baseline (V):"), 3, 0)
 
         self.wavetablayout.addWidget(QLabel("Step (V):"), 2, 2)
-        self.textbox2J = QSpinBox(self)
+        self.textbox2J = QDoubleSpinBox(self)
         self.textbox2J.setMinimum(-10)
         self.textbox2J.setMaximum(10)
         self.textbox2J.setValue(5)
-        self.textbox2J.setSingleStep(1) 
+        self.textbox2J.setSingleStep(0.5)
         self.wavetablayout.addWidget(self.textbox2J, 2, 3)
 
         self.wavetablayout.addWidget(QLabel("Cycles:"), 3, 2)
-        self.textbox2K = QComboBox()
-        self.textbox2K.addItems(['1','2', '3'])
+        self.textbox2K = QSpinBox(self)
+        self.textbox2K.setMinimum(0)
+        self.textbox2K.setMaximum(100)
+        self.textbox2K.setValue(1)
+        self.textbox2K.setSingleStep(1) 
         self.wavetablayout.addWidget(self.textbox2K, 3, 3)
                 
         self.wavetab1.setLayout(self.wavetablayout)
@@ -665,63 +814,100 @@ class Mainbody(QWidget):
         #----------------------------------------------Galvo scanning----------------------------------------------
         
         self.galvotablayout= QGridLayout()
-        
-        self.textbox1B = QComboBox()
-        self.textbox1B.addItems(['-5','-3','-2','-1'])
-        self.galvotablayout.addWidget(self.textbox1B, 0, 1)
-        self.galvotablayout.addWidget(QLabel("voltXMin"), 0, 0)
+        self.galvos_tabs = QTabWidget()
+        self.normal_galvo_tab = QWidget()
+        self.galvo_raster_tablayout= QGridLayout()
+        self.contour_galvo_tab = QWidget()
+        self.galvo_contour_tablayout= QGridLayout()
+        #self.controlLayout.addWidget(QLabel("Galvo raster scanning : "), 1, 0)
+        self.textbox1B = QSpinBox(self)
+        self.textbox1B.setMinimum(-10)
+        self.textbox1B.setMaximum(10)
+        self.textbox1B.setValue(-3)
+        self.textbox1B.setSingleStep(1)        
+        self.galvo_raster_tablayout.addWidget(self.textbox1B, 0, 1)
+        self.galvo_raster_tablayout.addWidget(QLabel("voltXMin"), 0, 0)
 
-        self.textbox1C = QComboBox()
-        self.textbox1C.addItems(['5','3','2','1'])
-        self.galvotablayout.addWidget(self.textbox1C, 1, 1)
-        self.galvotablayout.addWidget(QLabel("voltXMax"), 1, 0)
+        self.textbox1C = QSpinBox(self)
+        self.textbox1C.setMinimum(-10)
+        self.textbox1C.setMaximum(10)
+        self.textbox1C.setValue(3)
+        self.textbox1C.setSingleStep(1)   
+        self.galvo_raster_tablayout.addWidget(self.textbox1C, 1, 1)
+        self.galvo_raster_tablayout.addWidget(QLabel("voltXMax"), 1, 0)
 
-        self.textbox1D = QComboBox()
-        self.textbox1D.addItems(['-5','-3','-2','-1'])
-        self.galvotablayout.addWidget(self.textbox1D, 0, 3)
-        self.galvotablayout.addWidget(QLabel("voltYMin"), 0, 2)
+        self.textbox1D = QSpinBox(self)
+        self.textbox1D.setMinimum(-10)
+        self.textbox1D.setMaximum(10)
+        self.textbox1D.setValue(-3)
+        self.textbox1D.setSingleStep(1)   
+        self.galvo_raster_tablayout.addWidget(self.textbox1D, 0, 3)
+        self.galvo_raster_tablayout.addWidget(QLabel("voltYMin"), 0, 2)
 
-        self.textbox1E = QComboBox()
-        self.textbox1E.addItems(['5','3','2','1'])
-        self.galvotablayout.addWidget(self.textbox1E, 1, 3)
-        self.galvotablayout.addWidget(QLabel("voltYMax"), 1, 2)
+        self.textbox1E = QSpinBox(self)
+        self.textbox1E.setMinimum(-10)
+        self.textbox1E.setMaximum(10)
+        self.textbox1E.setValue(3)
+        self.textbox1E.setSingleStep(1)   
+        self.galvo_raster_tablayout.addWidget(self.textbox1E, 1, 3)
+        self.galvo_raster_tablayout.addWidget(QLabel("voltYMax"), 1, 2)
 
         self.textbox1F = QComboBox()
         self.textbox1F.addItems(['500','256'])
-        self.galvotablayout.addWidget(self.textbox1F, 0, 5)
-        self.galvotablayout.addWidget(QLabel("X pixel number"), 0, 4)
+        self.galvo_raster_tablayout.addWidget(self.textbox1F, 0, 5)
+        self.galvo_raster_tablayout.addWidget(QLabel("X pixel number"), 0, 4)
 
         self.textbox1G = QComboBox()
         self.textbox1G.addItems(['500','256'])
-        self.galvotablayout.addWidget(self.textbox1G, 1, 5)
-        self.galvotablayout.addWidget(QLabel("Y pixel number"), 1, 4)
+        self.galvo_raster_tablayout.addWidget(self.textbox1G, 1, 5)
+        self.galvo_raster_tablayout.addWidget(QLabel("Y pixel number"), 1, 4)
         
         self.textbox1I = QLineEdit(self)
         self.textbox1I.setPlaceholderText('0')
-        self.galvotablayout.addWidget(self.textbox1I, 2, 1)
-        self.galvotablayout.addWidget(QLabel("Offset (ms):"), 2, 0)
+        self.galvo_raster_tablayout.addWidget(self.textbox1I, 2, 1)
+        self.galvo_raster_tablayout.addWidget(QLabel("Offset (ms):"), 2, 0)
         
         self.textbox1J = QLineEdit(self)
         self.textbox1J.setPlaceholderText('0')
-        self.galvotablayout.addWidget(self.textbox1J, 2, 3)
-        self.galvotablayout.addWidget(QLabel("Gap between scans:"), 2, 2)       
+        self.galvo_raster_tablayout.addWidget(self.textbox1J, 2, 3)
+        self.galvo_raster_tablayout.addWidget(QLabel("Gap between scans:"), 2, 2)       
 
         self.textbox1H = QSpinBox(self)
         self.textbox1H.setMinimum(1)
         self.textbox1H.setMaximum(20)
         self.textbox1H.setValue(1)
         self.textbox1H.setSingleStep(1)
-        self.galvotablayout.addWidget(self.textbox1H, 2, 5)
-        self.galvotablayout.addWidget(QLabel("average over:"), 2, 4)        
+        self.galvo_raster_tablayout.addWidget(self.textbox1H, 2, 5)
+        self.galvo_raster_tablayout.addWidget(QLabel("average over:"), 2, 4)        
 
         self.textbox1K = QSpinBox(self)
         self.textbox1K.setMinimum(1)
         self.textbox1K.setMaximum(20)
         self.textbox1K.setValue(1)
         self.textbox1K.setSingleStep(1)
-        self.galvotablayout.addWidget(self.textbox1K, 0, 7)
-        self.galvotablayout.addWidget(QLabel("Repeat:"), 0, 6)  
+        self.galvo_raster_tablayout.addWidget(self.textbox1K, 0, 7)
+        self.galvo_raster_tablayout.addWidget(QLabel("Repeat:"), 0, 6)  
+        
+        self.galvo_contour_label_1 = QLabel("Points in contour:")
+        self.galvo_contour_tablayout.addWidget(self.galvo_contour_label_1, 0, 0)
+        
+        self.galvo_contour_label_2 = QLabel("Sampling rate: ")
+        self.galvo_contour_tablayout.addWidget(self.galvo_contour_label_2, 0, 1)
+        
+        self.textbox1L = QSpinBox(self)
+        self.textbox1L.setMinimum(000000)
+        self.textbox1L.setMaximum(200000)
+        self.textbox1L.setValue(1000)
+        self.textbox1L.setSingleStep(500)
+        self.galvo_contour_tablayout.addWidget(self.textbox1L, 0, 3)
+        self.galvo_contour_tablayout.addWidget(QLabel("Last(ms):"), 0, 2)        
+        
+        self.normal_galvo_tab.setLayout(self.galvo_raster_tablayout)
+        self.contour_galvo_tab.setLayout(self.galvo_contour_tablayout)
+        self.galvos_tabs.addTab(self.normal_galvo_tab, 'Raster scanning')
+        self.galvos_tabs.addTab(self.contour_galvo_tab, 'Contour scanning')
 
+        self.galvotablayout.addWidget(self.galvos_tabs,0,0)
         '''
         self.button1 = QPushButton('SHOW WAVE', self)
         self.galvotablayout.addWidget(self.button1, 1, 11)
@@ -758,7 +944,8 @@ class Mainbody(QWidget):
                                   '640blanking',
                                   '532blanking',
                                   '488blanking',
-                                  'Perfusion_1'])
+                                  'Perfusion_1',
+                                  '2Pshutter'])
         self.DigitalLayout.addWidget(self.textbox3A, 0, 0)
         
         self.button3 = QPushButton('Add', self)
@@ -971,17 +1158,26 @@ class Mainbody(QWidget):
         self.roi_weighted = pg.PolyLineROI([[0,0], [10,10], [10,30], [30,10]], closed=True)
         self.pw_weightimage.view.addItem(self.roi_weighted)
         #self.pw_weightimage = weightedimagewindow()
-        self.imageanalysisLayout_weight.addWidget(self.pw_weightimage, 0, 0, 3, 3)
+        self.imageanalysisLayout_weight.addWidget(self.pw_weightimage, 0, 0, 5, 3)
+        
+        self.switch_Vp_or_camtrace = QComboBox()
+        self.switch_Vp_or_camtrace.addItems(['With Vp', 'Camera trace'])
+        self.imageanalysisLayout_weight.addWidget(self.switch_Vp_or_camtrace, 0, 3)
         
         self.button_weight = QPushButton('Cal. weight', self)
         self.button_weight.setMaximumWidth(83)
-        self.imageanalysisLayout_weight.addWidget(self.button_weight, 0, 3) 
+        self.imageanalysisLayout_weight.addWidget(self.button_weight, 1, 3) 
         self.button_weight.clicked.connect(self.calculateweight)
         
         self.button_weighttrace = QPushButton('Weighted Trace', self)
         self.button_weighttrace.setMaximumWidth(83)
-        self.imageanalysisLayout_weight.addWidget(self.button_weighttrace, 1, 3) 
+        self.imageanalysisLayout_weight.addWidget(self.button_weighttrace, 2, 3) 
         self.button_weighttrace.clicked.connect(self.displayweighttrace)
+        
+        self.button_weight_save = QPushButton('Save image', self)
+        self.button_weight_save.setMaximumWidth(83)
+        self.imageanalysisLayout_weight.addWidget(self.button_weight_save, 3, 3) 
+        self.button_weight_save.clicked.connect(lambda: self.save_analyzed_image('weight'))
         
         imageanalysis_weight_Container.setLayout(self.imageanalysisLayout_weight)
         imageanalysis_weight_Container.setMinimumHeight(200)
@@ -1036,18 +1232,18 @@ class Mainbody(QWidget):
                 self.samplingrate_curve = curvereadingobjective_I[0]
 
     def displayElectricalsignal(self):
-        
-        self.patchcurrentlabel = np.arange(len(self.Ip))/self.samplingrate_curve
-        
-        self.PlotDataItem_patchcurrent = PlotDataItem(self.patchcurrentlabel, self.Ip*1000/self.OC)
-        self.PlotDataItem_patchcurrent.setPen('b')
-        self.pw_patch_current.addItem(self.PlotDataItem_patchcurrent)
-        
-        self.patchvoltagelabel = np.arange(len(self.Vp))/self.samplingrate_curve
-        
-        self.PlotDataItem_patchvoltage = PlotDataItem(self.patchvoltagelabel, self.Vp*1000/10)
-        self.PlotDataItem_patchvoltage.setPen('w')
-        self.pw_patch_voltage.addItem(self.PlotDataItem_patchvoltage)
+        if self.switch_Vp_or_camtrace.currentText() == 'With Vp':
+            self.patchcurrentlabel = np.arange(len(self.Ip))/self.samplingrate_curve
+            
+            self.PlotDataItem_patchcurrent = PlotDataItem(self.patchcurrentlabel, self.Ip*1000/self.OC)
+            self.PlotDataItem_patchcurrent.setPen('b')
+            self.pw_patch_current.addItem(self.PlotDataItem_patchcurrent)
+            
+            self.patchvoltagelabel = np.arange(len(self.Vp))/self.samplingrate_curve
+            
+            self.PlotDataItem_patchvoltage = PlotDataItem(self.patchvoltagelabel, self.Vp*1000/10)
+            self.PlotDataItem_patchvoltage.setPen('w')
+            self.pw_patch_voltage.addItem(self.PlotDataItem_patchvoltage)
         
     def showpointdata(self):
         try:
@@ -1129,17 +1325,24 @@ class Mainbody(QWidget):
         self.pw_averageimage.setImage(self.imganalysis_averageimage)
         #self.pw_averageimage.average_imgItem.setImage(self.imganalysis_averageimage)
         
-    def calculateweight(self):
-        self.samplingrate_cam = self.Spincamsamplingrate.value()
-        self.downsample_ratio = int(self.samplingrate_curve/self.samplingrate_cam)
-        self.Vp_downsample = self.Vp.reshape(-1, self.downsample_ratio).mean(axis=1)
-        
-        self.Vp_downsample = self.Vp_downsample[0:len(self.videostack)]
-        
-        weight_ins = extractV(self.videostack, self.Vp_downsample*1000/10)
-        self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
-
-        self.pw_weightimage.setImage(self.weightimage)
+    def calculateweight(self):        
+        if self.switch_Vp_or_camtrace.currentText() == 'With Vp':
+            self.samplingrate_cam = self.Spincamsamplingrate.value()
+            self.downsample_ratio = int(self.samplingrate_curve/self.samplingrate_cam)            
+            self.Vp_downsample = self.Vp.reshape(-1, self.downsample_ratio).mean(axis=1)
+            
+            self.Vp_downsample = self.Vp_downsample[0:len(self.videostack)]
+            
+            weight_ins = extractV(self.videostack, self.Vp_downsample*1000/10)
+            self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
+    
+            self.pw_weightimage.setImage(self.weightimage)
+            
+        elif self.switch_Vp_or_camtrace.currentText() == 'Camera trace':
+            weight_ins = extractV(self.videostack, self.camsignalsum*1000/10)
+            self.corrimage, self.weightimage, self.sigmaimage= weight_ins.cal()
+    
+            self.pw_weightimage.setImage(self.weightimage)
         #print(self.pw_weightimage.levelMax)
         #print(self.pw_weightimage.levelMin)
         #self.pw_weightimage.weightedimgItem.setImage(self.weightimage)
@@ -1190,6 +1393,11 @@ class Mainbody(QWidget):
             self.PlotDataItem_patchcam_weighted.setPen('c')
             self.pw_patch_camtrace.addItem(self.PlotDataItem_patchcam_weighted)
             
+    def save_analyzed_image(self, catag):
+        if catag == 'weight':
+            Localimg = Image.fromarray(self.weightimage) #generate an image object
+            Localimg.save(os.path.join(self.savedirectory, 'Weight_'+ self.saving_prefix + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
+            
     def clearplots(self):
         self.pw_patch_voltage.clear()
         self.pw_patch_current.clear()
@@ -1212,7 +1420,7 @@ class Mainbody(QWidget):
         #-------------------------------------------------------------------------------------------------------------------------------------- 
         #**************************************************************************************************************************************
     def measure_pmt(self):
-        self.Daq_sample_rate_pmt = int(self.textboxAA_pmt.currentText())
+        self.Daq_sample_rate_pmt = int(self.textboxAA_pmt.value())
         
         #Scanning settings
         Value_voltXMin = int(self.textbox1B_pmt.value())
@@ -1236,7 +1444,7 @@ class Mainbody(QWidget):
         self.pmtTest.start()
         
     def measure_pmt_contourscan(self):
-        self.Daq_sample_rate_pmt = int(self.contour_samprate.currentText()[15:len(self.contour_samprate.currentText())])
+        self.Daq_sample_rate_pmt = int(self.contour_samprate.value())
         
         self.pmtTest_contour.setWave_contourscan(self.Daq_sample_rate_pmt, self.handle_viewbox_coordinate_position_array_expanded_forDaq, self.contour_point_number)
         contour_freq = self.Daq_sample_rate_pmt/self.contour_point_number
@@ -1250,8 +1458,8 @@ class Mainbody(QWidget):
         
     def saveimage_pmt(self):
         Localimg = Image.fromarray(self.data_pmtcontineous) #generate an image object
-        Localimg.save('pmtimage.tif') #save as tif
-        
+        Localimg.save(os.path.join(self.savedirectory, 'PMT_'+ self.saving_prefix + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
+        #np.save(os.path.join(self.savedirectory, 'PMT'+ self.saving_prefix +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.data_pmtcontineous)
         
     def update_pmt_Graphs(self, data):
         """Update graphs."""
@@ -1273,6 +1481,9 @@ class Mainbody(QWidget):
         self.contour_point_number = int(self.pointsinContour.value())
         self.handle_scene_coordinate_position_raw_list = self.roi.getSceneHandlePositions()
         self.handle_local_coordinate_position_raw_list = self.roi.getLocalHandlePositions()
+        self.Daq_sample_rate_pmt = int(self.contour_samprate.value())
+        self.galvo_contour_label_1.setText("Points in contour: %.d" % self.contour_point_number)
+        self.galvo_contour_label_2.setText("Sampling rate: %.d" % self.Daq_sample_rate_pmt)
         
         #put scene positions into numpy array
         self.handle_scene_coordinate_position_array = np.zeros((self.ROIhandles_nubmer, 2))# n rows, 2 columns
@@ -1287,7 +1498,7 @@ class Mainbody(QWidget):
             # try to initialize an array then afterwards we can append on it
             #self.handle_scene_coordinate_position_array_expanded = np.array([[self.handle_scene_coordinate_position_array[0][0], self.handle_scene_coordinate_position_array[0][1]], [self.handle_scene_coordinate_position_array[1][0], self.handle_scene_coordinate_position_array[1][1]]])
             
-            # Interpolation from first to last
+            # -------------------------------------------------------------------------Interpolation from first to last----------------------------------------------------------------------------
             for i in range(self.ROIhandles_nubmer-1):
                 self.Interpolation_x_diff = self.handle_scene_coordinate_position_array[i+1][0] - self.handle_scene_coordinate_position_array[i][0]
                 self.Interpolation_y_diff = self.handle_scene_coordinate_position_array[i+1][1] - self.handle_scene_coordinate_position_array[i][1]
@@ -1322,6 +1533,7 @@ class Mainbody(QWidget):
             
             self.handle_scene_coordinate_position_array_expanded=np.append(self.handle_scene_coordinate_position_array_expanded, Interpolation_temp, axis=0)
             #self.handle_scene_coordinate_position_array_expanded=np.delete(self.handle_scene_coordinate_position_array_expanded, 0, 0)
+            #-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
             
             self.handle_viewbox_coordinate_position_array_expanded = np.zeros((self.contour_point_number, 2))# n rows, 2 columns
             # Maps from scene coordinates to the coordinate system displayed inside the ViewBox
@@ -1335,6 +1547,7 @@ class Mainbody(QWidget):
             #print(self.handle_viewbox_coordinate_position_array_expanded)
             
             '''Transform into Voltages to galvos'''
+            '''coordinates in the view box(handle_viewbox_coordinate_position_array_expanded_x) are equivalent to voltages sending out'''
             if self.Value_xPixels == 500:
                 if self.Value_voltXMax == 3:
                     # for 500 x axis, the real ramp region sits around 52~552 out of 0~758
@@ -1346,10 +1559,10 @@ class Mainbody(QWidget):
                     self.handle_viewbox_coordinate_position_array_expanded_y = np.resize(self.handle_viewbox_coordinate_position_array_expanded[:,1],(self.contour_point_number,))
                     self.handle_viewbox_coordinate_position_array_expanded_forDaq = np.vstack((self.handle_viewbox_coordinate_position_array_expanded_x,self.handle_viewbox_coordinate_position_array_expanded_y))
             print(self.handle_viewbox_coordinate_position_array_expanded)
-            #Speed and acceleration check
+            '''Speed and acceleration check'''
             #for i in range(self.contour_point_number):
              #   speed_between_points = ((self.handle_viewbox_coordinate_position_array_expanded_x[i+1]-self.handle_viewbox_coordinate_position_array_expanded_x[i])**2+(self.handle_viewbox_coordinate_position_array_expanded_y[i+1]-self.handle_viewbox_coordinate_position_array_expanded_y[i])**2)**(0.5)
-            self.Daq_sample_rate_pmt = int(self.contour_samprate.currentText()[15:len(self.contour_samprate.currentText())])
+            self.Daq_sample_rate_pmt = int(self.contour_samprate.value())
             time_gap = 1/self.Daq_sample_rate_pmt
             contour_x_speed = np.diff(self.handle_viewbox_coordinate_position_array_expanded_x)/time_gap
             contour_y_speed = np.diff(self.handle_viewbox_coordinate_position_array_expanded_y)/time_gap
@@ -1374,6 +1587,184 @@ class Mainbody(QWidget):
                 print('Contour acceleration is OK')
         
         
+        if self.contour_strategy.currentText() == 'Uniform':
+            # Calculate the total distance
+            self.total_distance = 0
+            for i in range(self.ROIhandles_nubmer):
+                if i != (self.ROIhandles_nubmer-1):
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[i+1][0] - self.handle_scene_coordinate_position_array[i][0]
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[i+1][1] - self.handle_scene_coordinate_position_array[i][1]
+                    distance_vector = (Interpolation_x_diff**2+Interpolation_y_diff**2)**(0.5)
+                    self.total_distance = self.total_distance + distance_vector
+                else:
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[0][0] - self.handle_scene_coordinate_position_array[-1][0]
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[0][1] - self.handle_scene_coordinate_position_array[-1][1]
+                    distance_vector = (Interpolation_x_diff**2+Interpolation_y_diff**2)**(0.5)
+                    self.total_distance = self.total_distance + distance_vector            
+            
+            self.averaged_uniform_step = self.total_distance/self.contour_point_number
+            
+            print(self.averaged_uniform_step)
+            print(self.handle_scene_coordinate_position_array)
+
+            for i in range(self.ROIhandles_nubmer):
+                if i == 0:
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[i+1][0] - self.handle_scene_coordinate_position_array[i][0]
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[i+1][1] - self.handle_scene_coordinate_position_array[i][1]
+                    distance_vector = (Interpolation_x_diff**2+Interpolation_y_diff**2)**(0.5)    
+                    num_of_Interpolation = distance_vector//self.averaged_uniform_step
+                    
+                    #Interpolation_remaining = distance_vector%self.averaged_uniform_step
+                    self.Interpolation_remaining_fornextround = self.averaged_uniform_step*(1-(distance_vector/self.averaged_uniform_step-num_of_Interpolation))
+                    print('Interpolation_remaining_fornextround: '+str(self.Interpolation_remaining_fornextround))
+                    self.Interpolation_x_step = Interpolation_x_diff/(distance_vector/self.averaged_uniform_step)
+                    self.Interpolation_y_step = Interpolation_y_diff/(distance_vector/self.averaged_uniform_step)
+                    
+                    Interpolation_temp = np.array([[self.handle_scene_coordinate_position_array[i][0], self.handle_scene_coordinate_position_array[i][1]], [self.handle_scene_coordinate_position_array[i+1][0], self.handle_scene_coordinate_position_array[i+1][1]]])
+        
+                    for j in range(int(num_of_Interpolation)):
+                        Interpolation_temp=np.insert(Interpolation_temp,-1,[self.handle_scene_coordinate_position_array[i][0] + (j+1)*self.Interpolation_x_step,self.handle_scene_coordinate_position_array[i+1][1] + (j+1)*self.Interpolation_y_step],axis = 0)
+                    Interpolation_temp = np.delete(Interpolation_temp,-1,axis=0) 
+                    
+                    self.handle_scene_coordinate_position_array_expanded_uniform = Interpolation_temp
+                    
+                elif i != (self.ROIhandles_nubmer-1):
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[i+1][0] - self.handle_scene_coordinate_position_array[i][0]
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[i+1][1] - self.handle_scene_coordinate_position_array[i][1]
+                    distance_vector = (Interpolation_x_diff**2+Interpolation_y_diff**2)**(0.5)                    
+                    num_of_Interpolation = (distance_vector-self.Interpolation_remaining_fornextround)//self.averaged_uniform_step       
+                    print('Interpolation_remaining_fornextround: '+str(self.Interpolation_remaining_fornextround))
+                    
+                    if self.Interpolation_remaining_fornextround != 0:
+                        self.Interpolation_remaining_fornextround_x =Interpolation_x_diff/(distance_vector/self.Interpolation_remaining_fornextround)#(self.Interpolation_remaining_fornextround/distance_vector)*Interpolation_x_diff
+                        self.Interpolation_remaining_fornextround_y =Interpolation_y_diff/(distance_vector/self.Interpolation_remaining_fornextround)#(self.Interpolation_remaining_fornextround/distance_vector)*Interpolation_y_diff
+                    else:
+                        self.Interpolation_remaining_fornextround_x = 0
+                        self.Interpolation_remaining_fornextround_y = 0
+                        
+                    
+                    # Reset the starting point
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[i+1][0] - self.handle_scene_coordinate_position_array[i][0] - self.Interpolation_remaining_fornextround_x
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[i+1][1] - self.handle_scene_coordinate_position_array[i][1] - self.Interpolation_remaining_fornextround_y                 
+                    
+                    
+                    self.Interpolation_x_step = Interpolation_x_diff/((distance_vector-self.Interpolation_remaining_fornextround)/self.averaged_uniform_step)
+                    self.Interpolation_y_step = Interpolation_y_diff/((distance_vector-self.Interpolation_remaining_fornextround)/self.averaged_uniform_step)
+                    
+                    Interpolation_temp = np.array([[self.handle_scene_coordinate_position_array[i][0]+self.Interpolation_remaining_fornextround_x, self.handle_scene_coordinate_position_array[i][1]+self.Interpolation_remaining_fornextround_y], [self.handle_scene_coordinate_position_array[i+1][0], self.handle_scene_coordinate_position_array[i+1][1]]])
+        
+                    for j in range(int(num_of_Interpolation)):
+                        Interpolation_temp=np.insert(Interpolation_temp,-1,[self.handle_scene_coordinate_position_array[i][0]+self.Interpolation_remaining_fornextround_x + (j+1)*self.Interpolation_x_step,self.handle_scene_coordinate_position_array[i][1]+self.Interpolation_remaining_fornextround_y + (j+1)*self.Interpolation_y_step],axis = 0)
+                    Interpolation_temp = np.delete(Interpolation_temp,-1,axis=0)   
+                    
+                    self.handle_scene_coordinate_position_array_expanded_uniform=np.append(self.handle_scene_coordinate_position_array_expanded_uniform, Interpolation_temp, axis=0) 
+                    
+                    self.Interpolation_remaining_fornextround = self.averaged_uniform_step*(1-((distance_vector-self.Interpolation_remaining_fornextround)/self.averaged_uniform_step-num_of_Interpolation))
+                    
+                else:  # connect the first and the last
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[0][0] - self.handle_scene_coordinate_position_array[-1][0]
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[0][1] - self.handle_scene_coordinate_position_array[-1][1]
+                    distance_vector = (Interpolation_x_diff**2+Interpolation_y_diff**2)**(0.5)                    
+                    num_of_Interpolation = (distance_vector-self.Interpolation_remaining_fornextround)//self.averaged_uniform_step       
+                    
+                    #self.Interpolation_remaining_fornextround = self.averaged_uniform_step*(1-((distance_vector-self.Interpolation_remaining_fornextround)/self.averaged_uniform_step-num_of_Interpolation))
+                    self.Interpolation_remaining_fornextround_x =(self.Interpolation_remaining_fornextround/distance_vector)*Interpolation_x_diff
+                    self.Interpolation_remaining_fornextround_y =(self.Interpolation_remaining_fornextround/distance_vector)*Interpolation_y_diff
+                    
+                    # Reset the starting point
+                    Interpolation_x_diff = self.handle_scene_coordinate_position_array[0][0] - self.handle_scene_coordinate_position_array[i][0] + self.Interpolation_remaining_fornextround_x
+                    Interpolation_y_diff = self.handle_scene_coordinate_position_array[0][1] - self.handle_scene_coordinate_position_array[i][1] + self.Interpolation_remaining_fornextround_y   
+                    
+                    self.Interpolation_x_step = Interpolation_x_diff/((distance_vector-self.Interpolation_remaining_fornextround)/self.averaged_uniform_step)
+                    self.Interpolation_y_step = Interpolation_y_diff/((distance_vector-self.Interpolation_remaining_fornextround)/self.averaged_uniform_step)  
+                    
+                    Interpolation_temp = np.array([[self.handle_scene_coordinate_position_array[-1][0]+self.Interpolation_remaining_fornextround_x, self.handle_scene_coordinate_position_array[-1][1]+self.Interpolation_remaining_fornextround_y], [self.handle_scene_coordinate_position_array[0][0], self.handle_scene_coordinate_position_array[0][1]]])
+        
+                    for j in range(int(num_of_Interpolation)):
+                        Interpolation_temp=np.insert(Interpolation_temp,-1,[self.handle_scene_coordinate_position_array[-1][0]+self.Interpolation_remaining_fornextround_x + (j+1)*self.Interpolation_x_step,self.handle_scene_coordinate_position_array[-1][1]+self.Interpolation_remaining_fornextround_y + (j+1)*self.Interpolation_y_step],axis = 0)
+                    Interpolation_temp = np.delete(Interpolation_temp,-1,axis=0)   
+                    
+                    self.handle_scene_coordinate_position_array_expanded_uniform=np.append(self.handle_scene_coordinate_position_array_expanded_uniform, Interpolation_temp, axis=0)        
+            
+            print(self.handle_scene_coordinate_position_array_expanded_uniform)
+            print(self.handle_scene_coordinate_position_array_expanded_uniform.shape)
+            #-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+            
+            self.handle_viewbox_coordinate_position_array_expanded = np.zeros((self.contour_point_number, 2))# n rows, 2 columns
+            # Maps from scene coordinates to the coordinate system displayed inside the ViewBox
+            for i in range(self.contour_point_number):
+                qpoint_Scene = QPoint(self.handle_scene_coordinate_position_array_expanded_uniform[i][0], self.handle_scene_coordinate_position_array_expanded_uniform[i][1])
+                qpoint_viewbox = self.pmtvb.mapSceneToView(qpoint_Scene)
+                self.handle_viewbox_coordinate_position_array_expanded[i] = np.array([qpoint_viewbox.x(),qpoint_viewbox.y()])
+                
+            #print(self.handle_scene_coordinate_position_array)
+            #print(self.handle_scene_coordinate_position_array_expanded)
+            #print(self.handle_viewbox_coordinate_position_array_expanded)
+            
+            '''Transform into Voltages to galvos'''
+            
+            constants = HardwareConstants()
+            if self.Value_xPixels == 500:
+                if self.Value_voltXMax == 3:
+                    # for 500 x axis, the real ramp region sits around 52~552 out of 0~758
+                    self.handle_viewbox_coordinate_position_array_expanded[:,0] = ((self.handle_viewbox_coordinate_position_array_expanded[:,0]-constants.pmt_3v_indentation_pixels)/500)*6-3
+                    self.handle_viewbox_coordinate_position_array_expanded[:,1] = ((self.handle_viewbox_coordinate_position_array_expanded[:,1])/500)*6-3
+                    self.handle_viewbox_coordinate_position_array_expanded = np.around(self.handle_viewbox_coordinate_position_array_expanded, decimals=3)
+                    # shape into (n,) and stack
+                    self.handle_viewbox_coordinate_position_array_expanded_x = np.resize(self.handle_viewbox_coordinate_position_array_expanded[:,0],(self.contour_point_number,))
+                    self.handle_viewbox_coordinate_position_array_expanded_y = np.resize(self.handle_viewbox_coordinate_position_array_expanded[:,1],(self.contour_point_number,))
+                    self.handle_viewbox_coordinate_position_array_expanded_forDaq = np.vstack((self.handle_viewbox_coordinate_position_array_expanded_x,self.handle_viewbox_coordinate_position_array_expanded_y))
+            print(self.handle_viewbox_coordinate_position_array_expanded)
+            '''Speed and acceleration check'''
+            #for i in range(self.contour_point_number):
+             #   speed_between_points = ((self.handle_viewbox_coordinate_position_array_expanded_x[i+1]-self.handle_viewbox_coordinate_position_array_expanded_x[i])**2+(self.handle_viewbox_coordinate_position_array_expanded_y[i+1]-self.handle_viewbox_coordinate_position_array_expanded_y[i])**2)**(0.5)
+            self.Daq_sample_rate_pmt = int(self.contour_samprate.value())
+            time_gap = 1/self.Daq_sample_rate_pmt
+            contour_x_speed = np.diff(self.handle_viewbox_coordinate_position_array_expanded_x)/time_gap
+            contour_y_speed = np.diff(self.handle_viewbox_coordinate_position_array_expanded_y)/time_gap
+            
+            contour_x_acceleration = np.diff(contour_x_speed)/time_gap
+            contour_y_acceleration = np.diff(contour_y_speed)/time_gap
+            
+            constants = HardwareConstants()
+            speedGalvo = constants.maxGalvoSpeed #Volt/s
+            aGalvo = constants.maxGalvoAccel #Acceleration galvo in volt/s^2
+            print(np.amax(abs(contour_x_speed)))
+            print(np.amax(abs(contour_y_speed)))
+            print(np.amax(abs(contour_x_acceleration)))
+            print(np.amax(abs(contour_y_acceleration)))  
+
+            print(str(np.mean(abs(contour_x_speed)))+' and mean y speed:'+str(np.mean(abs(contour_y_speed))))
+            print(str(np.mean(abs(contour_x_acceleration)))+' and mean y acceleration:'+str(np.mean(abs(contour_y_acceleration))))
+            
+            if speedGalvo > np.amax(abs(contour_x_speed)) and speedGalvo > np.amax(abs(contour_y_speed)):
+                print('Contour speed is OK')
+            if aGalvo > np.amax(abs(contour_x_acceleration)) and aGalvo > np.amax(abs(contour_y_acceleration)):
+                print('Contour acceleration is OK')
+                
+    def generate_contour_for_waveform(self):
+        self.contour_time = int(self.textbox1L.value())
+        self.time_per_contour = (1/int(self.contour_samprate.value())*1000)*self.contour_point_number
+        repeatnum_contour = int(self.contour_time/self.time_per_contour)
+        self.repeated_contoursamples_1 = np.tile(self.handle_viewbox_coordinate_position_array_expanded_x, repeatnum_contour)
+        self.repeated_contoursamples_2 = np.tile(self.handle_viewbox_coordinate_position_array_expanded_y, repeatnum_contour)       
+        
+        self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform = np.vstack((self.repeated_contoursamples_1,self.repeated_contoursamples_2))
+                
+        return self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform
+        
+    def generate_galvos_contour_graphy(self):
+
+        self.xlabelhere_galvos = np.arange(len(self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform[1,:]))/self.Daq_sample_rate_pmt
+        self.PlotDataItem_galvos = PlotDataItem(self.xlabelhere_galvos, self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform[1,:])
+        self.PlotDataItem_galvos.setDownsampling(auto=True, method='mean')            
+        self.PlotDataItem_galvos.setPen('w')
+
+        self.pw.addItem(self.PlotDataItem_galvos)
+        self.textitem_galvos = pg.TextItem(text='Contour', color=('w'), anchor=(1, 1))
+        self.textitem_galvos.setPos(0, 5)
+        self.pw.addItem(self.textitem_galvos)
+                    
     def stopMeasurement_pmt(self):
         """Stop the seal test."""
         self.pmtTest.aboutToQuitHandler()
@@ -1429,13 +1820,22 @@ class Mainbody(QWidget):
                 self.set_switch('patchAO')
                 
         if self.wavetabs.currentIndex() == 3:
-            if self.textbox2A.currentText() == 'galvos':
-                if self.Galvo_samples is not None:
-                    self.pw.removeItem(self.PlotDataItem_galvos) 
-                    self.pw.removeItem(self.textitem_galvos)
-                self.generate_galvos()
-                self.generate_galvos_graphy()
-                self.set_switch('galvos')
+            if self.galvos_tabs.currentIndex() == 0:
+                if self.textbox2A.currentText() == 'galvos':
+                    if self.Galvo_samples is not None:
+                        self.pw.removeItem(self.PlotDataItem_galvos) 
+                        self.pw.removeItem(self.textitem_galvos)
+                    self.generate_galvos()
+                    self.generate_galvos_graphy()
+                    self.set_switch('galvos')
+            elif self.galvos_tabs.currentIndex() == 1:
+                if self.textbox2A.currentText() == 'galvos':
+                    if self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform is not None:
+                        self.pw.removeItem(self.PlotDataItem_galvos) 
+                        self.pw.removeItem(self.textitem_galvos)
+                    self.generate_contour_for_waveform()
+                    self.generate_galvos_contour_graphy()
+                    self.set_switch('galvos_contour')
             
     def del_chosen_wave(self):
         if self.textbox2A.currentText() == '640 AO':
@@ -1461,10 +1861,11 @@ class Mainbody(QWidget):
             self.finalwave_patch = None
             self.del_set_switch('patchAO')
         elif self.textbox2A.currentText() == 'galvos':
-            self.pw.removeItem(self.PlotDataItem_galvos)  
-            self.pw.removeItem(self.textitem_galvos)
-            self.finalwave_galvos = None
-            self.del_set_switch('galvos')
+            if self.galvos_tabs.currentIndex() == 0:
+                self.pw.removeItem(self.PlotDataItem_galvos)  
+                self.pw.removeItem(self.textitem_galvos)
+                self.finalwave_galvos = None
+                self.del_set_switch('galvos')
             
     def chosen_wave_digital(self):        
         if self.textbox3A.currentText() == 'cameratrigger':
@@ -1516,6 +1917,13 @@ class Mainbody(QWidget):
             self.generate_Perfusion_1()
             self.generate_Perfusion_1_graphy()
             self.set_switch('Perfusion_1')     
+        elif self.textbox3A.currentText() == '2Pshutter':
+            if self.finalwave_2Pshutter is not None:
+                self.pw.removeItem(self.PlotDataItem_2Pshutter) 
+                self.pw.removeItem(self.textitem_2Pshutter)
+            self.generate_2Pshutter()
+            self.generate_2Pshutter_graphy()
+            self.set_switch('2Pshutter') 
 
     def del_chosen_wave_digital(self):        
         if self.textbox3A.currentText() == 'cameratrigger':
@@ -1555,18 +1963,23 @@ class Mainbody(QWidget):
             self.pw.removeItem(self.PlotDataItem_Perfusion_1)   
             self.pw.removeItem(self.textitem_Perfusion_1)
             self.finalwave_Perfusion_1 = None
-            self.del_set_switch('Perfusion_1')                           
+            self.del_set_switch('Perfusion_1')             
+        elif self.textbox3A.currentText() == '2Pshutter':
+            self.pw.removeItem(self.PlotDataItem_2Pshutter)   
+            self.pw.removeItem(self.textitem_2Pshutter)
+            self.finalwave_2Pshutter = None
+            self.del_set_switch('2Pshutter')                
                                      
     def generate_galvos(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         
         #Scanning settings
         #if int(self.textbox1A.currentText()) == 1:
-        Value_voltXMin = int(self.textbox1B.currentText())
-        Value_voltXMax = int(self.textbox1C.currentText())
-        Value_voltYMin = int(self.textbox1D.currentText())
-        Value_voltYMax = int(self.textbox1E.currentText())
+        Value_voltXMin = int(self.textbox1B.value())
+        Value_voltXMax = int(self.textbox1C.value())
+        Value_voltYMin = int(self.textbox1D.value())
+        Value_voltYMax = int(self.textbox1E.value())
         Value_xPixels = int(self.textbox1F.currentText())
         Value_yPixels = int(self.textbox1G.currentText())
         self.averagenum =int(self.textbox1H.value())
@@ -1629,13 +2042,13 @@ class Mainbody(QWidget):
 
             
     def generate_galvotrigger(self):
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         #Scanning settings
         #if int(self.textbox1A.currentText()) == 1:
-        Value_voltXMin = int(self.textbox1B.currentText())
-        Value_voltXMax = int(self.textbox1C.currentText())
-        Value_voltYMin = int(self.textbox1D.currentText())
-        Value_voltYMax = int(self.textbox1E.currentText())
+        Value_voltXMin = int(self.textbox1B.value())
+        Value_voltXMax = int(self.textbox1C.value())
+        Value_voltYMin = int(self.textbox1D.value())
+        Value_voltYMax = int(self.textbox1E.value())
         Value_xPixels = int(self.textbox1F.currentText())
         Value_yPixels = int(self.textbox1G.currentText())
         self.averagenum =int(self.textbox1H.value())
@@ -1713,7 +2126,7 @@ class Mainbody(QWidget):
         
     def generate_640AO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_2 = float(self.textbox2B.text())
         if not self.textbox2C.text():
             self.uiwaveoffset_2 = 0
@@ -1734,8 +2147,8 @@ class Mainbody(QWidget):
             self.uiwavebaseline_2 = 0
         else:
             self.uiwavebaseline_2 = float(self.textbox2I.text())
-        self.uiwavestep_2 = int(self.textbox2J.value())
-        self.uiwavecycles_2 = int(self.textbox2K.currentText())   
+        self.uiwavestep_2 = float(self.textbox2J.value())
+        self.uiwavecycles_2 = int(self.textbox2K.value())   
         
             
         s = generate_AO_for640(self.uiDaq_sample_rate, self.uiwavefrequency_2, self.uiwaveoffset_2, self.uiwaveperiod_2, self.uiwaveDC_2
@@ -1758,7 +2171,7 @@ class Mainbody(QWidget):
 
     def generate_488AO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_488AO = float(self.textbox2B.text())
         if not self.textbox2C.text():
             self.uiwaveoffset_488AO = 0
@@ -1779,8 +2192,8 @@ class Mainbody(QWidget):
             self.uiwavebaseline_488AO = 0
         else:
             self.uiwavebaseline_488AO = float(self.textbox2I.text())
-        self.uiwavestep_488AO = int(self.textbox2J.value())
-        self.uiwavecycles_488AO = int(self.textbox2K.currentText())   
+        self.uiwavestep_488AO = float(self.textbox2J.value())
+        self.uiwavecycles_488AO = int(self.textbox2K.value())   
                     
         s = generate_AO_for488(self.uiDaq_sample_rate, self.uiwavefrequency_488AO, self.uiwaveoffset_488AO, self.uiwaveperiod_488AO, self.uiwaveDC_488AO
                                , self.uiwaverepeat_488AO, self.uiwavegap_488AO, self.uiwavestartamplitude_488AO, self.uiwavebaseline_488AO, self.uiwavestep_488AO, self.uiwavecycles_488AO)
@@ -1802,7 +2215,7 @@ class Mainbody(QWidget):
         
     def generate_532AO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_532AO = float(self.textbox2B.text())
         if not self.textbox2C.text():
             self.uiwaveoffset_532AO = 0
@@ -1823,8 +2236,8 @@ class Mainbody(QWidget):
             self.uiwavebaseline_532AO = 0
         else:
             self.uiwavebaseline_532AO = float(self.textbox2I.text())
-        self.uiwavestep_532AO = int(self.textbox2J.value())
-        self.uiwavecycles_532AO = int(self.textbox2K.currentText())   
+        self.uiwavestep_532AO = float(self.textbox2J.value())
+        self.uiwavecycles_532AO = int(self.textbox2K.value())   
         
         #if int(self.textbox4A.currentText()) == 1:
             
@@ -1846,7 +2259,7 @@ class Mainbody(QWidget):
         
     def generate_patchAO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_patchAO = float(self.textbox2B.text())
         if not self.textbox2C.text():
             self.uiwaveoffset_patchAO = 0
@@ -1867,8 +2280,8 @@ class Mainbody(QWidget):
             self.uiwavebaseline_patchAO = 0
         else:
             self.uiwavebaseline_patchAO = float(self.textbox2I.text())
-        self.uiwavestep_patchAO = int(self.textbox2J.value())
-        self.uiwavecycles_patchAO = int(self.textbox2K.currentText())   
+        self.uiwavestep_patchAO = float(self.textbox2J.value())
+        self.uiwavecycles_patchAO = int(self.textbox2K.value())   
         
         #if int(self.textbox5A.currentText()) == 1:
             
@@ -1890,7 +2303,7 @@ class Mainbody(QWidget):
 
     def generate_cameratrigger(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_cameratrigger = float(self.textbox11B.text())
         if not self.textbox11C.text():
             self.uiwaveoffset_cameratrigger = 0
@@ -1930,7 +2343,7 @@ class Mainbody(QWidget):
             
     def generate_640blanking(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_640blanking = float(self.textbox11B.text())
         if not self.textbox11C.text():
             self.uiwaveoffset_640blanking = 0
@@ -1969,7 +2382,7 @@ class Mainbody(QWidget):
         
     def generate_532blanking(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_532blanking = float(self.textbox11B.text())
         if not self.textbox11C.text():
             self.uiwaveoffset_532blanking = 0
@@ -2008,7 +2421,7 @@ class Mainbody(QWidget):
         
     def generate_488blanking(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_488blanking = float(self.textbox11B.text())
         if not self.textbox11C.text():
             self.uiwaveoffset_488blanking = 0
@@ -2047,7 +2460,7 @@ class Mainbody(QWidget):
         
     def generate_blankingall(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_blankingall = float(self.textbox11B.text())
         if not self.textbox11C.text():
             self.uiwaveoffset_blankingall = 0
@@ -2085,7 +2498,7 @@ class Mainbody(QWidget):
         
     def generate_Perfusion_1(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.currentText())
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
         self.uiwavefrequency_Perfusion_1 = float(self.textbox11B.text())
         if not self.textbox11C.text():
             self.uiwaveoffset_Perfusion_1 = 0
@@ -2121,6 +2534,44 @@ class Mainbody(QWidget):
         self.textitem_Perfusion_1.setPos(0, -6)
         self.pw.addItem(self.textitem_Perfusion_1)
         
+    def generate_2Pshutter(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_2Pshutter = float(self.textbox11B.text())
+        if not self.textbox11C.text():
+            self.uiwaveoffset_2Pshutter = 0
+        else:
+            self.uiwaveoffset_2Pshutter = int(self.textbox11C.text())
+        self.uiwaveperiod_2Pshutter = int(self.textbox11D.text())
+        self.uiwaveDC_2Pshutter = int(self.textbox11F.currentText())
+        if not self.textbox11E.text():
+            self.uiwaverepeat_2Pshutter_number = 1
+        else:
+            self.uiwaverepeat_2Pshutter_number = int(self.textbox11E.text())
+        if not self.textbox11G.text():
+            self.uiwavegap_2Pshutter = 0
+        else:
+            self.uiwavegap_2Pshutter = int(self.textbox11G.toPlainText())
+        
+        #if int(self.textbox66A.currentText()) == 1:
+            
+        twoPshutter = generate_DO_for2Pshutter(self.uiDaq_sample_rate, self.uiwavefrequency_2Pshutter, self.uiwaveoffset_2Pshutter,
+                                                     self.uiwaveperiod_2Pshutter, self.uiwaveDC_2Pshutter, self.uiwaverepeat_2Pshutter_number, self.uiwavegap_2Pshutter)
+        self.finalwave_2Pshutter = twoPshutter.generate()
+        return self.finalwave_2Pshutter
+            
+    def generate_2Pshutter_graphy(self):    
+
+        xlabelhere_2Pshutter = np.arange(len(self.finalwave_2Pshutter))/self.uiDaq_sample_rate
+        self.final_2Pshutter_forgraphy = self.finalwave_2Pshutter.astype(int)
+        self.PlotDataItem_2Pshutter = PlotDataItem(xlabelhere_2Pshutter, self.final_2Pshutter_forgraphy)
+        self.PlotDataItem_2Pshutter.setPen(229,204,255)
+        self.pw.addItem(self.PlotDataItem_2Pshutter)
+        
+        self.textitem_2Pshutter = pg.TextItem(text='2Pshutter', color=(229,204,255), anchor=(1, 1))
+        self.textitem_2Pshutter.setPos(0, -7)
+        self.pw.addItem(self.textitem_2Pshutter)
+        
     def set_switch(self, name):
         #self.generate_dictionary_switch_instance[name] = 1
         if name not in self.dictionary_switch_list:
@@ -2141,26 +2592,29 @@ class Mainbody(QWidget):
         
     def show_all(self):
 
-        self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=0
+        self.switch_galvos=self.switch_galvos_contour=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=self.switch_2Pshutter=0
         color_dictionary = {'galvos':[255,255,255],
-                              '640AO':[255,0,0],
-                              '488AO':[0,0,255],
-                              '532AO':[0,255,0],
-                              'patchAO':[100, 100, 0],
-                              'cameratrigger':[0,255,255],
-                              'galvotrigger':[100,100,200], 
-                              'blankingall':[255,229,204],
-                              '640blanking':[255,204,255],
-                              '532blanking':[255,255,0],
-                              '488blanking':[255,51,153],
-                              'Perfusion_1':[102,0,51]
+                            'galvos_contour':[255,255,255],
+                            '640AO':[255,0,0],
+                            '488AO':[0,0,255],
+                            '532AO':[0,255,0],
+                            'patchAO':[100, 100, 0],
+                            'cameratrigger':[0,255,255],
+                            'galvotrigger':[100,100,200], 
+                            'blankingall':[255,229,204],
+                            '640blanking':[255,204,255],
+                            '532blanking':[255,255,0],
+                            '488blanking':[255,51,153],
+                            'Perfusion_1':[102,0,51],
+                            '2Pshutter':[229,204,255]
                             }
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
         dictionary_analog = {'galvos':[self.switch_galvos,self.Galvo_samples],
-                              '640AO':[self.switch_640AO,self.finalwave_640],
-                              '488AO':[self.switch_488AO,self.finalwave_488],
-                              '532AO':[self.switch_532AO,self.finalwave_532],
-                              'patchAO':[self.switch_patchAO,self.finalwave_patch]
+                             'galvos_contour':[self.switch_galvos_contour,self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform],
+                             '640AO':[self.switch_640AO,self.finalwave_640],
+                             '488AO':[self.switch_488AO,self.finalwave_488],
+                             '532AO':[self.switch_532AO,self.finalwave_532],
+                             'patchAO':[self.switch_patchAO,self.finalwave_patch]
                              }
                               
                               
@@ -2170,7 +2624,8 @@ class Mainbody(QWidget):
                               '640blanking':[self.switch_640blanking, self.finalwave_640blanking],
                               '532blanking':[self.switch_532blanking, self.finalwave_532blanking],
                               '488blanking':[self.switch_488blanking, self.finalwave_488blanking],
-                              'Perfusion_1':[self.switch_Perfusion_1, self.finalwave_Perfusion_1]
+                              'Perfusion_1':[self.switch_Perfusion_1, self.finalwave_Perfusion_1],
+                              '2Pshutter':[self.switch_2Pshutter, self.finalwave_2Pshutter]
                               }
         # set switch of selected waves to 1
         for i in range(len(self.dictionary_switch_list)):
@@ -2187,7 +2642,7 @@ class Mainbody(QWidget):
         else:
             reference_wave = dictionary_digital[self.textboxBB.currentText()][1]
         
-        if self.textboxBB.currentText() == 'galvos': # in case of using galvos as reference wave
+        if self.textboxBB.currentText() == 'galvos' or self.textboxBB.currentText() == 'galvos_contour': # in case of using galvos as reference wave
             self.reference_length = len(reference_wave[0, :])
         else:
             self.reference_length = len(reference_wave)
@@ -2209,6 +2664,11 @@ class Mainbody(QWidget):
             self.analog_data_container['galvosx'+'avgnum_'+str(int(self.textbox1H.value()))] = self.generate_galvos()[0, :]
             self.analog_data_container['galvosy'+'ypixels_'+str(int(self.textbox1G.currentText()))] = self.generate_galvos()[1, :]
             del self.analog_data_container['galvos']
+            
+        if 'galvos_contour' in self.analog_data_container:
+            self.analog_data_container['galvos_X'+'_contour'] = self.generate_contour_for_waveform()[0, :]
+            self.analog_data_container['galvos_Y'+'_contour'] = self.generate_contour_for_waveform()[1, :]
+            del self.analog_data_container['galvos_contour']      
         
         # reform all waves according to the length of reference wave
         for key in self.analog_data_container:
@@ -2252,13 +2712,13 @@ class Mainbody(QWidget):
             digitalloopnum = digitalloopnum+ 1
         print(self.digitalcontainer_array['Sepcification'])
                 
-        self.xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.currentText())
+        self.xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.value())
         
         self.pw.clear()
         for i in range(analogloopnum):
                                         
-            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())): #skip the galvoX, as it is too intense
-                if self.analogcontainer_array['Sepcification'][i] == 'galvosy'+'ypixels_'+str(int(self.textbox1G.currentText())):
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())) and self.analogcontainer_array['Sepcification'][i] != 'galvos_X'+'_contour': #skip the galvoX, as it is too intense
+                if self.analogcontainer_array['Sepcification'][i] == 'galvosy'+'ypixels_'+str(int(self.textbox1G.currentText())) or self.analogcontainer_array['Sepcification'][i] == 'galvos_Y'+'_contour':
                     self.PlotDataItem_final = PlotDataItem(self.xlabelhere_all, self.analogcontainer_array['Waveform'][i])
                     #use the same color as before, taking advantages of employing same keys in dictionary
                     self.PlotDataItem_final.setPen('w')
@@ -2307,13 +2767,13 @@ class Mainbody(QWidget):
             self.readinchan.append('Ip')       
         
         print(self.readinchan)
-        self.waveforms_generated.emit(self.analogcontainer_array, self.digitalcontainer_array, self.readinchan, int(self.textboxAA.currentText()))
+        self.waveforms_generated.emit(self.analogcontainer_array, self.digitalcontainer_array, self.readinchan, int(self.textboxAA.value()))
         #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
     
     def execute_tread(self):
         self.adcollector = execute_analog_readin_optional_digital_thread()
-        self.adcollector.set_waves(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        self.adcollector.set_waves(int(self.textboxAA.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         self.adcollector.collected_data.connect(self.recive_data)
         self.adcollector.start()
         self.adcollector.save_as_binary(self.savedirectory)
@@ -2321,11 +2781,11 @@ class Mainbody(QWidget):
         
     def execute(self):
         
-        execute_analog_readin_optional_digital(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        execute_analog_readin_optional_digital(int(self.textboxAA.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
 
     def execute_digital(self):
         
-        execute_digital(int(self.textboxAA.currentText()), self.digitalcontainer_array)
+        execute_digital(int(self.textboxAA.value()), self.digitalcontainer_array)
         
     def recive_data(self, data_waveformreceived):
         
@@ -2447,6 +2907,38 @@ class Mainbody(QWidget):
                 execute_tread_singlesample_AOTF_digital.set_waves(channel, 0)
                 execute_tread_singlesample_AOTF_digital.start()  
                 
+        elif channel == 'LED':
+            if self.switchbutton_LED.isChecked():
+                execute_tread_singlesample_AOTF_digital = execute_tread_singlesample_digital()
+                execute_tread_singlesample_AOTF_digital.set_waves(channel, 1)
+                execute_tread_singlesample_AOTF_digital.start()
+            else:
+                execute_tread_singlesample_AOTF_digital = execute_tread_singlesample_digital()
+                execute_tread_singlesample_AOTF_digital.set_waves(channel, 0)
+                execute_tread_singlesample_AOTF_digital.start() 
+                
+    def change_AOTF_icon(self, channel):
+        if channel == '640blanking':
+            if self.switchbutton_640.isChecked():
+                self.AOTF_red_iconlabel.setPixmap(QPixmap('AOTF_red_on.png'))
+            else:
+                self.AOTF_red_iconlabel.setPixmap(QPixmap(self.ICON_off_AOTF))
+        elif channel == '532blanking':
+            if self.switchbutton_532.isChecked():
+                self.AOTF_green_iconlabel.setPixmap(QPixmap('AOTF_green_on.png'))
+            else:
+                self.AOTF_green_iconlabel.setPixmap(QPixmap(self.ICON_off_AOTF))        
+        elif channel == '488blanking':
+            if self.switchbutton_488.isChecked():
+                self.AOTF_blue_iconlabel.setPixmap(QPixmap('AOTF_blue_on.png'))
+            else:
+                self.AOTF_blue_iconlabel.setPixmap(QPixmap(self.ICON_off_AOTF)) 
+        elif channel == 'LED':
+            if self.switchbutton_LED.isChecked():
+                self.switchbutton_LED.setIcon(QIcon('LED_on.png'))
+            else:
+                self.switchbutton_LED.setIcon(QIcon('AOTF_off.png'))
+                
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #-----------------------------------------------------------Fucs for set directory-----------------------------------------------------
@@ -2455,6 +2947,75 @@ class Mainbody(QWidget):
     def _open_file_dialog(self):
         self.savedirectory = str(QtWidgets.QFileDialog.getExistingDirectory())
         self.savedirectorytextbox.setText(self.savedirectory)
+        self.saving_prefix = self.prefixtextbox.text()
+        
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------Fucs for stage movement----------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #**************************************************************************************************************************************        
+    def sample_stage_move_upwards(self):
+        self.sample_move_distance_yRel = int(self.stage_speed.value())
+        stage_movement_thread = StagemovementThread(0, self.sample_move_distance_yRel)
+        stage_movement_thread.current_position.connect(self.update_stage_current_pos)
+        stage_movement_thread.start()
+        time.sleep(0.5)
+        stage_movement_thread.quit()
+        stage_movement_thread.wait()
+        
+    def sample_stage_move_downwards(self):
+        self.sample_move_distance_yRel = int(self.stage_speed.value())
+        stage_movement_thread = StagemovementThread(0, -1*self.sample_move_distance_yRel)
+        stage_movement_thread.current_position.connect(self.update_stage_current_pos)
+        stage_movement_thread.start()
+        time.sleep(0.5)
+        stage_movement_thread.quit()
+        stage_movement_thread.wait()
+
+    def sample_stage_move_leftwards(self):
+        self.sample_move_distance_xRel = int(self.stage_speed.value())
+        stage_movement_thread = StagemovementThread(self.sample_move_distance_xRel, 0)
+        stage_movement_thread.current_position.connect(self.update_stage_current_pos)
+        stage_movement_thread.start()
+        time.sleep(0.5)
+        stage_movement_thread.quit()
+        stage_movement_thread.wait()
+        
+    def sample_stage_move_rightwards(self):
+        self.sample_move_distance_xRel = int(self.stage_speed.value())
+        stage_movement_thread = StagemovementThread(-1*self.sample_move_distance_xRel, 0)
+        stage_movement_thread.current_position.connect(self.update_stage_current_pos)
+        stage_movement_thread.start()
+        time.sleep(0.5)
+        stage_movement_thread.quit()
+        stage_movement_thread.wait()
+        
+    def sample_stage_move_towards(self):
+        self.sample_move_x = int(float(self.stage_goto_x.text()))
+        self.sample_move_y = int(float(self.stage_goto_y.text()))
+        stage_movement_thread = StagemovementThread(self.sample_move_x, self.sample_move_y)
+        stage_movement_thread.current_position.connect(self.update_stage_current_pos)
+        stage_movement_thread.start()
+        time.sleep(2)
+        stage_movement_thread.quit()
+        stage_movement_thread.wait()
+        
+    def update_stage_current_pos(self, current_pos):
+        self.stage_current_pos = current_pos
+        self.stage_current_pos_Label.setText('X:'+str(self.stage_current_pos[0])+' Y: '+str(self.stage_current_pos[1]))
+        
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------Fucs for filter movement---------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #************************************************************************************************************************************** 
+    def filter_move_towards(self, COMport, pos):
+        filter_movement_thread = FiltermovementThread(COMport, pos)
+        #filter_movement_thread.filtercurrent_position.connect(self.update_stage_current_pos)
+        filter_movement_thread.start()
+        time.sleep(1.5)
+        filter_movement_thread.quit()
+        filter_movement_thread.wait()
         
 if __name__ == "__main__":
     def run_app():
