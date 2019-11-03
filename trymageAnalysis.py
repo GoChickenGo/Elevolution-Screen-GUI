@@ -56,7 +56,7 @@ class ImageAnalysis():
         
         return Segimg_bef, Segimg_aft, self.mask, thresh
     
-        
+    '''    
     def ratio(self, value1, value2):
         self.Segimg_bef_ratio = np.where(value1 == 0, 1, value1)
         Ratio = value2/self.Segimg_bef_ratio
@@ -64,7 +64,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(Ratio) #fig 3 
         return Ratio
-    
+    '''
     def get_intensity_properties(self, smallest_size, theMask, threshold, intensity_bef, intensty_aft, i, j, contour_thres, contour_dilationparameter):
         # remove artifacts connected to image border
         self.Labelmask = theMask
@@ -119,7 +119,7 @@ class ImageAnalysis():
                 #print(region.bbox_area)
                 #print(region_mean_intensity)
                 s=imageanalysistoolbox()
-                contourimage_intensity = s.contour(filledimg, self.intensityimage_intensity, 0.001) # after here self.intensityimage_intensity is changed with contour labeled with number 5
+                contourimage_intensity = s.contour(filledimg, self.intensityimage_intensity, self.contour_thres) # after here self.intensityimage_intensity is changed with contour labeled with number 5
                 contour_mask_of_intensity = s.inwarddilationmask(contourimage_intensity ,filledimg, self.contour_dilationparameter)   
 
 
@@ -213,9 +213,10 @@ class ImageAnalysis():
                     self.ax_showlabel.plot(contour[:, 1]+minc, contour[:, 0]+minr, linewidth=1, color='yellow')
                 x1 = cell_properties['Change'][loopmun1]
                 x2 = cell_properties['Mean intensity in contour'][loopmun1]
+                x3 = cell_properties['Circularity'][loopmun1]
                 
                 #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
-                self.ax_showlabel.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',    '+str(round(x2, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
+                self.ax_showlabel.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',  '+str(round(x2, 3))+',  '+str(round(x3, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
                 
                 
                 #ax.plot(contours[:, 1], contours[:, 0], linewidth=2)

@@ -13,14 +13,14 @@ from nidaqmx.stream_readers import AnalogSingleChannelReader
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
 import matplotlib.pyplot as plt
 from PIL import Image
-from trymageAnalysis import ImageAnalysis
+from trymageAnalysis_v3 import ImageAnalysis
 import numpy.lib.recfunctions as rfn
 import os
 
 class Stagescan():
-    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13, value14, findcontour_thres, contour_dilationpara, saving_dir):
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13, value14, findcontour_thres, contour_dilationpara, cell_region_opening, cell_region_closing, saving_dir):
         # Settings for stage scan
-        self.ludlStage = LudlStage("COM7")
+        self.ludlStage = LudlStage("COM6")
         self.UI_row_start_stagescan = value1
         self.UI_row_end_stagescan = value2
         self.UI_column_start_stagescan = value3
@@ -37,6 +37,8 @@ class Stagescan():
         self.binary_adaptive_block_size = value14
         self.findcontour_thres = findcontour_thres
         self.contour_dilationpara = contour_dilationpara
+        self.cell_region_opening = cell_region_opening
+        self.cell_region_closing = cell_region_closing
         self.saving_dir = saving_dir
         
     def start(self):
@@ -74,7 +76,8 @@ class Stagescan():
                 
                 Pic_name =str(i)+str(j)
                 print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
-                Data_dict_0[Pic_name] = data1#data1[:,:Value_yPixels]*-1
+                # Assume that we are using 5v
+                Data_dict_0[Pic_name] = data1[:, 15:515]#data1[:,:Value_yPixels]*-1
                 Localimg = Image.fromarray(Data_dict_0[Pic_name]) #generate an image object
                 Localimg.save(os.path.join(self.saving_dir, str(RepeatNum)+Pic_name+'out_1st.tif')) #save as tif
                 
@@ -82,12 +85,11 @@ class Stagescan():
                 plt.imshow(Data_dict_0[Pic_name], cmap = plt.cm.gray)
                 plt.show()
                 
-                time.sleep(1)
+                time.sleep(0.3)
                
                 #self.ludlStage.getPos()
                 loopnum = loopnum+1
-                
-                
+                                
                 del position_index[-1]
                 print ('---------------^^^^---------------')
             position_index=[]
@@ -125,20 +127,20 @@ class Stagescan():
                 
                 Pic_name = str(i)+str(j)
                 print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
-                Data_dict_1[Pic_name] = data1#[:,:Value_yPixels]*-1
+                Data_dict_1[Pic_name] = data1[:, 15:515]#[:,:Value_yPixels]*-1
                 Localimg = Image.fromarray(Data_dict_1[Pic_name]) #generate an image object
                 Localimg.save(os.path.join(self.saving_dir, str(RepeatNum)+Pic_name+'out.tif')) #save as tif
                 plt.figure(loopnum)
                 plt.imshow(Data_dict_1[Pic_name], cmap = plt.cm.gray)
                 plt.show()
-                time.sleep(1)
+                time.sleep(0.3)
                 # Image processing
                 #kkk = Data_dict_1[Pic_name]/Data_dict_0[Pic_name]
                 S = ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name])
-                v1, v2, bw, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
+                v1, v2, mask_1, mask_2, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size) #v1 = Thresholded whole image
                 #R = S.ratio(v1, v2)
-                L, cp, coutourmask, coutourimg, sing, r = S.get_intensity_properties(self.smallestsize, bw, thres, v1, v2, i, j, self.findcontour_thres, self.contour_dilationpara)
-                S.showlabel(self.smallestsize, bw, v1, thres, i, j, cp)
+                cp, coutourmask, coutourimg, intensityimage_intensity, contour_change_ratio= S.get_intensity_properties(self.smallestsize, mask_1, thres, v1, v2, i, j, self.findcontour_thres, self.contour_dilationpara, self.cell_region_opening, self.cell_region_closing)
+                S.showlabel(self.smallestsize, mask_1, v1, thres, i, j, cp)
                 #print (L)
                 print (cp)
                 All_cell_properties_dict[loopnum] = cp
@@ -214,8 +216,8 @@ class Stagescan():
             Pic_name_trace = str(merged_index_samples[i,:].tolist()[0])+str(merged_index_samples[i,:].tolist()[1])
                 
             S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #The same as ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name]), call the same image with same dictionary index.
-            v1, v2, bw, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
-            S.showlabel_with_rank(100, bw, v1, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', self.selected_num)
+            v1, v2, mask_1, mask_2, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
+            S.showlabel_with_rank(self.smallestsize, mask_1, v1, cp_index_dict[Pic_name_trace][0], cp_index_dict[Pic_name_trace][1], withranking_cp, 'Mean intensity in contour', self.selected_num)
             print ( ' i: '+ str(merged_index_samples[i,:].tolist()[0]) + ' j: '+ str(merged_index_samples[i,:].tolist()[1]))
             print ('-----------------------------------')
             input("Press Enter to continue...")

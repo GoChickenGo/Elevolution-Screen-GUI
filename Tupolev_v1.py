@@ -401,25 +401,25 @@ class Mainbody(QWidget):
         self.filter1_pos0.setCheckable(True)
         bGBackupFromIntExt.addButton(self.filter1_pos0)
         self.NDfiltercontrolLayout.addWidget(self.filter1_pos0, 0, 1)
-        self.filter1_pos0.clicked.connect(lambda: self.filter_move_towards("COM4", 0))
+        self.filter1_pos0.clicked.connect(lambda: self.filter_move_towards("COM9", 0))
 
         self.filter1_pos1 = QPushButton('1')
         self.filter1_pos1.setCheckable(True)
         bGBackupFromIntExt.addButton(self.filter1_pos1)
         self.NDfiltercontrolLayout.addWidget(self.filter1_pos1, 0, 2)    
-        self.filter1_pos1.clicked.connect(lambda: self.filter_move_towards("COM4", 1))
+        self.filter1_pos1.clicked.connect(lambda: self.filter_move_towards("COM9", 1))
         
         self.filter1_pos2 = QPushButton('2')
         self.filter1_pos2.setCheckable(True)
         bGBackupFromIntExt.addButton(self.filter1_pos2)
         self.NDfiltercontrolLayout.addWidget(self.filter1_pos2, 0, 3)
-        self.filter1_pos2.clicked.connect(lambda: self.filter_move_towards("COM4", 2))
+        self.filter1_pos2.clicked.connect(lambda: self.filter_move_towards("COM9", 2))
         
         self.filter1_pos3 = QPushButton('3')
         self.filter1_pos3.setCheckable(True)
         bGBackupFromIntExt.addButton(self.filter1_pos3)
         self.NDfiltercontrolLayout.addWidget(self.filter1_pos3, 0, 4)
-        self.filter1_pos3.clicked.connect(lambda: self.filter_move_towards("COM4", 3)) 
+        self.filter1_pos3.clicked.connect(lambda: self.filter_move_towards("COM9", 3)) 
         
         self.NDfiltercontrolLayout.addWidget(QLabel('ND Filter-1 pos: '), 0, 0)
 

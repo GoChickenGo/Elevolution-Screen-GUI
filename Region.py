@@ -6,7 +6,7 @@ Created on Fri Mar  8 17:58:53 2019
 """
 
 import numpy as np
-from trymageAnalysis import ImageAnalysis
+from trymageAnalysis_v2 import ImageAnalysis
 from skimage.io import imread
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -36,7 +36,7 @@ Data_dict_1[str(-1500)+str(-1500)] = Rawimgaft[:, 53:553]#[134:360, 450:600]#[18
 
 S = ImageAnalysis(Data_dict_0[str(-1500)+str(-1500)], Data_dict_1[str(-1500)+str(-1500)])
 v1, v2, bw, thres = S.applyMask(2,2,335)
-R = S.ratio(v1, v2)
+#R = S.ratio(v1, v2)
 L, cp, coutourmask, coutourimg, intensityimage_intensity, r = S.get_intensity_properties(200, bw, thres, v1, v2, -1500, -1500, 0.001,8)
 #get_ipython().run_line_magic('matplotlib', 'qt')
 S.showlabel(200, bw, v1, thres, -1500, -1500, cp)

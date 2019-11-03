@@ -83,7 +83,7 @@ class MyWindow(QtWidgets.QWidget):
         
         self.closing_factorBox = QSpinBox(self)
         self.closing_factorBox.setMaximum(2000)
-        self.closing_factorBox.setValue(3)
+        self.closing_factorBox.setValue(2)
         self.closing_factorBox.setSingleStep(1)
         ipLayout.addWidget(self.closing_factorBox, 0, 7)
         ipLayout.addWidget(QLabel("Mask closing factor:"), 0, 6)   
@@ -97,7 +97,7 @@ class MyWindow(QtWidgets.QWidget):
         
         self.contour_dilation_box = QSpinBox(self)
         self.contour_dilation_box.setMaximum(2000)
-        self.contour_dilation_box.setValue(8)
+        self.contour_dilation_box.setValue(10)
         self.contour_dilation_box.setSingleStep(1)
         ipLayout.addWidget(self.contour_dilation_box, 1, 3)
         ipLayout.addWidget(QLabel("Contour thickness:"), 1, 2)
@@ -110,6 +110,20 @@ class MyWindow(QtWidgets.QWidget):
         self.find_contour_thres_box.setValue(0.001)
         self.find_contour_thres_box.setSingleStep(0.0001)  
         ipLayout.addWidget(self.find_contour_thres_box, 1, 5)
+        
+        self.cellopening_factorBox = QSpinBox(self)
+        self.cellopening_factorBox.setMaximum(2000)
+        self.cellopening_factorBox.setValue(1)
+        self.cellopening_factorBox.setSingleStep(1)
+        ipLayout.addWidget(self.cellopening_factorBox, 2, 1)
+        ipLayout.addWidget(QLabel("Cell opening factor:"), 2, 0)
+        
+        self.cellclosing_factorBox = QSpinBox(self)
+        self.cellclosing_factorBox.setMaximum(2000)
+        self.cellclosing_factorBox.setValue(5)
+        self.cellclosing_factorBox.setSingleStep(1)
+        ipLayout.addWidget(self.cellclosing_factorBox, 2, 3)
+        ipLayout.addWidget(QLabel("Cell closing factor:"), 2, 2)   
                 
         imageprocessingContainer.setLayout(ipLayout)
         #-----------------------------------------------------------RankingContainer-------------------------------------------------
@@ -195,6 +209,8 @@ class MyWindow(QtWidgets.QWidget):
         
         UI_openingfactor = int(self.opening_factorBox.value())
         UI_closingfactor = int(self.closing_factorBox.value())
+        UI_cellopeningfactor = int(self.cellopening_factorBox.value())
+        UI_cellclosingfactor = int(self.cellclosing_factorBox.value())
         UI_binary_adaptive_block_size = int(self.binary_adaptive_block_sizeBox.value())
         UI_self_findcontour_thres = float(self.find_contour_thres_box.value())
         UI_contour_dilation = int(self.contour_dilation_box.value())
@@ -210,7 +226,8 @@ class MyWindow(QtWidgets.QWidget):
         
         self.S = Stagescan(UI_row_start, UI_row_end, UI_column_start, UI_column_end, UI_step, self.samplingrate, self.analogwave, 
                            self.digitalwave, self.readin, UI_selectnum, UI_smallestsize, UI_openingfactor, UI_closingfactor, 
-                           UI_binary_adaptive_block_size, UI_self_findcontour_thres, UI_contour_dilation, self.savedirectory_evolution)
+                           UI_binary_adaptive_block_size, UI_self_findcontour_thres, UI_contour_dilation, UI_cellopeningfactor,
+                           UI_cellclosingfactor, self.savedirectory_evolution)
         self.S.start()
 
 
