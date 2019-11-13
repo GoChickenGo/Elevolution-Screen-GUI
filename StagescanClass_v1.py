@@ -11,6 +11,7 @@ from nidaqmx.constants import AcquisitionType, TaskMode
 from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalMultiChannelWriter
 from nidaqmx.stream_readers import AnalogSingleChannelReader
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
+from generalDaqerThread import execute_analog_readin_optional_digital_thread
 import matplotlib.pyplot as plt
 from PIL import Image
 from trymageAnalysis_v3 import ImageAnalysis
@@ -71,7 +72,9 @@ class Stagescan():
                 
                 self.analog_to_feed = self.analogsignals.copy()
                 
-                doit = execute_analog_readin_optional_digital(Daq_sample_rate, self.analog_to_feed, self.digitalsignals, self.readinchannels)
+                doit = execute_analog_readin_optional_digital_thread()
+                doit.set_waves(Daq_sample_rate, self.analog_to_feed, self.digitalsignals, self.readinchannels)
+                doit.start()
                 data1 = doit.read()
                 
                 Pic_name =str(i)+str(j)
@@ -122,7 +125,9 @@ class Stagescan():
                 
                 self.analog_to_feed = self.analogsignals.copy()
                 
-                doit = execute_analog_readin_optional_digital(Daq_sample_rate, self.analog_to_feed, self.digitalsignals, self.readinchannels)
+                doit = execute_analog_readin_optional_digital_thread()
+                doit.set_waves(Daq_sample_rate, self.analog_to_feed, self.digitalsignals, self.readinchannels)
+                doit.start()
                 data1 = doit.read()
                 
                 Pic_name = str(i)+str(j)
@@ -153,7 +158,7 @@ class Stagescan():
                 cp_start_index = cp_end_index - len(cp) +1
                 cp_index_dict[Pic_name] = [cp_start_index, cp_end_index] #get the location of individual cp index & put in dictionary， as they are stored in sequence.
                                
-                time.sleep(1)
+                time.sleep(0.3)
                
                 #self.ludlStage.getPos()
                 loopnum = loopnum+1

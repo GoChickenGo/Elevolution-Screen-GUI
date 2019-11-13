@@ -204,8 +204,6 @@ class execute_analog_readin_optional_digital():
                 
             if digitalsignalslinenumber != 0:     
                 DigitalWriter.write_many_sample_port_uint32(holder2, timeout = 16.0)
-                
-            reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamplesnumber, timeout=16.0)
             
             if analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.start()            
@@ -215,6 +213,8 @@ class execute_analog_readin_optional_digital():
                 slave_Task_2_digitallines.start()
                 
             master_Task_readin.start()
+            
+            reader.read_many_sample(Dataholder, number_of_samples_per_channel =  Totalscansamplesnumber, timeout=16.0)
             
             self.data_PMT = []
             
@@ -243,13 +243,14 @@ class execute_analog_readin_optional_digital():
             if digitalsignalslinenumber != 0:
                 slave_Task_2_digitallines.stop()
             master_Task_readin.stop()
-            
+            '''
             slave_Task_1_analog_dev1.close()
             if analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.close()
             if digitalsignalslinenumber != 0:
                 slave_Task_2_digitallines.close()
             master_Task_readin.close()
+            '''
         # set the keys of galvos back for next round
         for i in range(len(analogsignals['Sepcification'])):
             if 'galvosx' in analogsignals['Sepcification'][i]:

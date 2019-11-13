@@ -61,7 +61,7 @@ class ImageAnalysis():
         #fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #ax.imshow(Segimg_aft) #fig 3
         
-        return Segimg_bef, Segimg_aft, self.mask_bef, self.mask_bef, thresh
+        return Segimg_bef, Segimg_aft, self.mask_bef, self.mask_aft, thresh
     
     '''    
     def ratio(self, value1, value2):
@@ -98,6 +98,14 @@ class ImageAnalysis():
         self.individual_cell_dic_bef = {}
         self.individual_cell_dic_aft = {}
         
+        #Get 2 more pixels out of boundary box in case of cell movements
+        #We need to add 2 rows and columns of 0 to the whole FOV in case cells detected at the edge
+        expanded_image_container_bef = np.zeros((self.Imagbef.shape[0]+4, self.Imagbef.shape[1]+4))
+        expanded_image_container_bef[2:self.Imagbef.shape[0]+2, 2:self.Imagbef.shape[1]+2] = self.Imagbef
+        
+        expanded_image_container_aft = np.zeros((self.Imageaft.shape[0]+4, self.Imageaft.shape[1]+4))
+        expanded_image_container_aft[2:self.Imageaft.shape[0]+2, 2:self.Imageaft.shape[1]+2] = self.Imageaft
+        
         loopmun = 0
         dirforcellprp={}
         for region in regionprops(label_image,intensity_image=self.Imagbef): # USE image before perfusion as template
@@ -116,23 +124,20 @@ class ImageAnalysis():
                 #Sliced_binary_region_image = region.image
                 self.intensityimage_intensity = region.intensity_image # need a copy of this cause region will be altered by s.contour
                 
-                #Get 2 more pixels out of boundary box in case of cell movements
-                #We need to add 2 rows and columns of 0 to the whole FOV in case cells detected at the edge
-                expanded_image_container_bef = np.zeros((self.Imagbef.shape[0]+4, self.Imagbef.shape[1]+4))
-                expanded_image_container_bef[2:self.Imagbef.shape[0]+2, 2:self.Imagbef.shape[1]+2] = self.Imagbef
-                
-                expanded_image_container_aft = np.zeros((self.Imageaft.shape[0]+4, self.Imageaft.shape[1]+4))
-                expanded_image_container_aft[2:self.Imageaft.shape[0]+2, 2:self.Imageaft.shape[1]+2] = self.Imageaft
-                
-                self.regionimage_before = expanded_image_container_bef[minr-2:maxr+2, minc-2:maxc+2] # Raw region image 
-                self.regionimage_after = expanded_image_container_aft[minr-2:maxr+2, minc-2:maxc+2]
+                self.regionimage_before = expanded_image_container_bef[minr:maxr+4, minc:maxc+4] # Raw region image 
+                self.regionimage_after = expanded_image_container_aft[minr:maxr+4, minc:maxc+4]
                 
                 self.regionimage_before_for_contour = self.regionimage_before.copy()
                 self.regionimage_after_for_contour = self.regionimage_after.copy()
                 
                 self.individual_cell_dic_bef[str(loopmun)] = self.regionimage_before_for_contour # put each cell region into a dictionary
                 self.individual_cell_dic_aft[str(loopmun)] = self.regionimage_after_for_contour
-                
+                '''
+                plt.figure()
+                plt.imshow(self.regionimage_before, cmap = plt.cm.gray) 
+                plt.show() 
+                '''
+                #print(np.max(self.regionimage_before))
                 # Get binary cell image baseed on expanded current region image
                 thresh_regionbef = threshold_otsu(self.regionimage_before)
                 self.expanded_binary_region_bef = np.where(self.regionimage_before >= thresh_regionbef, 1, 0)
@@ -145,12 +150,12 @@ class ImageAnalysis():
                 
                 binarymask_aft = opening(self.expanded_binary_region_aft, square(self.cell_openingfactor))
                 self.expanded_binary_region_aft = closing(binarymask_aft, square(self.cell_closingfactor))
-                
+                '''
                 print('Original raw image:')
                 plt.figure()
                 plt.imshow(self.regionimage_before, cmap = plt.cm.gray) 
                 plt.show()  
-
+                '''
                 # fill in the holes
                 seed_bef = np.copy(self.expanded_binary_region_bef)
                 seed_bef[1:-1, 1:-1] = self.expanded_binary_region_bef.max()
@@ -187,7 +192,16 @@ class ImageAnalysis():
                 
                 contour_soma_ratio = contour_mean_bef/soma_mean_bef
                 contour_change_ratio = contour_mean_aft/contour_mean_bef
+                '''
+                plt.figure()
+                plt.imshow(self.contour_mask_of_intensity_bef, cmap = plt.cm.gray)       
+                plt.show()
                 
+                plt.figure()
+                plt.imshow(self.contour_mask_of_intensity_aft, cmap = plt.cm.gray)       
+                plt.show()
+                '''
+                '''
                 print('Contour soma ratio: '+str(round(contour_soma_ratio, 3)))
                 print('Contour image:')                                
                 plt.figure()
@@ -198,7 +212,7 @@ class ImageAnalysis():
                 plt.figure()
                 plt.imshow(soma_origin_image_intensity, cmap = plt.cm.gray)       
                 plt.show()                
-            
+                '''
                 #print(region_mean_intensity)
                 region_mean_intensity_list.append(filled_mean_bef)# Mean intensity of filled image
                 
@@ -299,7 +313,7 @@ class ImageAnalysis():
         label_image = label(cleared)
         #image_label_overlay = label2rgb(label_image, image=image)
         
-        
+        plt.figure()
         self.fig_showlabel, self.ax_showlabel = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
         #plt.figure(self.row_num+self.column_num)
         self.ax_showlabel.imshow(label_image)
@@ -329,6 +343,7 @@ class ImageAnalysis():
                 loopmun1 = loopmun1+1
         #plt.show()       
         self.ax_showlabel.set_axis_off()
+        plt.show()
         #plt.tight_layout()
         #self.ax_showlabel.show()
         

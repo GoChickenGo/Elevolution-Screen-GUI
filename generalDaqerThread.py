@@ -26,7 +26,7 @@ class execute_analog_readin_optional_digital_thread(QThread):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.configs = Configuration()
-        self.configdictionary = {'galvosx':self.configs.galvoXChannel,
+        self.configdictionary = {'galvosx':'Dev1/ao0',#self.configs.galvoXChannel,
                                  'galvosy':'Dev1/ao1',#self.configs.galvoYChannel, 
                                  '640AO':'Dev1/ao3',
                                  '488AO':'Dev2/ao1',
@@ -41,7 +41,10 @@ class execute_analog_readin_optional_digital_thread(QThread):
                                  'PMT':"Dev1/ai0",
                                  'Vp':"Dev1/ai22",
                                  'Ip':"Dev1/ai20",
-                                 'Perfusion_1':"Dev1/port0/line20",
+                                 'Perfusion_8':"Dev1/port0/line21",
+                                 'Perfusion_7':"Dev1/port0/line22",
+                                 'Perfusion_6':"Dev1/port0/line23",
+                                 'Perfusion_2':"Dev1/port0/line24",
                                  '2Pshutter':"Dev1/port0/line18"
                                 }    
     def set_waves(self, samplingrate, analogsignals, digitalsignals, readinchannels):
@@ -156,7 +159,7 @@ class execute_analog_readin_optional_digital_thread(QThread):
             slave_Task_2_digitallines.do_channels.add_do_chan("/Dev1/port0", line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
             
             self.Dataholder = np.zeros((len(self.readinchannels), self.Totalscansamplesnumber))
-            
+            print(self.Dataholder.shape)
             if 'PMT' in self.readinchannels:
                 master_Task_readin.ai_channels.add_ai_voltage_chan(self.configdictionary['PMT'])
             if 'Vp' in self.readinchannels:
@@ -211,19 +214,17 @@ class execute_analog_readin_optional_digital_thread(QThread):
                 DigitalWriter = nidaqmx.stream_writers.DigitalMultiChannelWriter(slave_Task_2_digitallines.out_stream, auto_start= False)
                 DigitalWriter.auto_start = False
             reader = AnalogMultiChannelReader(master_Task_readin.in_stream)        
-            
+            reader.auto_start = False
             # ---------------------------------------------------------------------------------------------------------------------
             #-----------------------------------------------------Begin to execute in DAQ------------------------------------------
-            AnalogWriter.write_many_sample(self.writesamples_dev1, timeout = 16.0)
+            AnalogWriter.write_many_sample(self.writesamples_dev1, timeout = 20.0)
             
             if self.analogsignal_dev2_number != 0:
-                AnalogWriter_dev2.write_many_sample(self.writesamples_dev2, timeout = 16.0)
+                AnalogWriter_dev2.write_many_sample(self.writesamples_dev2, timeout = 20.0)
                 
             if self.digitalsignalslinenumber != 0:     
-                DigitalWriter.write_many_sample_port_uint32(self.holder2, timeout = 16.0)
-                
-            reader.read_many_sample(self.Dataholder, number_of_samples_per_channel =  self.Totalscansamplesnumber, timeout=16.0)
-            
+                DigitalWriter.write_many_sample_port_uint32(self.holder2, timeout = 20.0)
+                           
             print('^^^^^^^^^^^^^^^^^^Daq tasks start^^^^^^^^^^^^^^^^^^')
             if self.analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.start()            
@@ -232,9 +233,10 @@ class execute_analog_readin_optional_digital_thread(QThread):
             if self.digitalsignalslinenumber != 0:
                 slave_Task_2_digitallines.start()
                 
-            master_Task_readin.start()
+            master_Task_readin.start() #!!!!!!!!!!!!!!!!!!!! READIN TASK HAS TO START AHEAD OF READ MANY SAMPLES, OTHERWISE ITS NOT SYN!!!
             
-            self.data_PMT = []
+            reader.read_many_sample(data = self.Dataholder, number_of_samples_per_channel =  self.Totalscansamplesnumber, timeout=20.0)            
+            #self.data_PMT = []
             
             slave_Task_1_analog_dev1.wait_until_done()
             if self.analogsignal_dev2_number != 0:
@@ -250,10 +252,11 @@ class execute_analog_readin_optional_digital_thread(QThread):
                 self.data_PMT = np.reshape(Dataholder_average, (self.ypixelnumber, self.ScanArrayXnum))
                 
                 self.data_PMT= self.data_PMT*-1
+                '''
                 plt.figure()
                 plt.imshow(self.data_PMT, cmap = plt.cm.gray)
                 plt.show()
-                
+                '''
             slave_Task_1_analog_dev1.stop()
             if self.analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.stop()
@@ -308,7 +311,7 @@ class execute_analog_readin_optional_digital_thread(QThread):
                     np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data) 
         if 'PMT' in self.readinchannels:     
                 self.pmtimage = Image.fromarray(self.data_PMT) #generate an image object
-                self.pmtimage.save(os.path.join(directory, 'PMT'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))) #save as tif
+                self.pmtimage.save(os.path.join(directory, 'PMT'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
                 
     def read(self):
         return self.data_PMT
@@ -339,7 +342,7 @@ class execute_tread_singlesample_analog(QThread):
                             'PMT':"Dev1/ai0",
                             'Vp':"Dev1/ai22",
                             'Ip':"Dev1/ai20",
-                            'Perfusion_1':"Dev1/port0/line20"
+                            'Perfusion_8':"Dev1/port0/line20"
                             }
     def set_waves(self, channel, value):
         self.channelname = self.configdictionary[channel]
@@ -369,7 +372,10 @@ class execute_tread_singlesample_digital(QThread):
                             'PMT':"Dev1/ai0",
                             'Vp':"Dev1/ai22",
                             'Ip':"Dev1/ai20",
-                            'Perfusion_1':"Dev1/port0/line20",
+                            'Perfusion_8':"Dev1/port0/line21",
+                            'Perfusion_7':"Dev1/port0/line22",
+                            'Perfusion_6':"Dev1/port0/line23",
+                            'Perfusion_2':"Dev1/port0/line24",
                             'LED':"Dev1/port0/line19"
                             }
     def set_waves(self, channel, value):

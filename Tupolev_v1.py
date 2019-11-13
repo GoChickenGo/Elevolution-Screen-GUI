@@ -16,6 +16,7 @@ import pyqtgraph as pg
 import sys
 import numpy as np
 
+from code_5nov import generate_AO
 from pmt_thread import pmtimagingTest, pmtimagingTest_contour
 from Stagemovement_Thread import StagemovementThread
 from Filtermovement_Thread import FiltermovementThread
@@ -43,7 +44,7 @@ pg.setConfigOption('foreground', 'k')
 pg.setConfigOption('useOpenGL', True)
 pg.setConfigOption('leftButtonPan', False)
 """
-pg.setConfigOptions(imageAxisOrder='row-major')
+
 '''
 class pmtwindow(pg.GraphicsView):
     def __init__(self, *args, **kwargs):
@@ -185,6 +186,7 @@ class Mainbody(QWidget):
         setdirectoryContainer = QGroupBox("Set directory")
         self.setdirectorycontrolLayout = QGridLayout()        
         
+        self.saving_prefix = ''
         self.savedirectorytextbox = QtWidgets.QLineEdit(self)
         self.setdirectorycontrolLayout.addWidget(self.savedirectorytextbox, 1, 0)
         
@@ -648,7 +650,7 @@ class Mainbody(QWidget):
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #**************************************************************************************************************************************
         self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform=None
-        self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = self.finalwave_2Pshutter =  None
+        self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_8 = self.finalwave_Perfusion_7 = self.finalwave_Perfusion_6 = self.finalwave_Perfusion_2 = self.finalwave_2Pshutter =  None
         
         AnalogContainer = QGroupBox("Analog signals")
         self.AnalogLayout = QGridLayout() #self.AnalogLayout manager
@@ -688,11 +690,13 @@ class Mainbody(QWidget):
         self.wavetab2 = QWidget()
         self.wavetab3 = QWidget()
         self.wavetab4 = QWidget()
+        self.wavetab5 = QWidget()
         # Add tabs
         self.wavetabs.addTab(self.wavetab1,"Block")
         self.wavetabs.addTab(self.wavetab2,"Ramp")
-        self.wavetabs.addTab(self.wavetab3,"Matlab")
+        self.wavetabs.addTab(self.wavetab3,"Import")
         self.wavetabs.addTab(self.wavetab4,"Galvo")
+        self.wavetabs.addTab(self.wavetab5,"Photocycle")        
         
         #------------------------------------------------------------------------------------------------------------------
         #----------------------------------------------------------General settings-------------------------------------------------
@@ -701,24 +705,24 @@ class Mainbody(QWidget):
         self.ReadLayout = QGridLayout() #self.AnalogLayout manager
 
         self.textboxBB = QComboBox()
-        self.textboxBB.addItems(['galvos', 'galvos_contour', '640AO', '488AO', '532AO', 'patchAO','cameratrigger', 'blankingall', '640blanking','532blanking','488blanking', 'Perfusion_1'])
+        self.textboxBB.addItems(['galvos', 'galvos_contour', '640AO', '488AO', '532AO', 'patchAO','cameratrigger', 'blankingall', '640blanking','532blanking','488blanking', 'Perfusion_8', 'Perfusion_7', 'Perfusion_6', 'Perfusion_2'])
         self.ReadLayout.addWidget(self.textboxBB, 0, 1)
         self.ReadLayout.addWidget(QLabel("Reference waveform:"), 0, 0)
 
         self.button_all = QPushButton('Show waveforms', self)
         self.button_all.setStyleSheet("QPushButton {color:white;background-color: DeepSkyBlue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                       "QPushButton:pressed {color:black;background-color: DeepSkyBlue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
-        self.ReadLayout.addWidget(self.button_all, 0, 4)
+        self.ReadLayout.addWidget(self.button_all, 0, 5)
         self.button_all.clicked.connect(self.show_all)
 
         self.button_stop_waveforms = QPushButton('Stop', self)
         self.button_stop_waveforms.setStyleSheet("QPushButton {color:white;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                                  "QPushButton:pressed {color:black;background-color: red; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
-        self.ReadLayout.addWidget(self.button_stop_waveforms, 0, 5)
+        self.ReadLayout.addWidget(self.button_stop_waveforms, 0, 6)
         self.button_stop_waveforms.clicked.connect(self.stopMeasurement_daqer)        
                 
         self.button_clear_canvas = QPushButton('Clear canvas', self)
-        self.ReadLayout.addWidget(self.button_clear_canvas, 1, 5)
+        self.ReadLayout.addWidget(self.button_clear_canvas, 1, 6)
         
         self.button_clear_canvas.clicked.connect(self.clear_canvas)  
         
@@ -729,6 +733,12 @@ class Mainbody(QWidget):
         self.textboxAA.setSingleStep(100000)        
         self.ReadLayout.addWidget(self.textboxAA, 0, 3)
         self.ReadLayout.addWidget(QLabel("Sampling rate for all:"), 0, 2)
+        
+        # Checkbox for saving waveforms
+        self.textboxsavingwaveforms= QCheckBox("Save wavefroms")
+        self.textboxsavingwaveforms.setChecked(True)
+        self.textboxsavingwaveforms.setStyleSheet('color:CadetBlue;font:bold "Times New Roman"')
+        self.ReadLayout.addWidget(self.textboxsavingwaveforms, 0, 4) 
         
         # Read-in channels
         self.textbox111A = QCheckBox("---PMT---")
@@ -809,6 +819,110 @@ class Mainbody(QWidget):
         self.wavetablayout.addWidget(self.textbox2K, 3, 3)
                 
         self.wavetab1.setLayout(self.wavetablayout)
+        # ------------------------------------------------------photocycle-----------------------------------------------------------        
+        self.photocycletablayout = QGridLayout()
+        
+        # Tab for general block wave
+        self.textbox_photocycleA = QLineEdit(self)
+        self.photocycletablayout.addWidget(self.textbox_photocycleA, 0, 1)
+        self.photocycletablayout.addWidget(QLabel("Frequency in period:"), 0, 0)
+
+        self.textbox_photocycleB = QLineEdit(self)
+        self.textbox_photocycleB.setPlaceholderText('100')
+        self.photocycletablayout.addWidget(self.textbox_photocycleB, 1, 1)
+        self.photocycletablayout.addWidget(QLabel("Offset (ms):"), 1, 0)
+        
+        self.textbox_photocycleC = QLineEdit(self)
+        self.photocycletablayout.addWidget(self.textbox_photocycleC, 0, 3)
+        self.photocycletablayout.addWidget(QLabel("Period (ms, 1 cycle):"), 0, 2)   
+        
+        self.textbox_photocycleD = QLineEdit(self)
+        self.textbox_photocycleD.setPlaceholderText('10')
+        self.photocycletablayout.addWidget(self.textbox_photocycleD, 1, 3)
+        self.photocycletablayout.addWidget(QLabel("Repeat:"), 1, 2) 
+        
+        self.photocycletablayout.addWidget(QLabel("DC (%):"), 0, 4)
+        self.textbox_photocycleE = QComboBox()
+        self.textbox_photocycleE.addItems(['50','100','0'])
+        self.photocycletablayout.addWidget(self.textbox_photocycleE, 0, 5)
+        
+        self.textbox_photocycleF = QLineEdit(self)
+        self.textbox_photocycleF.setPlaceholderText('100000')
+        self.photocycletablayout.addWidget(self.textbox_photocycleF, 1, 5)
+        self.photocycletablayout.addWidget(QLabel("Gap between repeat (samples):"), 1, 4)
+        
+        self.photocycletablayout.addWidget(QLabel("Starting amplitude (V):"), 2, 0)
+        self.textbox_photocycleG = QDoubleSpinBox(self)
+        self.textbox_photocycleG.setMinimum(-10)
+        self.textbox_photocycleG.setMaximum(10)
+        self.textbox_photocycleG.setValue(2)
+        self.textbox_photocycleG.setSingleStep(0.5)  
+        self.photocycletablayout.addWidget(self.textbox_photocycleG, 2, 1)        
+
+        self.textbox_photocycleH = QLineEdit(self)
+        self.textbox_photocycleH.setPlaceholderText('0')
+        self.photocycletablayout.addWidget(self.textbox_photocycleH, 3, 1)
+        self.photocycletablayout.addWidget(QLabel("Baseline (V):"), 3, 0)
+
+        self.photocycletablayout.addWidget(QLabel("Step (V):"), 2, 2)
+        self.textbox_photocycleI = QDoubleSpinBox(self)
+        self.textbox_photocycleI.setMinimum(-10)
+        self.textbox_photocycleI.setMaximum(10)
+        self.textbox_photocycleI.setValue(0.33)
+        self.textbox_photocycleI.setSingleStep(0.5)
+        self.photocycletablayout.addWidget(self.textbox_photocycleI, 2, 3)
+
+        self.photocycletablayout.addWidget(QLabel("Cycles:"), 3, 2)
+        self.textbox_photocycleJ = QSpinBox(self)
+        self.textbox_photocycleJ.setMinimum(0)
+        self.textbox_photocycleJ.setMaximum(100)
+        self.textbox_photocycleJ.setValue(1)
+        self.textbox_photocycleJ.setSingleStep(1) 
+        self.photocycletablayout.addWidget(self.textbox_photocycleJ, 3, 3)
+        
+        self.photocycletablayout.addWidget(QLabel("start_point:"), 3, 4)
+        self.textbox_photocycleK = QSpinBox(self)
+        self.textbox_photocycleK.setMinimum(0)
+        self.textbox_photocycleK.setMaximum(100)
+        self.textbox_photocycleK.setValue(2)
+        self.textbox_photocycleK.setSingleStep(1) 
+        self.photocycletablayout.addWidget(self.textbox_photocycleK, 3, 5)
+        
+        self.photocycletablayout.addWidget(QLabel("start_time:"), 3, 6)
+        self.textbox_photocycleL = QDoubleSpinBox(self)
+        self.textbox_photocycleL.setMinimum(0)
+        self.textbox_photocycleL.setMaximum(100)
+        self.textbox_photocycleL.setValue(0.5)
+        self.textbox_photocycleL.setSingleStep(1) 
+        self.photocycletablayout.addWidget(self.textbox_photocycleL, 3, 7)
+        
+        self.photocycletablayout.addWidget(QLabel("control_amplitude:"), 2, 4)
+        self.textbox_photocycleM = QDoubleSpinBox(self)
+        self.textbox_photocycleM.setMinimum(0)
+        self.textbox_photocycleM.setMaximum(100)
+        self.textbox_photocycleM.setValue(0.33)
+        self.textbox_photocycleM.setSingleStep(1) 
+        self.photocycletablayout.addWidget(self.textbox_photocycleM, 2, 5)
+        
+                
+        self.wavetab5.setLayout(self.photocycletablayout)
+        
+        #----------------------------------------------Tab for importing waveform------------------------------------------------
+        
+        self.importtablayout= QGridLayout()
+        self.import_tabs = QTabWidget()
+        self.npy_import_tab = QWidget()
+        self.npy_import_tablayout= QGridLayout()
+        self.matlab_import_tab = QWidget()
+        self.matlab_import_tablayout= QGridLayout()
+        
+        self.npy_import_tab.setLayout(self.npy_import_tablayout)
+        self.matlab_import_tab.setLayout(self.matlab_import_tablayout)
+        self.import_tabs.addTab(self.npy_import_tab, 'Python')
+        self.import_tabs.addTab(self.matlab_import_tab, 'Matlab')
+
+        self.importtablayout.addWidget(self.import_tabs,0,0)
+        self.wavetab3.setLayout(self.importtablayout)
         
         #----------------------------------------------Tab for galvo------------------------------------------------
         #----------------------------------------------Galvo scanning----------------------------------------------
@@ -944,7 +1058,10 @@ class Mainbody(QWidget):
                                   '640blanking',
                                   '532blanking',
                                   '488blanking',
-                                  'Perfusion_1',
+                                  'Perfusion_8',
+                                  'Perfusion_7',
+                                  'Perfusion_6',
+                                  'Perfusion_2',
                                   '2Pshutter'])
         self.DigitalLayout.addWidget(self.textbox3A, 0, 0)
         
@@ -1396,7 +1513,7 @@ class Mainbody(QWidget):
     def save_analyzed_image(self, catag):
         if catag == 'weight':
             Localimg = Image.fromarray(self.weightimage) #generate an image object
-            Localimg.save(os.path.join(self.savedirectory, 'Weight_'+ self.saving_prefix + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
+            Localimg.save(os.path.join(self.savedirectory, 'Weight_'+ str(self.prefixtextbox.text()) + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
             
     def clearplots(self):
         self.pw_patch_voltage.clear()
@@ -1458,7 +1575,7 @@ class Mainbody(QWidget):
         
     def saveimage_pmt(self):
         Localimg = Image.fromarray(self.data_pmtcontineous) #generate an image object
-        Localimg.save(os.path.join(self.savedirectory, 'PMT_'+ self.saving_prefix + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
+        Localimg.save(os.path.join(self.savedirectory, 'PMT_'+ str(self.prefixtextbox.text()) + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
         #np.save(os.path.join(self.savedirectory, 'PMT'+ self.saving_prefix +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.data_pmtcontineous)
         
     def update_pmt_Graphs(self, data):
@@ -1819,6 +1936,30 @@ class Mainbody(QWidget):
                 self.generate_patchAO_graphy()
                 self.set_switch('patchAO')
                 
+        if self.wavetabs.currentIndex() == 4:
+            if self.textbox2A.currentText() == '640 AO':
+                if self.finalwave_640 is not None:
+                    self.pw.removeItem(self.PlotDataItem_640AO) 
+                    self.pw.removeItem(self.textitem_640AO)
+                self.generate_photocycle_640()
+                self.generate_640AO_graphy()            
+                self.set_switch('640AO')            
+                    
+            elif self.textbox2A.currentText() == '532 AO':
+                if self.finalwave_532 is not None:
+                    self.pw.removeItem(self.PlotDataItem_532AO) 
+                    self.pw.removeItem(self.textitem_532AO)
+                self.generate_photocycle_532()
+                self.generate_532AO_graphy()
+                self.set_switch('532AO')
+            elif self.textbox2A.currentText() == '488 AO':
+                if self.finalwave_488 is not None:
+                    self.pw.removeItem(self.PlotDataItem_488AO) 
+                    self.pw.removeItem(self.textitem_488AO)
+                self.generate_photocycle_488()
+                self.generate_488AO_graphy()
+                self.set_switch('488AO')
+                
         if self.wavetabs.currentIndex() == 3:
             if self.galvos_tabs.currentIndex() == 0:
                 if self.textbox2A.currentText() == 'galvos':
@@ -1910,13 +2051,34 @@ class Mainbody(QWidget):
             self.generate_488blanking()
             self.generate_488blanking_graphy()
             self.set_switch('488blanking')
-        elif self.textbox3A.currentText() == 'Perfusion_1':
-            if self.finalwave_Perfusion_1 is not None:
-                self.pw.removeItem(self.PlotDataItem_Perfusion_1) 
-                self.pw.removeItem(self.textitem_Perfusion_1)
-            self.generate_Perfusion_1()
-            self.generate_Perfusion_1_graphy()
-            self.set_switch('Perfusion_1')     
+        elif self.textbox3A.currentText() == 'Perfusion_8':
+            if self.finalwave_Perfusion_8 is not None:
+                self.pw.removeItem(self.PlotDataItem_Perfusion_8) 
+                self.pw.removeItem(self.textitem_Perfusion_8)
+            self.generate_Perfusion_8()
+            self.generate_Perfusion_8_graphy()
+            self.set_switch('Perfusion_8')  
+        elif self.textbox3A.currentText() == 'Perfusion_7':
+            if self.finalwave_Perfusion_7 is not None:
+                self.pw.removeItem(self.PlotDataItem_Perfusion_7) 
+                self.pw.removeItem(self.textitem_Perfusion_7)
+            self.generate_Perfusion_7()
+            self.generate_Perfusion_7_graphy()
+            self.set_switch('Perfusion_7')
+        elif self.textbox3A.currentText() == 'Perfusion_6':
+            if self.finalwave_Perfusion_6 is not None:
+                self.pw.removeItem(self.PlotDataItem_Perfusion_6) 
+                self.pw.removeItem(self.textitem_Perfusion_6)
+            self.generate_Perfusion_6()
+            self.generate_Perfusion_6_graphy()
+            self.set_switch('Perfusion_6')
+        elif self.textbox3A.currentText() == 'Perfusion_2':
+            if self.finalwave_Perfusion_2 is not None:
+                self.pw.removeItem(self.PlotDataItem_Perfusion_2) 
+                self.pw.removeItem(self.textitem_Perfusion_2)
+            self.generate_Perfusion_2()
+            self.generate_Perfusion_2_graphy()
+            self.set_switch('Perfusion_2')
         elif self.textbox3A.currentText() == '2Pshutter':
             if self.finalwave_2Pshutter is not None:
                 self.pw.removeItem(self.PlotDataItem_2Pshutter) 
@@ -1959,11 +2121,26 @@ class Mainbody(QWidget):
             self.pw.removeItem(self.textitem_488blanking)
             self.finalwave_488blanking = None
             self.del_set_switch('488blanking')
-        elif self.textbox3A.currentText() == 'Perfusion_1':
-            self.pw.removeItem(self.PlotDataItem_Perfusion_1)   
-            self.pw.removeItem(self.textitem_Perfusion_1)
-            self.finalwave_Perfusion_1 = None
-            self.del_set_switch('Perfusion_1')             
+        elif self.textbox3A.currentText() == 'Perfusion_8':
+            self.pw.removeItem(self.PlotDataItem_Perfusion_8)   
+            self.pw.removeItem(self.textitem_Perfusion_8)
+            self.finalwave_Perfusion_8 = None
+            self.del_set_switch('Perfusion_8')    
+        elif self.textbox3A.currentText() == 'Perfusion_7':
+            self.pw.removeItem(self.PlotDataItem_Perfusion_7)   
+            self.pw.removeItem(self.textitem_Perfusion_7)
+            self.finalwave_Perfusion_7 = None
+            self.del_set_switch('Perfusion_7') 
+        elif self.textbox3A.currentText() == 'Perfusion_6':
+            self.pw.removeItem(self.PlotDataItem_Perfusion_6)   
+            self.pw.removeItem(self.textitem_Perfusion_6)
+            self.finalwave_Perfusion_6 = None
+            self.del_set_switch('Perfusion_6') 
+        elif self.textbox3A.currentText() == 'Perfusion_2':
+            self.pw.removeItem(self.PlotDataItem_Perfusion_2)   
+            self.pw.removeItem(self.textitem_Perfusion_2)
+            self.finalwave_Perfusion_2 = None
+            self.del_set_switch('Perfusion_2') 
         elif self.textbox3A.currentText() == '2Pshutter':
             self.pw.removeItem(self.PlotDataItem_2Pshutter)   
             self.pw.removeItem(self.textitem_2Pshutter)
@@ -2496,43 +2673,157 @@ class Mainbody(QWidget):
         self.textitem_blankingall.setPos(0, -1)
         self.pw.addItem(self.textitem_blankingall)
         
-    def generate_Perfusion_1(self):
+    def generate_Perfusion_8(self):
         
         self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_Perfusion_1 = float(self.textbox11B.text())
+        self.uiwavefrequency_Perfusion_8 = float(self.textbox11B.text())
         if not self.textbox11C.text():
-            self.uiwaveoffset_Perfusion_1 = 0
+            self.uiwaveoffset_Perfusion_8 = 0
         else:
-            self.uiwaveoffset_Perfusion_1 = int(self.textbox11C.text())
-        self.uiwaveperiod_Perfusion_1 = int(self.textbox11D.text())
-        self.uiwaveDC_Perfusion_1 = int(self.textbox11F.currentText())
+            self.uiwaveoffset_Perfusion_8 = int(self.textbox11C.text())
+        self.uiwaveperiod_Perfusion_8 = int(self.textbox11D.text())
+        self.uiwaveDC_Perfusion_8 = int(self.textbox11F.currentText())
         if not self.textbox11E.text():
-            self.uiwaverepeat_Perfusion_1_number = 1
+            self.uiwaverepeat_Perfusion_8_number = 1
         else:
-            self.uiwaverepeat_Perfusion_1_number = int(self.textbox11E.text())
+            self.uiwaverepeat_Perfusion_8_number = int(self.textbox11E.text())
         if not self.textbox11G.text():
-            self.uiwavegap_Perfusion_1 = 0
+            self.uiwavegap_Perfusion_8 = 0
         else:
-            self.uiwavegap_Perfusion_1 = int(self.textbox11G.toPlainText())
+            self.uiwavegap_Perfusion_8 = int(self.textbox11G.toPlainText())
         
         #if int(self.textbox66A.currentText()) == 1:
             
-        Perfusion_1 = generate_DO_forPerfusion(self.uiDaq_sample_rate, self.uiwavefrequency_Perfusion_1, self.uiwaveoffset_Perfusion_1,
-                                                     self.uiwaveperiod_Perfusion_1, self.uiwaveDC_Perfusion_1, self.uiwaverepeat_Perfusion_1_number, self.uiwavegap_Perfusion_1)
-        self.finalwave_Perfusion_1 = Perfusion_1.generate()
-        return self.finalwave_Perfusion_1
+        Perfusion_8 = generate_DO_forPerfusion(self.uiDaq_sample_rate, self.uiwavefrequency_Perfusion_8, self.uiwaveoffset_Perfusion_8,
+                                                     self.uiwaveperiod_Perfusion_8, self.uiwaveDC_Perfusion_8, self.uiwaverepeat_Perfusion_8_number, self.uiwavegap_Perfusion_8)
+        self.finalwave_Perfusion_8 = Perfusion_8.generate()
+        return self.finalwave_Perfusion_8
             
-    def generate_Perfusion_1_graphy(self):    
+    def generate_Perfusion_8_graphy(self):    
 
-        xlabelhere_Perfusion_1 = np.arange(len(self.finalwave_Perfusion_1))/self.uiDaq_sample_rate
-        self.final_Perfusion_1_forgraphy = self.finalwave_Perfusion_1.astype(int)
-        self.PlotDataItem_Perfusion_1 = PlotDataItem(xlabelhere_Perfusion_1, self.final_Perfusion_1_forgraphy)
-        self.PlotDataItem_Perfusion_1.setPen(102,0,51)
-        self.pw.addItem(self.PlotDataItem_Perfusion_1)
+        xlabelhere_Perfusion_8 = np.arange(len(self.finalwave_Perfusion_8))/self.uiDaq_sample_rate
+        self.final_Perfusion_8_forgraphy = self.finalwave_Perfusion_8.astype(int)
+        self.PlotDataItem_Perfusion_8 = PlotDataItem(xlabelhere_Perfusion_8, self.final_Perfusion_8_forgraphy)
+        self.PlotDataItem_Perfusion_8.setPen(102,0,51)
+        self.pw.addItem(self.PlotDataItem_Perfusion_8)
         
-        self.textitem_Perfusion_1 = pg.TextItem(text='Perfusion_1', color=(102,0,51), anchor=(1, 1))
-        self.textitem_Perfusion_1.setPos(0, -6)
-        self.pw.addItem(self.textitem_Perfusion_1)
+        self.textitem_Perfusion_8 = pg.TextItem(text='Perfusion_8', color=(102,0,51), anchor=(1, 1))
+        self.textitem_Perfusion_8.setPos(0, -6)
+        self.pw.addItem(self.textitem_Perfusion_8)
+        
+    def generate_Perfusion_7(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_Perfusion_7 = float(self.textbox11B.text())
+        if not self.textbox11C.text():
+            self.uiwaveoffset_Perfusion_7 = 0
+        else:
+            self.uiwaveoffset_Perfusion_7 = int(self.textbox11C.text())
+        self.uiwaveperiod_Perfusion_7 = int(self.textbox11D.text())
+        self.uiwaveDC_Perfusion_7 = int(self.textbox11F.currentText())
+        if not self.textbox11E.text():
+            self.uiwaverepeat_Perfusion_7_number = 1
+        else:
+            self.uiwaverepeat_Perfusion_7_number = int(self.textbox11E.text())
+        if not self.textbox11G.text():
+            self.uiwavegap_Perfusion_7 = 0
+        else:
+            self.uiwavegap_Perfusion_7 = int(self.textbox11G.toPlainText())
+        
+        #if int(self.textbox66A.currentText()) == 1:
+            
+        Perfusion_7 = generate_DO_forPerfusion(self.uiDaq_sample_rate, self.uiwavefrequency_Perfusion_7, self.uiwaveoffset_Perfusion_7,
+                                                     self.uiwaveperiod_Perfusion_7, self.uiwaveDC_Perfusion_7, self.uiwaverepeat_Perfusion_7_number, self.uiwavegap_Perfusion_7)
+        self.finalwave_Perfusion_7 = Perfusion_7.generate()
+        return self.finalwave_Perfusion_7
+            
+    def generate_Perfusion_7_graphy(self):    
+
+        xlabelhere_Perfusion_7 = np.arange(len(self.finalwave_Perfusion_7))/self.uiDaq_sample_rate
+        self.final_Perfusion_7_forgraphy = self.finalwave_Perfusion_7.astype(int)
+        self.PlotDataItem_Perfusion_7 = PlotDataItem(xlabelhere_Perfusion_7, self.final_Perfusion_7_forgraphy)
+        self.PlotDataItem_Perfusion_7.setPen(152,20,51)
+        self.pw.addItem(self.PlotDataItem_Perfusion_7)
+        
+        self.textitem_Perfusion_7 = pg.TextItem(text='Perfusion_7', color=(152,20,51), anchor=(1, 1))
+        self.textitem_Perfusion_7.setPos(-0.3, -6)
+        self.pw.addItem(self.textitem_Perfusion_7)
+        
+    def generate_Perfusion_6(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_Perfusion_6 = float(self.textbox11B.text())
+        if not self.textbox11C.text():
+            self.uiwaveoffset_Perfusion_6 = 0
+        else:
+            self.uiwaveoffset_Perfusion_6 = int(self.textbox11C.text())
+        self.uiwaveperiod_Perfusion_6 = int(self.textbox11D.text())
+        self.uiwaveDC_Perfusion_6 = int(self.textbox11F.currentText())
+        if not self.textbox11E.text():
+            self.uiwaverepeat_Perfusion_6_number = 1
+        else:
+            self.uiwaverepeat_Perfusion_6_number = int(self.textbox11E.text())
+        if not self.textbox11G.text():
+            self.uiwavegap_Perfusion_6 = 0
+        else:
+            self.uiwavegap_Perfusion_6 = int(self.textbox11G.toPlainText())
+        
+        #if int(self.textbox66A.currentText()) == 1:
+            
+        Perfusion_6 = generate_DO_forPerfusion(self.uiDaq_sample_rate, self.uiwavefrequency_Perfusion_6, self.uiwaveoffset_Perfusion_6,
+                                                     self.uiwaveperiod_Perfusion_6, self.uiwaveDC_Perfusion_6, self.uiwaverepeat_Perfusion_6_number, self.uiwavegap_Perfusion_6)
+        self.finalwave_Perfusion_6 = Perfusion_6.generate()
+        return self.finalwave_Perfusion_6
+            
+    def generate_Perfusion_6_graphy(self):    
+
+        xlabelhere_Perfusion_6 = np.arange(len(self.finalwave_Perfusion_6))/self.uiDaq_sample_rate
+        self.final_Perfusion_6_forgraphy = self.finalwave_Perfusion_6.astype(int)
+        self.PlotDataItem_Perfusion_6 = PlotDataItem(xlabelhere_Perfusion_6, self.final_Perfusion_6_forgraphy)
+        self.PlotDataItem_Perfusion_6.setPen(102,40,91)
+        self.pw.addItem(self.PlotDataItem_Perfusion_6)
+        
+        self.textitem_Perfusion_6 = pg.TextItem(text='Perfusion_6', color=(102,40,91), anchor=(1, 1))
+        self.textitem_Perfusion_6.setPos(-0.6, -6)
+        self.pw.addItem(self.textitem_Perfusion_6)
+        
+    def generate_Perfusion_2(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_Perfusion_2 = float(self.textbox11B.text())
+        if not self.textbox11C.text():
+            self.uiwaveoffset_Perfusion_2 = 0
+        else:
+            self.uiwaveoffset_Perfusion_2 = int(self.textbox11C.text())
+        self.uiwaveperiod_Perfusion_2 = int(self.textbox11D.text())
+        self.uiwaveDC_Perfusion_2 = int(self.textbox11F.currentText())
+        if not self.textbox11E.text():
+            self.uiwaverepeat_Perfusion_2_number = 1
+        else:
+            self.uiwaverepeat_Perfusion_2_number = int(self.textbox11E.text())
+        if not self.textbox11G.text():
+            self.uiwavegap_Perfusion_2 = 0
+        else:
+            self.uiwavegap_Perfusion_2 = int(self.textbox11G.toPlainText())
+        
+        #if int(self.textbox66A.currentText()) == 1:
+            
+        Perfusion_2 = generate_DO_forPerfusion(self.uiDaq_sample_rate, self.uiwavefrequency_Perfusion_2, self.uiwaveoffset_Perfusion_2,
+                                                     self.uiwaveperiod_Perfusion_2, self.uiwaveDC_Perfusion_2, self.uiwaverepeat_Perfusion_2_number, self.uiwavegap_Perfusion_2)
+        self.finalwave_Perfusion_2 = Perfusion_2.generate()
+        return self.finalwave_Perfusion_2
+            
+    def generate_Perfusion_2_graphy(self):    
+
+        xlabelhere_Perfusion_2 = np.arange(len(self.finalwave_Perfusion_2))/self.uiDaq_sample_rate
+        self.final_Perfusion_2_forgraphy = self.finalwave_Perfusion_2.astype(int)
+        self.PlotDataItem_Perfusion_2 = PlotDataItem(xlabelhere_Perfusion_2, self.final_Perfusion_2_forgraphy)
+        self.PlotDataItem_Perfusion_2.setPen(152,60,91)
+        self.pw.addItem(self.PlotDataItem_Perfusion_2)
+        
+        self.textitem_Perfusion_2 = pg.TextItem(text='Perfusion_2', color=(152,60,91), anchor=(1, 1))
+        self.textitem_Perfusion_2.setPos(-0.9, -6)
+        self.pw.addItem(self.textitem_Perfusion_2)
         
     def generate_2Pshutter(self):
         
@@ -2572,6 +2863,108 @@ class Mainbody(QWidget):
         self.textitem_2Pshutter.setPos(0, -7)
         self.pw.addItem(self.textitem_2Pshutter)
         
+    def generate_photocycle_640(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_photocycle_640 = float(self.textbox_photocycleA.text())
+        if not self.textbox_photocycleB.text():
+            self.uiwavefrequency_offset_photocycle_640 = 100
+        else:
+            self.uiwavefrequency_offset_photocycle_640 = int(self.textbox_photocycleB.text())
+        self.uiwaveperiod_photocycle_640 = int(self.textbox_photocycleC.text())
+        self.uiwaveDC_photocycle_640 = int(self.textbox_photocycleE.currentText())
+        if not self.textbox_photocycleD.text():
+            self.uiwaverepeat_photocycle_640 = 10
+        else:
+            self.uiwaverepeat_photocycle_640 = int(self.textbox_photocycleD.text())
+        if not self.textbox_photocycleF.text():
+            self.uiwavegap_photocycle_640 = 100000
+        else:
+            self.uiwavegap_photocycle_640 = int(self.textbox_photocycleF.text())
+        self.uiwavestartamplitude_photocycle_640 = float(self.textbox_photocycleG.value())
+        if not self.textbox_photocycleH.text():
+            self.uiwavebaseline_photocycle_640 = 0
+        else:
+            self.uiwavebaseline_photocycle_640 = float(self.textbox_photocycleH.text())
+        self.uiwavestep_photocycle_640 = float(self.textbox_photocycleI.value())
+        self.uiwavecycles_photocycle_640 = float(self.textbox_photocycleJ.value())
+        self.uiwavestart_time_photocycle_640 = float(self.textbox_photocycleL.value())  
+        
+        self.uiwavecontrol_amplitude_photocycle_640 = float(self.textbox_photocycleM.value())         
+                    
+        s = generate_AO(self.uiDaq_sample_rate, self.uiwavefrequency_photocycle_640, self.uiwavefrequency_offset_photocycle_640, self.uiwaveperiod_photocycle_640, self.uiwaveDC_photocycle_640, self.uiwaverepeat_photocycle_640
+                               , self.uiwavegap_photocycle_640, self.uiwavestartamplitude_photocycle_640, self.uiwavebaseline_photocycle_640, self.uiwavestep_photocycle_640, self.uiwavecycles_photocycle_640, self.uiwavestart_time_photocycle_640,self.uiwavecontrol_amplitude_photocycle_640)
+        self.finalwave_640 = s.generate()
+        return self.finalwave_640
+    
+    def generate_photocycle_532(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_photocycle_532 = float(self.textbox_photocycleA.text())
+        if not self.textbox_photocycleB.text():
+            self.uiwavefrequency_offset_photocycle_532 = 100
+        else:
+            self.uiwavefrequency_offset_photocycle_532 = int(self.textbox_photocycleB.text())
+        self.uiwaveperiod_photocycle_532 = int(self.textbox_photocycleC.text())
+        self.uiwaveDC_photocycle_532 = int(self.textbox_photocycleE.currentText())
+        if not self.textbox_photocycleD.text():
+            self.uiwaverepeat_photocycle_532 = 10
+        else:
+            self.uiwaverepeat_photocycle_532 = int(self.textbox_photocycleD.text())
+        if not self.textbox_photocycleF.text():
+            self.uiwavegap_photocycle_532 = 100000
+        else:
+            self.uiwavegap_photocycle_532 = int(self.textbox_photocycleF.text())
+        self.uiwavestartamplitude_photocycle_532 = float(self.textbox_photocycleG.value())
+        if not self.textbox_photocycleH.text():
+            self.uiwavebaseline_photocycle_532 = 0
+        else:
+            self.uiwavebaseline_photocycle_532 = float(self.textbox_photocycleH.text())
+        self.uiwavestep_photocycle_532 = float(self.textbox_photocycleI.value())
+        self.uiwavecycles_photocycle_532 = float(self.textbox_photocycleJ.value())
+        self.uiwavestart_time_photocycle_532 = float(self.textbox_photocycleL.value())  
+        
+        self.uiwavecontrol_amplitude_photocycle_532 = float(self.textbox_photocycleM.value())         
+                    
+        s = generate_AO(self.uiDaq_sample_rate, self.uiwavefrequency_photocycle_532, self.uiwavefrequency_offset_photocycle_532, self.uiwaveperiod_photocycle_532, self.uiwaveDC_photocycle_532, self.uiwaverepeat_photocycle_532
+                               , self.uiwavegap_photocycle_532, self.uiwavestartamplitude_photocycle_532, self.uiwavebaseline_photocycle_532, self.uiwavestep_photocycle_532, self.uiwavecycles_photocycle_532, self.uiwavestart_time_photocycle_532,self.uiwavecontrol_amplitude_photocycle_532)
+        self.finalwave_532 = s.generate()
+        return self.finalwave_532
+    
+    def generate_photocycle_488(self):
+        
+        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiwavefrequency_photocycle_488 = float(self.textbox_photocycleA.text())
+        if not self.textbox_photocycleB.text():
+            self.uiwavefrequency_offset_photocycle_488 = 100
+        else:
+            self.uiwavefrequency_offset_photocycle_488 = int(self.textbox_photocycleB.text())
+        self.uiwaveperiod_photocycle_488 = int(self.textbox_photocycleC.text())
+        self.uiwaveDC_photocycle_488 = int(self.textbox_photocycleE.currentText())
+        if not self.textbox_photocycleD.text():
+            self.uiwaverepeat_photocycle_488 = 10
+        else:
+            self.uiwaverepeat_photocycle_488 = int(self.textbox_photocycleD.text())
+        if not self.textbox_photocycleF.text():
+            self.uiwavegap_photocycle_488 = 100000
+        else:
+            self.uiwavegap_photocycle_488 = int(self.textbox_photocycleF.text())
+        self.uiwavestartamplitude_photocycle_488 = float(self.textbox_photocycleG.value())
+        if not self.textbox_photocycleH.text():
+            self.uiwavebaseline_photocycle_488 = 0
+        else:
+            self.uiwavebaseline_photocycle_488 = float(self.textbox_photocycleH.text())
+        self.uiwavestep_photocycle_488 = float(self.textbox_photocycleI.value())
+        self.uiwavecycles_photocycle_488 = float(self.textbox_photocycleJ.value())
+        self.uiwavestart_time_photocycle_488 = float(self.textbox_photocycleL.value())  
+        
+        self.uiwavecontrol_amplitude_photocycle_488 = float(self.textbox_photocycleM.value())         
+                    
+        s = generate_AO(self.uiDaq_sample_rate, self.uiwavefrequency_photocycle_488, self.uiwavefrequency_offset_photocycle_488, self.uiwaveperiod_photocycle_488, self.uiwaveDC_photocycle_488, self.uiwaverepeat_photocycle_488
+                               , self.uiwavegap_photocycle_488, self.uiwavestartamplitude_photocycle_488, self.uiwavebaseline_photocycle_488, self.uiwavestep_photocycle_488, self.uiwavecycles_photocycle_488, self.uiwavestart_time_photocycle_488,self.uiwavecontrol_amplitude_photocycle_488)
+        self.finalwave_488 = s.generate()
+        return self.finalwave_488
+       
     def set_switch(self, name):
         #self.generate_dictionary_switch_instance[name] = 1
         if name not in self.dictionary_switch_list:
@@ -2587,12 +2980,12 @@ class Mainbody(QWidget):
         self.pw.clear()
         self.dictionary_switch_list =[]
         #self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =None
-        #self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_1 = None
-        #self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=0        
+        #self.finalwave_cameratrigger=self.final_galvotrigger=self.finalwave_blankingall=self.finalwave_640blanking=self.finalwave_532blanking=self.finalwave_488blanking=self.finalwave_Perfusion_8 = None
+        #self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_8=0        
         
     def show_all(self):
 
-        self.switch_galvos=self.switch_galvos_contour=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_1=self.switch_2Pshutter=0
+        self.switch_galvos=self.switch_galvos_contour=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_8=self.switch_Perfusion_7=self.switch_Perfusion_6=self.switch_Perfusion_2=self.switch_2Pshutter=0
         color_dictionary = {'galvos':[255,255,255],
                             'galvos_contour':[255,255,255],
                             '640AO':[255,0,0],
@@ -2605,7 +2998,10 @@ class Mainbody(QWidget):
                             '640blanking':[255,204,255],
                             '532blanking':[255,255,0],
                             '488blanking':[255,51,153],
-                            'Perfusion_1':[102,0,51],
+                            'Perfusion_8':[102,0,51],
+                            'Perfusion_7':[152,20,51],
+                            'Perfusion_6':[102,40,91],
+                            'Perfusion_2':[152,60,91],
                             '2Pshutter':[229,204,255]
                             }
         # Use dictionary to execute functions: https://stackoverflow.com/questions/9168340/using-a-dictionary-to-select-function-to-execute/9168387#9168387
@@ -2624,7 +3020,10 @@ class Mainbody(QWidget):
                               '640blanking':[self.switch_640blanking, self.finalwave_640blanking],
                               '532blanking':[self.switch_532blanking, self.finalwave_532blanking],
                               '488blanking':[self.switch_488blanking, self.finalwave_488blanking],
-                              'Perfusion_1':[self.switch_Perfusion_1, self.finalwave_Perfusion_1],
+                              'Perfusion_8':[self.switch_Perfusion_8, self.finalwave_Perfusion_8],
+                              'Perfusion_7':[self.switch_Perfusion_7, self.finalwave_Perfusion_7],
+                              'Perfusion_6':[self.switch_Perfusion_6, self.finalwave_Perfusion_6],
+                              'Perfusion_2':[self.switch_Perfusion_2, self.finalwave_Perfusion_2],
                               '2Pshutter':[self.switch_2Pshutter, self.finalwave_2Pshutter]
                               }
         # set switch of selected waves to 1
@@ -2757,6 +3156,18 @@ class Mainbody(QWidget):
         plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_all[-1])+'s', fontsize=12)
         plt.show()
         '''
+        
+        # Saving configed waveforms
+        if self.textboxsavingwaveforms.isChecked():
+            temp_save_wave = np.empty((len(self.analogcontainer_array['Sepcification'])+len(self.digitalcontainer_array['Sepcification']), 1), dtype=np.object)
+            for i in range(len(self.analogcontainer_array['Sepcification'])):
+                temp_save_wave[i]=self.analogcontainer_array[i]
+            for i in range(len(self.digitalcontainer_array['Sepcification'])):
+                temp_save_wave[i+len(self.analogcontainer_array['Sepcification'])]=self.digitalcontainer_array[i]
+            #np.append(temp_save_wave, self.analogcontainer_array, axis = 0)
+            #np.append(temp_save_wave, self.digitalcontainer_array, axis = 0)
+            np.save(os.path.join(self.savedirectory, 'Wavefroms_sr_'+ str(int(self.textboxAA.value())) + '_' + str(self.prefixtextbox.text()) + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), temp_save_wave)
+       
         self.readinchan = []
         
         if self.textbox111A.isChecked():
@@ -2947,7 +3358,7 @@ class Mainbody(QWidget):
     def _open_file_dialog(self):
         self.savedirectory = str(QtWidgets.QFileDialog.getExistingDirectory())
         self.savedirectorytextbox.setText(self.savedirectory)
-        self.saving_prefix = self.prefixtextbox.text()
+        self.saving_prefix = str(self.prefixtextbox.text())
         
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
@@ -3020,6 +3431,7 @@ class Mainbody(QWidget):
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)
+        pg.setConfigOptions(imageAxisOrder='row-major')
         mainwin = Mainbody()
         mainwin.show()
         app.exec_()
