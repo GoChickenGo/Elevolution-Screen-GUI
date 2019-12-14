@@ -91,8 +91,8 @@ class PatchclampSealTestUI(QWidget):
         self.setMinimumSize(300,120)
         self.setWindowTitle("Patchclamp Seal Test")
         
-        self.ICON_RED_LED = "off.png"
-        self.ICON_GREEN_LED = 'on.png'
+        self.ICON_RED_LED = "./Icons/off.png"
+        self.ICON_GREEN_LED = '/Icons/on.png'
         
         #------------------------------Gains-----------------------------------
         gainContainer = QGroupBox("Gains")
@@ -172,7 +172,7 @@ class PatchclampSealTestUI(QWidget):
         zapContainer = QGroupBox("ZAP")
         zapContainerLayout = QGridLayout()
         
-        self.ICON_zap = 'zap.jpg'
+        self.ICON_zap = './Icons/zap.jpg'
         self.zapiconlabel = QLabel()
         self.zapiconlabel.setPixmap(QPixmap(self.ICON_zap))
         zapContainerLayout.addWidget(self.zapiconlabel, 0, 0) 
