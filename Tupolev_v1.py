@@ -5,16 +5,18 @@ Created on Sat Aug 10 20:54:40 2019
 @author: xinmeng
     ============================== ==============================================
     
-    For general experiments in Daan's lab
+    For general experiments in Dr. Daan's lab
     
     ============================== ==============================================
 """
 from __future__ import division
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, pyqtSignal, QRectF, QPoint, QRect
-from PyQt5.QtGui import QColor, QPen, QPixmap, QIcon
+from PyQt5.QtCore import Qt, pyqtSignal, QRectF, QPoint, QRect, QObject
+from PyQt5.QtGui import QColor, QPen, QPixmap, QIcon, QTextCursor, QFont
 
-from PyQt5.QtWidgets import QWidget, QButtonGroup, QLabel, QSlider, QSpinBox, QDoubleSpinBox, QGridLayout, QPushButton, QGroupBox, QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, QFileDialog, QProgressBar
+from PyQt5.QtWidgets import (QWidget, QButtonGroup, QLabel, QSlider, QSpinBox, QDoubleSpinBox, QGridLayout, QPushButton, QGroupBox, 
+                             QLineEdit, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox, QTabWidget, QCheckBox, QRadioButton, 
+                             QFileDialog, QProgressBar, QTextEdit)
 
 import pyqtgraph as pg
 
@@ -29,9 +31,12 @@ from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
 import wavegenerator
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
-from generalDaqerThread import execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog, execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar
+from generalDaqerThread import (execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog,
+                                execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar)
 from PIL import Image
-from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter, generate_ramp
+from adfunctiongenerator import (generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking,
+                                 generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking,
+                                 generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter, generate_ramp)
 from pyqtgraph import PlotDataItem, TextItem
 from matlabAnalysis import readbinaryfile, extractV
 import os
@@ -43,7 +48,7 @@ from datetime import datetime
 from skimage.io import imread
 import matplotlib.pyplot as plt
 from constants import HardwareConstants
-
+import pyqtgraph.console
 import ui_camera_lab_5
 
 #Setting graph settings
@@ -53,15 +58,22 @@ import ui_camera_lab_5
 #pg.setConfigOption('useOpenGL', True)
 #pg.setConfigOption('leftButtonPan', False)
 #""" 
-        
+class EmittingStream(QObject): #https://stackoverflow.com/questions/8356336/how-to-capture-output-of-pythons-interpreter-and-show-in-a-text-widget
+    textWritten = pyqtSignal(str)
+    def write(self, text):
+        self.textWritten.emit(str(text)) # For updating notice from console.   
+
 class Mainbody(QWidget):
     
     waveforms_generated = pyqtSignal(object, object, list, int)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        os.chdir('./')
-
+        os.chdir('./')# Set directory to current folder.
+        self.setWindowIcon(QIcon('./Icons/Icon.png'))
+        self.setFont(QFont("Arial"))
+#        sys.stdout = EmittingStream(textWritten = self.normalOutputWritten) # Uncomment here to link console output to textedit.
+#        sys.stdout = sys.__stdout__
         #------------------------Initiating patchclamp class-------------------
         self.pmtTest = pmtimagingTest()
         self.pmtTest_contour = pmtimagingTest_contour()
@@ -99,24 +111,26 @@ class Mainbody(QWidget):
         
         self.saving_prefix = ''
         self.savedirectorytextbox = QtWidgets.QLineEdit(self)
-        self.setdirectorycontrolLayout.addWidget(self.savedirectorytextbox, 1, 0)
+        self.savedirectorytextbox.setPlaceholderText('Saving directory')
+        self.setdirectorycontrolLayout.addWidget(self.savedirectorytextbox, 0, 1)
         
         self.prefixtextbox = QtWidgets.QLineEdit(self)
-        self.setdirectorycontrolLayout.addWidget(self.prefixtextbox, 0, 1)
+        self.prefixtextbox.setPlaceholderText('Prefix')
+        self.setdirectorycontrolLayout.addWidget(self.prefixtextbox, 0, 0)
         
-        self.setdirectorycontrolLayout.addWidget(QLabel("Saving prefix:"), 0, 0)
+        #self.setdirectorycontrolLayout.addWidget(QLabel("Saving prefix:"), 0, 0)
         
         self.toolButtonOpenDialog = QtWidgets.QPushButton('Click me!')
-        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
-                                                "QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 5px;border-width: 2px;font: bold 14px;padding: 2px}"
+                                                "QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 5px;border-width: 2px;font: bold 14px;padding: 2px}")
 
         self.toolButtonOpenDialog.setObjectName("toolButtonOpenDialog")
         self.toolButtonOpenDialog.clicked.connect(self._open_file_dialog)
         
-        self.setdirectorycontrolLayout.addWidget(self.toolButtonOpenDialog, 1, 1)
+        self.setdirectorycontrolLayout.addWidget(self.toolButtonOpenDialog, 0, 2)
         
         setdirectoryContainer.setLayout(self.setdirectorycontrolLayout)
-        setdirectoryContainer.setMaximumHeight(100)
+        setdirectoryContainer.setMaximumHeight(70)
         
         self.layout.addWidget(setdirectoryContainer, 0, 0)        
         #**************************************************************************************************************************************
@@ -259,7 +273,7 @@ class Mainbody(QWidget):
         self.stage_speed.setValue(300)
         self.stage_speed.setSingleStep(100)        
         self.stagecontrolLayout.addWidget(self.stage_speed, 0, 1)
-        self.stagecontrolLayout.addWidget(QLabel("Move speed:"), 0, 0)
+        self.stagecontrolLayout.addWidget(QLabel("Moving speed:"), 0, 0)
         
         self.led_Label = QLabel("White LED: ")
         self.stagecontrolLayout.addWidget(self.led_Label, 0, 2)
@@ -278,7 +292,7 @@ class Mainbody(QWidget):
         self.stage_current_pos_Label = QLabel("Current position: ")
         self.stagecontrolLayout.addWidget(self.stage_current_pos_Label, 1, 0)
         
-        self.stage_goto = QPushButton("Go to: ")
+        self.stage_goto = QPushButton("Move to:")
         self.stage_goto.setStyleSheet("QPushButton {color:white;background-color: blue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.stagecontrolLayout.addWidget(self.stage_goto, 3, 0)
@@ -368,16 +382,19 @@ class Mainbody(QWidget):
         self.layout.addWidget(ND_filtercontrolContainer, 3, 0)         
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
-        #-----------------------------------------------------------GUI for camera button-----------------------------------------------------------
+        #-----------------------------------------------------------GUI for camera button------------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------  
         #**************************************************************************************************************************************        
         self.open_cam = QPushButton('Open Camera')
         self.open_cam.clicked.connect(self.open_camera)
         self.layout.addWidget(self.open_cam,4,0)
         
-        
-        
-        
+        self.console_text_edit = QTextEdit()
+        self.console_text_edit.setFontItalic(True)
+        self.console_text_edit.setPlaceholderText('Notice board from console.')
+        self.console_text_edit.setMaximumHeight(200)
+        self.layout.addWidget(self.console_text_edit, 5, 0)
+         
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #-----------------------------------------------------------GUI for PMT tab------------------------------------------------------------
@@ -1170,7 +1187,7 @@ class Mainbody(QWidget):
         self.tab2.setLayout(master_waveform)        
         #**************************************************************************************************************************************        
         #self.setLayout(pmtmaster)
-        self.layout.addWidget(self.tabs, 0, 1, 6, 5)
+        self.layout.addWidget(self.tabs, 0, 1, 8, 4)
         self.setLayout(self.layout)
         
         #**************************************************************************************************************************************
@@ -1204,11 +1221,11 @@ class Mainbody(QWidget):
         self.Spincamsamplingrate.setMaximum(2000)
         self.Spincamsamplingrate.setValue(250)
         self.Spincamsamplingrate.setSingleStep(250)
-        self.readimageLayout.addWidget(self.Spincamsamplingrate, 1, 8)
-        self.readimageLayout.addWidget(QLabel("Camera FPS:"), 1, 7)
+        self.readimageLayout.addWidget(self.Spincamsamplingrate, 1, 6)
+        self.readimageLayout.addWidget(QLabel("Camera FPS:"), 1, 5)
         
         self.button_clearpolts = QPushButton('Clear', self)
-        self.readimageLayout.addWidget(self.button_clearpolts, 1, 9)         
+        self.readimageLayout.addWidget(self.button_clearpolts, 1, 7)         
         
         self.button_clearpolts.clicked.connect(self.clearplots)
         
@@ -1258,8 +1275,14 @@ class Mainbody(QWidget):
         
         readimageContainer.setLayout(self.readimageLayout)
         readimageContainer.setMaximumHeight(120)
+        
+        #-----------------------------------------------------Image analysis display Tab-------------------------------------------------------
+        Display_Container = QGroupBox("Image analysis display")
+        Display_Layout = QGridLayout()
+        # Setting tabs
+        Display_Container_tabs = QTabWidget()
+                
         #------------------------------------------------------V, I curve display window-------------------------------------------------------
-        self.Curvedisplay_Container = QGroupBox("Electrical signal window")
         self.Curvedisplay_Layout = QGridLayout()
         
         #Voltage window
@@ -1295,12 +1318,14 @@ class Mainbody(QWidget):
         self.vLine_cam = pg.InfiniteLine(pos=0.4, angle=90, movable=True)
         self.pw_patch_camtrace.addItem(self.vLine_cam, ignoreBounds=True)
 
-        self.Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
-        self.Curvedisplay_Container.setMaximumHeight(550)
+#        self.Curvedisplay_Container.setLayout(self.Curvedisplay_Layout)
+#        self.Curvedisplay_Container.setMaximumHeight(550)
         
         self.vLine.sigPositionChangeFinished.connect(self.showpointdata)
         self.vLine_cam.sigPositionChangeFinished.connect(self.showpointdata_camtrace)
         #------------------------------------------------------Image Analysis-Average window-------------------------------------------------------
+        image_display_container_layout = QGridLayout()
+        
         imageanalysis_average_Container = QGroupBox("Image Analysis-Average window")
         self.imageanalysisLayout_average = QGridLayout()
                 
@@ -1317,12 +1342,12 @@ class Mainbody(QWidget):
         #self.imageanalysisLayout_average.addWidget(self.pw_averageimage, 0, 0, 3, 3)
         
         self.button_average = QPushButton('Average', self)
-        self.button_average.setMaximumWidth(70)
+        self.button_average.setMaximumWidth(120)
         self.imageanalysisLayout_average.addWidget(self.button_average, 0, 3) 
         self.button_average.clicked.connect(self.calculateaverage)
         
         self.button_bg_average = QPushButton('Background Mean', self)
-        self.button_bg_average.setMaximumWidth(70)
+        self.button_bg_average.setMaximumWidth(120)
         self.imageanalysisLayout_average.addWidget(self.button_bg_average, 1, 3) 
         self.button_bg_average.clicked.connect(self.calculateaverage_bg)
         
@@ -1343,43 +1368,62 @@ class Mainbody(QWidget):
         self.imageanalysisLayout_weight.addWidget(self.pw_weightimage, 0, 0, 5, 3)
         
         self.button_weight = QPushButton('Weight', self)
-        self.button_weight.setMaximumWidth(83)
+        self.button_weight.setMaximumWidth(120)
         self.imageanalysisLayout_weight.addWidget(self.button_weight, 0, 3) 
         self.button_weight.clicked.connect(self.calculateweight)
         
         self.button_weighttrace = QPushButton('Weighted Trace', self)
-        self.button_weighttrace.setMaximumWidth(83)
+        self.button_weighttrace.setMaximumWidth(120)
         self.imageanalysisLayout_weight.addWidget(self.button_weighttrace, 1, 3) 
         self.button_weighttrace.clicked.connect(self.displayweighttrace)
         
         self.button_roi_weighttrace = QPushButton('ROI-Weighted Trace', self)
-        self.button_roi_weighttrace.setMaximumWidth(83)
+        self.button_roi_weighttrace.setMaximumWidth(120)
         self.imageanalysisLayout_weight.addWidget(self.button_roi_weighttrace, 2, 3) 
         self.button_roi_weighttrace.clicked.connect(self.displayROIweighttrace)
         
         self.button_weight_save = QPushButton('Save image', self)
-        self.button_weight_save.setMaximumWidth(83)
+        self.button_weight_save.setMaximumWidth(120)
         self.imageanalysisLayout_weight.addWidget(self.button_weight_save, 3, 3) 
         self.button_weight_save.clicked.connect(lambda: self.save_analyzed_image('weight_image'))
         
         self.button_weight_save_trace = QPushButton('Save trace', self)
-        self.button_weight_save_trace.setMaximumWidth(83)
+        self.button_weight_save_trace.setMaximumWidth(120)
         self.imageanalysisLayout_weight.addWidget(self.button_weight_save_trace, 4, 3) 
         self.button_weight_save_trace.clicked.connect(lambda: self.save_analyzed_image('weight_trace'))
         
         imageanalysis_weight_Container.setLayout(self.imageanalysisLayout_weight)
         imageanalysis_weight_Container.setMinimumHeight(180)
         
+        image_display_container_layout.addWidget(imageanalysis_average_Container, 0, 0)
+        image_display_container_layout.addWidget(imageanalysis_weight_Container, 1, 0)
+            
+        Display_Container_tabs_tab2 = QWidget()
+        Display_Container_tabs_tab2.setLayout(self.Curvedisplay_Layout)
+        Display_Container_tabs_tab1 = QWidget()
+        Display_Container_tabs_tab1.setLayout(image_display_container_layout)
+        
+        # Add tabs
+        Display_Container_tabs.addTab(Display_Container_tabs_tab1,"Graph display")
+        Display_Container_tabs.addTab(Display_Container_tabs_tab2,"Trace display")   
+        
+        Display_Layout.addWidget(Display_Container_tabs, 0, 0)  
+        Display_Container.setLayout(Display_Layout)        
+
         master_data_analysis = QGridLayout()
         master_data_analysis.addWidget(readimageContainer, 0, 0, 1, 2)
-        master_data_analysis.addWidget(self.Curvedisplay_Container, 1, 0, 1, 2)
-        master_data_analysis.addWidget(imageanalysis_average_Container, 2, 0, 1,1)
-        master_data_analysis.addWidget(imageanalysis_weight_Container, 2, 1, 1,1)
+        master_data_analysis.addWidget(Display_Container, 1, 0, 1, 2)
+#        master_data_analysis.addWidget(imageanalysis_average_Container, 2, 0, 1,1)
+#        master_data_analysis.addWidget(imageanalysis_weight_Container, 2, 1, 1,1)
         self.tab5.setLayout(master_data_analysis)    
         '''
         ***************************************************************************************************************************************
         ************************************************************END of GUI*****************************************************************
         '''
+        
+    def __del__(self):
+        # Restore sys.stdout
+        sys.stdout = sys.__stdout__
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #------------------------------------------------Functions for Data analysis Tab------------------------------------------------------------
@@ -1391,11 +1435,14 @@ class Mainbody(QWidget):
         
     def loadtiffile(self):
         print('Loading...')
+        self.normalOutputWritten('Loading...'+'\n')
         self.videostack = imread(self.fileName)
         print(self.videostack.shape)
+        self.normalOutputWritten('Video size: '+str(self.videostack.shape)+'\n')
         self.roi_average.maxBounds= QRectF(0,0,self.videostack.shape[2],self.videostack.shape[1])
         self.roi_weighted.maxBounds= QRectF(0,0,self.videostack.shape[2],self.videostack.shape[1])
         print('Loading complete, ready to fire')
+        self.normalOutputWritten('Loading complete, ready to fire'+'\n')
         
     def loadcurve(self, filepath):
         for file in os.listdir(os.path.dirname(self.fileName)):
@@ -1432,6 +1479,15 @@ class Mainbody(QWidget):
             print(self.videostack_background.shape)
             self.videostack = self.videostack - self.videostack_background
             print('Substraction complete.')
+        elif self.switch_bg_Video_or_image.currentText() == 'ROI':
+            unique, counts = np.unique(self.averageimage_ROI_mask,return_counts=True)
+            count_dict = dict(zip(unique, counts))
+            print('number of 1 and 0:'+str(count_dict))
+            for i in range(self.videostack.shape[0]):
+                ROI_bg = self.videostack[i][self.roi_avg_coord_raw_start:self.roi_avg_coord_raw_start+self.averageimage_ROI_mask.shape[0], self.roi_avg_coord_col_start:self.roi_avg_coord_col_start+self.averageimage_ROI_mask.shape[1]] * self.averageimage_ROI_mask
+                bg_mean = np.sum(ROI_bg)/count_dict[1] # Sum of all pixel values and devided by non-zero pixel number
+                self.videostack[i] = np.where(self.videostack[i] - bg_mean < 0, 0, self.videostack[i] - bg_mean)
+            print('ROI background correction done.')
 
     def displayElectricalsignal(self):
         if self.switch_Vp_or_camtrace.currentText() == 'With Vp':
@@ -1531,15 +1587,26 @@ class Mainbody(QWidget):
     def calculateaverage_bg(self):
         self.averageimage_imageitem = self.pw_averageimage.getImageItem()
         self.averageimage_ROI = self.roi_average.getArrayRegion(self.imganalysis_averageimage, self.averageimage_imageitem)
+        self.averageimage_ROI_mask = np.where(self.averageimage_ROI > 0, 1, 0)
         
         #self.roi_average_pos = self.roi_average.pos()
         self.roi_average_Bounds = self.roi_average.parentBounds()
-        print(self.roi_average_Bounds.topLeft())
-        print(self.roi_average_Bounds.bottomRight())
+        self.roi_avg_coord_col_start = round(self.roi_average_Bounds.topLeft().x())
+        self.roi_avg_coord_col_end = round(self.roi_average_Bounds.bottomRight().x())
+        self.roi_avg_coord_raw_start = round(self.roi_average_Bounds.topLeft().y())
+        self.roi_avg_coord_raw_end = round(self.roi_average_Bounds.bottomRight().y())
+
         #print(self.roi_average_pos)
-        plt.figure()
-        plt.imshow(self.averageimage_ROI, cmap = plt.cm.gray)
-        plt.show()
+#        plt.figure()
+#        plt.imshow(self.averageimage_ROI_mask, cmap = plt.cm.gray)
+#        plt.show()
+        
+#        plt.figure()
+#        plt.imshow(self.imganalysis_averageimage[self.roi_coord_raw_start:self.roi_coord_raw_end, self.roi_coord_col_start:self.roi_coord_col_end], cmap = plt.cm.gray)
+#        plt.show()
+        
+#        print(self.averageimage_ROI[13:15,13:15])
+#        print(self.imganalysis_averageimage[self.roi_coord_raw_start:self.roi_coord_raw_end, self.roi_coord_col_start:self.roi_coord_col_end][13:15,13:15])
     
     def calculateweight(self):        
         if self.switch_Vp_or_camtrace.currentText() == 'With Vp':
@@ -1855,10 +1922,14 @@ class Mainbody(QWidget):
             
             if speedGalvo > np.amax(abs(contour_x_speed)) and speedGalvo > np.amax(abs(contour_y_speed)):
                 print('Contour speed is OK')
+                self.normalOutputWritten('Contour speed is OK'+'\n')
+            else:
+                QMessageBox.warning(self,'OverLoad','Speed too high!',QMessageBox.Ok)
             if aGalvo > np.amax(abs(contour_x_acceleration)) and aGalvo > np.amax(abs(contour_y_acceleration)):
                 print('Contour acceleration is OK')
-        
-        
+                self.normalOutputWritten('Contour acceleration is OK'+'\n')
+                QMessageBox.warning(self,'OverLoad','Acceleration too high!',QMessageBox.Ok)
+                
         if self.contour_strategy.currentText() == 'Uniform':
             # Calculate the total distance
             self.total_distance = 0
@@ -2011,8 +2082,10 @@ class Mainbody(QWidget):
             
             if speedGalvo > np.amax(abs(contour_x_speed)) and speedGalvo > np.amax(abs(contour_y_speed)):
                 print('Contour speed is OK')
+                self.normalOutputWritten('Contour speed is OK'+'\n')
             if aGalvo > np.amax(abs(contour_x_acceleration)) and aGalvo > np.amax(abs(contour_y_acceleration)):
                 print('Contour acceleration is OK')
+                self.normalOutputWritten('Contour acceleration is OK'+'\n')
                 
     def generate_contour_for_waveform(self):
         self.contour_time = int(self.textbox1L.value())
@@ -2075,6 +2148,8 @@ class Mainbody(QWidget):
                 
         if self.uiDaq_sample_rate != int(self.textboxAA.value()):
             print('ERROR: Sampling rates is different!')
+            self.normalOutputWritten('ERROR: Sampling rates is different!'+'\n')
+            QMessageBox.warning(self,'ERROR!','Sampling rates is different!',QMessageBox.Ok)
         
         for i in range(len(temp_loaded_container)):
             if temp_loaded_container[i]['Sepcification'] == '640AO':
@@ -3293,11 +3368,13 @@ class Mainbody(QWidget):
         if name not in self.dictionary_switch_list:
             self.dictionary_switch_list.append(name)
             print(self.dictionary_switch_list)
+            self.normalOutputWritten(str(self.dictionary_switch_list)+'\n')
     def del_set_switch(self, name):
         #self.generate_dictionary_switch_instance[name] = 1
         if name in self.dictionary_switch_list:
             self.dictionary_switch_list.remove(name)
             print(self.dictionary_switch_list)
+            self.normalOutputWritten(str(self.dictionary_switch_list)+'\n')
     def clear_canvas(self):
         #Back to initial state
         self.pw.clear()
@@ -3369,6 +3446,7 @@ class Mainbody(QWidget):
         else:
             self.reference_length = len(reference_wave)
         print('reference_length: '+str(self.reference_length))
+        self.normalOutputWritten('reference_length: '+str(self.reference_length)+'\n')
 
         # Structured array to contain 
         # https://stackoverflow.com/questions/39622533/numpy-array-as-datatype-in-a-structured-array
@@ -3408,7 +3486,7 @@ class Mainbody(QWidget):
             
         #num_rows, num_cols = self.analogcontainer_array['Waveform'].shape
         print(self.analogcontainer_array['Sepcification'])
-        
+        self.normalOutputWritten(str(self.analogcontainer_array['Sepcification'])+'\n')
         # digital lines
         self.digital_data_container = {}
         
@@ -3432,7 +3510,7 @@ class Mainbody(QWidget):
         for key in self.digital_data_container:
             self.digitalcontainer_array[digitalloopnum] = np.array([(self.digital_data_container[key], key)], dtype =tp_digital)
             digitalloopnum = digitalloopnum+ 1
-        print(self.digitalcontainer_array['Sepcification'])
+        print(str(self.digitalcontainer_array['Sepcification']))
                 
         self.xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.value())
         
@@ -3523,9 +3601,10 @@ class Mainbody(QWidget):
         if self.textbox333A.isChecked():
             self.readinchan.append('Ip')       
         
-        print(self.readinchan)
+        print(str(self.readinchan))
+        self.normalOutputWritten(str(self.readinchan)+'\n')
         self.waveforms_generated.emit(self.analogcontainer_array, self.digitalcontainer_array, self.readinchan, int(self.textboxAA.value()))
-        #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
     
     def execute_tread(self):
@@ -3856,6 +3935,20 @@ class Mainbody(QWidget):
         
         self.camWindow.setGeometry(QRect(100, 100, 600, 600))
         self.camWindow.show()
+        
+        #**************************************************************************************************************************************
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #-----------------------------------------------------------Fucs for console display---------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------          
+        #************************************************************************************************************************************** 
+    def normalOutputWritten(self, text):
+        """Append text to the QTextEdit."""
+        # Maybe QTextEdit.append() works as well, but this is how I do it:
+        cursor = self.console_text_edit.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertText(text)
+        self.console_text_edit.setTextCursor(cursor)
+        self.console_text_edit.ensureCursorVisible()        
     
 '''-------------------------------------------------------------------------------------Deprecated------------------------------------------------------------------------------------------  
 
