@@ -14,8 +14,8 @@ from IPython import get_ipython
 from matplot import SelectFromCollection
 import numpy.lib.recfunctions as rfn
 
-Rawimgbef = imread(r'D:\PMT__2019-11-08_14-58-32_ec2.tif', as_gray=True)#(r"O:\Delft\data\PMT__2019-11-08_14-55-56.tif", as_gray=True)
-Rawimgaft = imread(r'D:\PMT__2019-11-08_14-52-17_ec1.tif', as_gray=True)#(r"O:\Delft\data\PMT__2019-11-08_14-55-56.tif", as_gray=True)
+Rawimgbef = imread(r'M:\tnw\ist\do\projects\Neurophotonics\Brinkslab\People\Xin Meng\Code\Daq_1.tif', as_gray=True)#(r"O:\Delft\data\PMT__2019-11-08_14-55-56.tif", as_gray=True)
+Rawimgaft = imread(r'M:\tnw\ist\do\projects\Neurophotonics\Brinkslab\People\Xin Meng\Code\Daq_2.tif', as_gray=True)#(r"O:\Delft\data\PMT__2019-11-08_14-55-56.tif", as_gray=True)
 
 Data_dict_0 = {}
 Data_dict_0[str(-1500)+str(-1500)] = Rawimgbef[:, 15:515]#[134:360, 450:600]#[180:290, 220:330]###[40:100,300:350]

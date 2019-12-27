@@ -34,7 +34,8 @@ from datetime import datetime
 from generalDaqer import execute_digital
 
 class WaveformGenerator(QWidget):
-    measurement = pyqtSignal(object, object, list, int)
+    WaveformPackage = pyqtSignal(object)
+    GalvoScanInfor = pyqtSignal(object)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         get_ipython().run_line_magic('matplotlib', 'qt') # before start, set spyder back to inline
@@ -52,7 +53,7 @@ class WaveformGenerator(QWidget):
         #-----------------------------------------------------------GUI for Waveform tab-------------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #**************************************************************************************************************************************
-        self.setMinimumSize(1000,1000)
+        self.setMinimumSize(1000,650)
         self.setWindowTitle("Buon appetito!")
 
         self.Galvo_samples = self.finalwave_640 = self.finalwave_488 = self.finalwave_532=self.finalwave_patch =self.handle_viewbox_coordinate_position_array_expanded_forDaq_waveform=None
@@ -141,32 +142,32 @@ class WaveformGenerator(QWidget):
         
         self.button_clear_canvas.clicked.connect(self.clear_canvas)  
         
-        self.textboxAA = QSpinBox(self)
-        self.textboxAA.setMinimum(0)
-        self.textboxAA.setMaximum(1000000)
-        self.textboxAA.setValue(50000)
-        self.textboxAA.setSingleStep(100000)        
-        self.ReadLayout.addWidget(self.textboxAA, 0, 3)
+        self.SamplingRateTextbox = QSpinBox(self)
+        self.SamplingRateTextbox.setMinimum(0)
+        self.SamplingRateTextbox.setMaximum(1000000)
+        self.SamplingRateTextbox.setValue(500000)
+        self.SamplingRateTextbox.setSingleStep(100000)        
+        self.ReadLayout.addWidget(self.SamplingRateTextbox, 0, 3)
         self.ReadLayout.addWidget(QLabel("Sampling rate for all:"), 0, 2)
         
         # Checkbox for saving waveforms
         self.textboxsavingwaveforms= QCheckBox("Save wavefroms")
-        self.textboxsavingwaveforms.setChecked(True)
+#        self.textboxsavingwaveforms.setChecked(True)
         self.textboxsavingwaveforms.setStyleSheet('color:CadetBlue;font:bold "Times New Roman"')
         self.ReadLayout.addWidget(self.textboxsavingwaveforms, 0, 4) 
         
         # Read-in channels
-        self.textbox111A = QCheckBox("---PMT---")
-        self.textbox111A.setStyleSheet('color:CadetBlue;font:bold "Times New Roman"')
-        self.ReadLayout.addWidget(self.textbox111A, 1, 1)     
+        self.ReadChanPMTTextbox = QCheckBox("---PMT---")
+        self.ReadChanPMTTextbox.setStyleSheet('color:CadetBlue;font:bold "Times New Roman"')
+        self.ReadLayout.addWidget(self.ReadChanPMTTextbox, 1, 1)     
 
-        self.textbox222A = QCheckBox("---Vp---")
-        self.textbox222A.setStyleSheet('color:Indigo;font:bold "Times New Roman"')
-        self.ReadLayout.addWidget(self.textbox222A, 1, 2)   
+        self.ReadChanVpTextbox = QCheckBox("---Vp---")
+        self.ReadChanVpTextbox.setStyleSheet('color:Indigo;font:bold "Times New Roman"')
+        self.ReadLayout.addWidget(self.ReadChanVpTextbox, 1, 2)   
         
-        self.textbox333A = QCheckBox("---Ip---")
-        self.textbox333A.setStyleSheet('color:DarkSlateGray	;font:bold "Times New Roman"')
-        self.ReadLayout.addWidget(self.textbox333A, 1, 3)
+        self.ReadChanIpTextbox = QCheckBox("---Ip---")
+        self.ReadChanIpTextbox.setStyleSheet('color:DarkSlateGray	;font:bold "Times New Roman"')
+        self.ReadLayout.addWidget(self.ReadChanIpTextbox, 1, 3)
         
         self.ReadLayout.addWidget(QLabel("Recording channels: "), 1, 0)
         
@@ -174,22 +175,22 @@ class WaveformGenerator(QWidget):
         self.clock_source.addItems(['Dev1 as clock source', 'Cam as clock source'])
         self.ReadLayout.addWidget(self.clock_source, 1, 4)
         
-        self.saving_prefix = ''
-        self.savedirectorytextbox = QtWidgets.QLineEdit(self)
-        self.ReadLayout.addWidget(self.savedirectorytextbox, 2, 1)
-        
-        self.prefixtextbox = QtWidgets.QLineEdit(self)
-        self.prefixtextbox.setPlaceholderText('Prefix')
-        self.ReadLayout.addWidget(self.prefixtextbox, 2, 2)
-        
-        self.toolButtonOpenDialog = QtWidgets.QPushButton('Saving directory')
-        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 3px;border-width: 2px;font: bold 14px;padding: 1px}"
-                                                "QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 3px;border-width: 2px;font: bold 14px;padding: 1px}")
+#        self.saving_prefix = ''
+#        self.savedirectorytextbox = QtWidgets.QLineEdit(self)
+#        self.ReadLayout.addWidget(self.savedirectorytextbox, 2, 1)
+#        
+#        self.prefixtextbox = QtWidgets.QLineEdit(self)
+#        self.prefixtextbox.setPlaceholderText('Prefix')
+#        self.ReadLayout.addWidget(self.prefixtextbox, 2, 2)
+#        
+#        self.toolButtonOpenDialog = QtWidgets.QPushButton('Saving directory')
+#        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 3px;border-width: 2px;font: bold 14px;padding: 1px}"
+#                                                "QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 3px;border-width: 2px;font: bold 14px;padding: 1px}")
 
-        self.toolButtonOpenDialog.setObjectName("toolButtonOpenDialog")
-        self.toolButtonOpenDialog.clicked.connect(self._open_file_dialog)
+#        self.toolButtonOpenDialog.setObjectName("toolButtonOpenDialog")
+#        self.toolButtonOpenDialog.clicked.connect(self._open_file_dialog)
         
-        self.ReadLayout.addWidget(self.toolButtonOpenDialog, 2, 0)
+#        self.ReadLayout.addWidget(self.toolButtonOpenDialog, 2, 0)
         
         ReadContainer.setLayout(self.ReadLayout)
 
@@ -197,124 +198,124 @@ class WaveformGenerator(QWidget):
 
         
         # Tab for general block wave
-        self.textbox2B = QLineEdit(self)
-        self.wavetablayout.addWidget(self.textbox2B, 0, 1)
+        self.AnalogFreqTextbox = QLineEdit(self)
+        self.wavetablayout.addWidget(self.AnalogFreqTextbox, 0, 1)
         self.wavetablayout.addWidget(QLabel("Frequency in period:"), 0, 0)
 
-        self.textbox2C = QLineEdit(self)
-        self.textbox2C.setPlaceholderText('0')
-        self.wavetablayout.addWidget(self.textbox2C, 1, 1)
+        self.AnalogOffsetTextbox = QLineEdit(self)
+        self.AnalogOffsetTextbox.setPlaceholderText('0')
+        self.wavetablayout.addWidget(self.AnalogOffsetTextbox, 1, 1)
         self.wavetablayout.addWidget(QLabel("Offset (ms):"), 1, 0)
         
-        self.textbox2D = QLineEdit(self)
-        self.wavetablayout.addWidget(self.textbox2D, 0, 3)
+        self.AnalogDurationTextbox = QLineEdit(self)
+        self.wavetablayout.addWidget(self.AnalogDurationTextbox, 0, 3)
         self.wavetablayout.addWidget(QLabel("Duration (ms, 1 cycle):"), 0, 2)   
         
-        self.textbox2E = QLineEdit(self)
-        self.textbox2E.setPlaceholderText('1')
-        self.wavetablayout.addWidget(self.textbox2E, 1, 3)
+        self.AnalogRepeatTextbox = QLineEdit(self)
+        self.AnalogRepeatTextbox.setPlaceholderText('1')
+        self.wavetablayout.addWidget(self.AnalogRepeatTextbox, 1, 3)
         self.wavetablayout.addWidget(QLabel("Repeat:"), 1, 2) 
         
         self.wavetablayout.addWidget(QLabel("DC (%):"), 0, 4)
-        self.textbox2F = QComboBox()
-        self.textbox2F.addItems(['50','100','10','5','0'])
-        self.wavetablayout.addWidget(self.textbox2F, 0, 5)
+        self.AnalogDCTextbox = QComboBox()
+        self.AnalogDCTextbox.addItems(['50','100','10','5','0'])
+        self.wavetablayout.addWidget(self.AnalogDCTextbox, 0, 5)
         
-        self.textbox2G = QLineEdit(self)
-        self.textbox2G.setPlaceholderText('0')
-        self.wavetablayout.addWidget(self.textbox2G, 1, 5)
+        self.AnalogGapTextbox = QLineEdit(self)
+        self.AnalogGapTextbox.setPlaceholderText('0')
+        self.wavetablayout.addWidget(self.AnalogGapTextbox, 1, 5)
         self.wavetablayout.addWidget(QLabel("Gap between repeat (samples):"), 1, 4)
         
         self.wavetablayout.addWidget(QLabel("Starting amplitude (V):"), 2, 0)
-        self.textbox2H = QDoubleSpinBox(self)
-        self.textbox2H.setMinimum(-10)
-        self.textbox2H.setMaximum(10)
-        self.textbox2H.setValue(5)
-        self.textbox2H.setSingleStep(0.5)  
-        self.wavetablayout.addWidget(self.textbox2H, 2, 1)        
+        self.AnalogStartingAmpTextbox = QDoubleSpinBox(self)
+        self.AnalogStartingAmpTextbox.setMinimum(-10)
+        self.AnalogStartingAmpTextbox.setMaximum(10)
+        self.AnalogStartingAmpTextbox.setValue(5)
+        self.AnalogStartingAmpTextbox.setSingleStep(0.5)  
+        self.wavetablayout.addWidget(self.AnalogStartingAmpTextbox, 2, 1)        
 
-        self.textbox2I = QLineEdit(self)
-        self.textbox2I.setPlaceholderText('0')
-        self.wavetablayout.addWidget(self.textbox2I, 3, 1)
+        self.AnalogBaselineTextbox = QLineEdit(self)
+        self.AnalogBaselineTextbox.setPlaceholderText('0')
+        self.wavetablayout.addWidget(self.AnalogBaselineTextbox, 3, 1)
         self.wavetablayout.addWidget(QLabel("Baseline (V):"), 3, 0)
 
         self.wavetablayout.addWidget(QLabel("Step (V):"), 2, 2)
-        self.textbox2J = QDoubleSpinBox(self)
-        self.textbox2J.setMinimum(-10)
-        self.textbox2J.setMaximum(10)
-        self.textbox2J.setValue(5)
-        self.textbox2J.setSingleStep(0.5)
-        self.wavetablayout.addWidget(self.textbox2J, 2, 3)
+        self.AnalogStepTextbox = QDoubleSpinBox(self)
+        self.AnalogStepTextbox.setMinimum(-10)
+        self.AnalogStepTextbox.setMaximum(10)
+        self.AnalogStepTextbox.setValue(5)
+        self.AnalogStepTextbox.setSingleStep(0.5)
+        self.wavetablayout.addWidget(self.AnalogStepTextbox, 2, 3)
 
         self.wavetablayout.addWidget(QLabel("Cycles:"), 3, 2)
-        self.textbox2K = QSpinBox(self)
-        self.textbox2K.setMinimum(0)
-        self.textbox2K.setMaximum(100)
-        self.textbox2K.setValue(1)
-        self.textbox2K.setSingleStep(1) 
-        self.wavetablayout.addWidget(self.textbox2K, 3, 3)
+        self.AnalogCyclesTextbox = QSpinBox(self)
+        self.AnalogCyclesTextbox.setMinimum(0)
+        self.AnalogCyclesTextbox.setMaximum(100)
+        self.AnalogCyclesTextbox.setValue(1)
+        self.AnalogCyclesTextbox.setSingleStep(1) 
+        self.wavetablayout.addWidget(self.AnalogCyclesTextbox, 3, 3)
                 
         self.wavetab1.setLayout(self.wavetablayout)
         
         # Tab for general Pramp wave
         self.wavetablayout_ramp= QGridLayout()
-        self.textbox2B_ramp = QLineEdit(self)
-        self.wavetablayout_ramp.addWidget(self.textbox2B_ramp, 0, 1)
+        self.AnalogFreqTextbox_ramp = QLineEdit(self)
+        self.wavetablayout_ramp.addWidget(self.AnalogFreqTextbox_ramp, 0, 1)
         self.wavetablayout_ramp.addWidget(QLabel("Frequency in period:"), 0, 0)
 
-        self.textbox2C_ramp = QLineEdit(self)
-        self.textbox2C_ramp.setPlaceholderText('0')
-        self.wavetablayout_ramp.addWidget(self.textbox2C_ramp, 1, 1)
+        self.AnalogOffsetTextbox_ramp = QLineEdit(self)
+        self.AnalogOffsetTextbox_ramp.setPlaceholderText('0')
+        self.wavetablayout_ramp.addWidget(self.AnalogOffsetTextbox_ramp, 1, 1)
         self.wavetablayout_ramp.addWidget(QLabel("Offset (ms):"), 1, 0)
         
-        self.textbox2D_ramp = QLineEdit(self)
-        self.wavetablayout_ramp.addWidget(self.textbox2D_ramp, 0, 3)
+        self.AnalogDurationTextbox_ramp = QLineEdit(self)
+        self.wavetablayout_ramp.addWidget(self.AnalogDurationTextbox_ramp, 0, 3)
         self.wavetablayout_ramp.addWidget(QLabel("Duration (ms, 1 cycle):"), 0, 2)  
         
-        self.textbox2F_ramp = QLineEdit(self)
-        self.textbox2F_ramp.setPlaceholderText('0.5')
-        self.wavetablayout_ramp.addWidget(self.textbox2F_ramp, 0, 5)
+        self.AnalogDCTextbox_ramp = QLineEdit(self)
+        self.AnalogDCTextbox_ramp.setPlaceholderText('0.5')
+        self.wavetablayout_ramp.addWidget(self.AnalogDCTextbox_ramp, 0, 5)
         self.wavetablayout_ramp.addWidget(QLabel("Symmetry:"), 0, 4)
         
         
-        self.textbox2E_ramp = QLineEdit(self)
-        self.textbox2E_ramp.setPlaceholderText('1')
-        self.wavetablayout_ramp.addWidget(self.textbox2E_ramp, 1, 3)
+        self.AnalogRepeatTextbox_ramp = QLineEdit(self)
+        self.AnalogRepeatTextbox_ramp.setPlaceholderText('1')
+        self.wavetablayout_ramp.addWidget(self.AnalogRepeatTextbox_ramp, 1, 3)
         self.wavetablayout_ramp.addWidget(QLabel("Repeat:"), 1, 2) 
         
-        self.textbox2G_ramp = QLineEdit(self)
-        self.textbox2G_ramp.setPlaceholderText('0')
-        self.wavetablayout_ramp.addWidget(self.textbox2G_ramp, 1, 5)
+        self.AnalogGapTextbox_ramp = QLineEdit(self)
+        self.AnalogGapTextbox_ramp.setPlaceholderText('0')
+        self.wavetablayout_ramp.addWidget(self.AnalogGapTextbox_ramp, 1, 5)
         self.wavetablayout_ramp.addWidget(QLabel("Gap between repeat (samples):"), 1, 4)
         
         self.wavetablayout_ramp.addWidget(QLabel("Height (V):"), 2, 0)
-        self.textbox2H_ramp = QDoubleSpinBox(self)
-        self.textbox2H_ramp.setMinimum(-10)
-        self.textbox2H_ramp.setMaximum(10)
-        self.textbox2H_ramp.setValue(2)
-        self.textbox2H_ramp.setSingleStep(0.5)  
-        self.wavetablayout_ramp.addWidget(self.textbox2H_ramp, 2, 1)        
+        self.AnalogStartingAmpTextbox_ramp = QDoubleSpinBox(self)
+        self.AnalogStartingAmpTextbox_ramp.setMinimum(-10)
+        self.AnalogStartingAmpTextbox_ramp.setMaximum(10)
+        self.AnalogStartingAmpTextbox_ramp.setValue(2)
+        self.AnalogStartingAmpTextbox_ramp.setSingleStep(0.5)  
+        self.wavetablayout_ramp.addWidget(self.AnalogStartingAmpTextbox_ramp, 2, 1)        
 
-        self.textbox2I_ramp = QLineEdit(self)
-        self.textbox2I_ramp.setPlaceholderText('0')
-        self.wavetablayout_ramp.addWidget(self.textbox2I_ramp, 3, 1)
+        self.AnalogBaselineTextbox_ramp = QLineEdit(self)
+        self.AnalogBaselineTextbox_ramp.setPlaceholderText('0')
+        self.wavetablayout_ramp.addWidget(self.AnalogBaselineTextbox_ramp, 3, 1)
         self.wavetablayout_ramp.addWidget(QLabel("Baseline (V):"), 3, 0)
 
         self.wavetablayout_ramp.addWidget(QLabel("Step (V):"), 2, 2)
-        self.textbox2J_ramp = QDoubleSpinBox(self)
-        self.textbox2J_ramp.setMinimum(-10)
-        self.textbox2J_ramp.setMaximum(10)
-        self.textbox2J_ramp.setValue(1)
-        self.textbox2J_ramp.setSingleStep(0.5)
-        self.wavetablayout_ramp.addWidget(self.textbox2J_ramp, 2, 3)
+        self.AnalogStepTextbox_ramp = QDoubleSpinBox(self)
+        self.AnalogStepTextbox_ramp.setMinimum(-10)
+        self.AnalogStepTextbox_ramp.setMaximum(10)
+        self.AnalogStepTextbox_ramp.setValue(1)
+        self.AnalogStepTextbox_ramp.setSingleStep(0.5)
+        self.wavetablayout_ramp.addWidget(self.AnalogStepTextbox_ramp, 2, 3)
 
         self.wavetablayout_ramp.addWidget(QLabel("Cycles:"), 3, 2)
-        self.textbox2K_ramp = QSpinBox(self)
-        self.textbox2K_ramp.setMinimum(0)
-        self.textbox2K_ramp.setMaximum(100)
-        self.textbox2K_ramp.setValue(1)
-        self.textbox2K_ramp.setSingleStep(1) 
-        self.wavetablayout_ramp.addWidget(self.textbox2K_ramp, 3, 3)
+        self.AnalogCyclesTextbox_ramp = QSpinBox(self)
+        self.AnalogCyclesTextbox_ramp.setMinimum(0)
+        self.AnalogCyclesTextbox_ramp.setMaximum(100)
+        self.AnalogCyclesTextbox_ramp.setValue(1)
+        self.AnalogCyclesTextbox_ramp.setSingleStep(1) 
+        self.wavetablayout_ramp.addWidget(self.AnalogCyclesTextbox_ramp, 3, 3)
                 
         self.wavetab2.setLayout(self.wavetablayout_ramp)
         # ------------------------------------------------------photocycle-----------------------------------------------------------        
@@ -445,72 +446,72 @@ class WaveformGenerator(QWidget):
         self.contour_galvo_tab = QWidget()
         self.galvo_contour_tablayout= QGridLayout()
         #self.controlLayout.addWidget(QLabel("Galvo raster scanning : "), 1, 0)
-        self.textbox1B = QSpinBox(self)
-        self.textbox1B.setMinimum(-10)
-        self.textbox1B.setMaximum(10)
-        self.textbox1B.setValue(-3)
-        self.textbox1B.setSingleStep(1)        
-        self.galvo_raster_tablayout.addWidget(self.textbox1B, 0, 1)
+        self.GalvoVoltXMinTextbox = QSpinBox(self)
+        self.GalvoVoltXMinTextbox.setMinimum(-10)
+        self.GalvoVoltXMinTextbox.setMaximum(10)
+        self.GalvoVoltXMinTextbox.setValue(-3)
+        self.GalvoVoltXMinTextbox.setSingleStep(1)        
+        self.galvo_raster_tablayout.addWidget(self.GalvoVoltXMinTextbox, 0, 1)
         self.galvo_raster_tablayout.addWidget(QLabel("voltXMin"), 0, 0)
 
-        self.textbox1C = QSpinBox(self)
-        self.textbox1C.setMinimum(-10)
-        self.textbox1C.setMaximum(10)
-        self.textbox1C.setValue(3)
-        self.textbox1C.setSingleStep(1)   
-        self.galvo_raster_tablayout.addWidget(self.textbox1C, 1, 1)
+        self.GalvoVoltXMaxTextbox = QSpinBox(self)
+        self.GalvoVoltXMaxTextbox.setMinimum(-10)
+        self.GalvoVoltXMaxTextbox.setMaximum(10)
+        self.GalvoVoltXMaxTextbox.setValue(3)
+        self.GalvoVoltXMaxTextbox.setSingleStep(1)   
+        self.galvo_raster_tablayout.addWidget(self.GalvoVoltXMaxTextbox, 1, 1)
         self.galvo_raster_tablayout.addWidget(QLabel("voltXMax"), 1, 0)
 
-        self.textbox1D = QSpinBox(self)
-        self.textbox1D.setMinimum(-10)
-        self.textbox1D.setMaximum(10)
-        self.textbox1D.setValue(-3)
-        self.textbox1D.setSingleStep(1)   
-        self.galvo_raster_tablayout.addWidget(self.textbox1D, 0, 3)
+        self.GalvoVoltYMinTextbox = QSpinBox(self)
+        self.GalvoVoltYMinTextbox.setMinimum(-10)
+        self.GalvoVoltYMinTextbox.setMaximum(10)
+        self.GalvoVoltYMinTextbox.setValue(-3)
+        self.GalvoVoltYMinTextbox.setSingleStep(1)   
+        self.galvo_raster_tablayout.addWidget(self.GalvoVoltYMinTextbox, 0, 3)
         self.galvo_raster_tablayout.addWidget(QLabel("voltYMin"), 0, 2)
 
-        self.textbox1E = QSpinBox(self)
-        self.textbox1E.setMinimum(-10)
-        self.textbox1E.setMaximum(10)
-        self.textbox1E.setValue(3)
-        self.textbox1E.setSingleStep(1)   
-        self.galvo_raster_tablayout.addWidget(self.textbox1E, 1, 3)
+        self.GalvoVoltYMaxTextbox = QSpinBox(self)
+        self.GalvoVoltYMaxTextbox.setMinimum(-10)
+        self.GalvoVoltYMaxTextbox.setMaximum(10)
+        self.GalvoVoltYMaxTextbox.setValue(3)
+        self.GalvoVoltYMaxTextbox.setSingleStep(1)   
+        self.galvo_raster_tablayout.addWidget(self.GalvoVoltYMaxTextbox, 1, 3)
         self.galvo_raster_tablayout.addWidget(QLabel("voltYMax"), 1, 2)
 
-        self.textbox1F = QComboBox()
-        self.textbox1F.addItems(['500','256'])
-        self.galvo_raster_tablayout.addWidget(self.textbox1F, 0, 5)
+        self.GalvoXpixelNumTextbox = QComboBox()
+        self.GalvoXpixelNumTextbox.addItems(['500','256'])
+        self.galvo_raster_tablayout.addWidget(self.GalvoXpixelNumTextbox, 0, 5)
         self.galvo_raster_tablayout.addWidget(QLabel("X pixel number"), 0, 4)
 
-        self.textbox1G = QComboBox()
-        self.textbox1G.addItems(['500','256'])
-        self.galvo_raster_tablayout.addWidget(self.textbox1G, 1, 5)
+        self.GalvoYpixelNumTextbox = QComboBox()
+        self.GalvoYpixelNumTextbox.addItems(['500','256'])
+        self.galvo_raster_tablayout.addWidget(self.GalvoYpixelNumTextbox, 1, 5)
         self.galvo_raster_tablayout.addWidget(QLabel("Y pixel number"), 1, 4)
         
-        self.textbox1I = QLineEdit(self)
-        self.textbox1I.setPlaceholderText('0')
-        self.galvo_raster_tablayout.addWidget(self.textbox1I, 2, 1)
+        self.GalvoOffsetTextbox = QLineEdit(self)
+        self.GalvoOffsetTextbox.setPlaceholderText('0')
+        self.galvo_raster_tablayout.addWidget(self.GalvoOffsetTextbox, 2, 1)
         self.galvo_raster_tablayout.addWidget(QLabel("Offset (ms):"), 2, 0)
         
-        self.textbox1J = QLineEdit(self)
-        self.textbox1J.setPlaceholderText('0')
-        self.galvo_raster_tablayout.addWidget(self.textbox1J, 2, 3)
-        self.galvo_raster_tablayout.addWidget(QLabel("Gap between scans:"), 2, 2)       
+        self.GalvoGapTextbox = QLineEdit(self)
+        self.GalvoGapTextbox.setPlaceholderText('0')
+        self.galvo_raster_tablayout.addWidget(self.GalvoGapTextbox, 2, 3)
+        self.galvo_raster_tablayout.addWidget(QLabel("Gap between scans(ms):"), 2, 2)       
 
-        self.textbox1H = QSpinBox(self)
-        self.textbox1H.setMinimum(1)
-        self.textbox1H.setMaximum(20)
-        self.textbox1H.setValue(1)
-        self.textbox1H.setSingleStep(1)
-        self.galvo_raster_tablayout.addWidget(self.textbox1H, 2, 5)
+        self.GalvoAvgNumTextbox = QSpinBox(self)
+        self.GalvoAvgNumTextbox.setMinimum(1)
+        self.GalvoAvgNumTextbox.setMaximum(20)
+        self.GalvoAvgNumTextbox.setValue(1)
+        self.GalvoAvgNumTextbox.setSingleStep(1)
+        self.galvo_raster_tablayout.addWidget(self.GalvoAvgNumTextbox, 2, 5)
         self.galvo_raster_tablayout.addWidget(QLabel("average over:"), 2, 4)        
 
-        self.textbox1K = QSpinBox(self)
-        self.textbox1K.setMinimum(1)
-        self.textbox1K.setMaximum(20)
-        self.textbox1K.setValue(1)
-        self.textbox1K.setSingleStep(1)
-        self.galvo_raster_tablayout.addWidget(self.textbox1K, 0, 7)
+        self.GalvoRepeatTextbox = QSpinBox(self)
+        self.GalvoRepeatTextbox.setMinimum(1)
+        self.GalvoRepeatTextbox.setMaximum(20)
+        self.GalvoRepeatTextbox.setValue(1)
+        self.GalvoRepeatTextbox.setSingleStep(1)
+        self.galvo_raster_tablayout.addWidget(self.GalvoRepeatTextbox, 0, 7)
         self.galvo_raster_tablayout.addWidget(QLabel("Repeat:"), 0, 6)  
         
         self.galvo_contour_label_1 = QLabel("Points in contour:")
@@ -519,12 +520,12 @@ class WaveformGenerator(QWidget):
         self.galvo_contour_label_2 = QLabel("Sampling rate: ")
         self.galvo_contour_tablayout.addWidget(self.galvo_contour_label_2, 0, 1)
         
-        self.textbox1L = QSpinBox(self)
-        self.textbox1L.setMinimum(000000)
-        self.textbox1L.setMaximum(200000)
-        self.textbox1L.setValue(1000)
-        self.textbox1L.setSingleStep(500)
-        self.galvo_contour_tablayout.addWidget(self.textbox1L, 0, 3)
+        self.GalvoContourLastTextbox = QSpinBox(self)
+        self.GalvoContourLastTextbox.setMinimum(000000)
+        self.GalvoContourLastTextbox.setMaximum(200000)
+        self.GalvoContourLastTextbox.setValue(1000)
+        self.GalvoContourLastTextbox.setSingleStep(500)
+        self.galvo_contour_tablayout.addWidget(self.GalvoContourLastTextbox, 0, 3)
         self.galvo_contour_tablayout.addWidget(QLabel("Last(ms):"), 0, 2)        
         
         self.normal_galvo_tab.setLayout(self.galvo_raster_tablayout)
@@ -543,9 +544,9 @@ class WaveformGenerator(QWidget):
         self.button_triggerforcam = QPushButton('With trigger!', self)
         self.galvotablayout.addWidget(self.button_triggerforcam, 2, 9)
         
-        self.textbox1K = QComboBox()
-        self.textbox1K.addItems(['0','1'])
-        self.galvotablayout.addWidget(self.textbox1K, 2, 10)
+        self.GalvoRepeatTextbox = QComboBox()
+        self.GalvoRepeatTextbox.addItems(['0','1'])
+        self.galvotablayout.addWidget(self.GalvoRepeatTextbox, 2, 10)
         
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger)        
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger_graphy)
@@ -610,32 +611,32 @@ class WaveformGenerator(QWidget):
         #self.digitalwavetabs.addTab(self.digitalwavetab3,"Matlab")
 
         
-        self.textbox11B = QLineEdit(self)
-        self.digitalwavetablayout.addWidget(self.textbox11B, 0, 1)
+        self.DigFreqTextbox = QLineEdit(self)
+        self.digitalwavetablayout.addWidget(self.DigFreqTextbox, 0, 1)
         self.digitalwavetablayout.addWidget(QLabel("Frequency in period:"), 0, 0)
 
-        self.textbox11C = QLineEdit(self)
-        self.textbox11C.setPlaceholderText('0')
-        self.digitalwavetablayout.addWidget(self.textbox11C, 1, 1)
+        self.DigOffsetTextbox = QLineEdit(self)
+        self.DigOffsetTextbox.setPlaceholderText('0')
+        self.digitalwavetablayout.addWidget(self.DigOffsetTextbox, 1, 1)
         self.digitalwavetablayout.addWidget(QLabel("Offset (ms):"), 1, 0)
         
-        self.textbox11D = QLineEdit(self)
-        self.digitalwavetablayout.addWidget(self.textbox11D, 0, 3)
+        self.DigDurationTextbox = QLineEdit(self)
+        self.digitalwavetablayout.addWidget(self.DigDurationTextbox, 0, 3)
         self.digitalwavetablayout.addWidget(QLabel("Duration (ms):"), 0, 2)   
         
-        self.textbox11E = QLineEdit(self)
-        self.textbox11E.setPlaceholderText('1')
-        self.digitalwavetablayout.addWidget(self.textbox11E, 1, 3)
+        self.DigRepeatTextbox = QLineEdit(self)
+        self.DigRepeatTextbox.setPlaceholderText('1')
+        self.digitalwavetablayout.addWidget(self.DigRepeatTextbox, 1, 3)
         self.digitalwavetablayout.addWidget(QLabel("Repeat:"), 1, 2) 
         
         self.digitalwavetablayout.addWidget(QLabel("DC (%):"), 0, 4)
-        self.textbox11F = QComboBox()
-        self.textbox11F.addItems(['50','10','0','100'])
-        self.digitalwavetablayout.addWidget(self.textbox11F, 0, 5)
+        self.DigDCTextbox = QComboBox()
+        self.DigDCTextbox.addItems(['50','10','0','100'])
+        self.digitalwavetablayout.addWidget(self.DigDCTextbox, 0, 5)
 
-        self.textbox11G = QLineEdit(self)
-        self.textbox11G.setPlaceholderText('0')
-        self.digitalwavetablayout.addWidget(self.textbox11G, 1, 5)
+        self.DigGapTextbox = QLineEdit(self)
+        self.DigGapTextbox.setPlaceholderText('0')
+        self.digitalwavetablayout.addWidget(self.DigGapTextbox, 1, 5)
         self.digitalwavetablayout.addWidget(QLabel("Gap between repeat (samples):"), 1, 4)
         
         self.digitalwavetab1.setLayout(self.digitalwavetablayout)      
@@ -666,7 +667,7 @@ class WaveformGenerator(QWidget):
         master_waveform.addWidget(DigitalContainer, 2, 0)
         master_waveform.addWidget(ReadContainer, 0, 0)
         master_waveform.addWidget(self.pw, 3, 0)
-        master_waveform.addWidget(self.pw_data, 4, 0)
+#        master_waveform.addWidget(self.pw_data, 4, 0)
         self.tab2.setLayout(master_waveform)        
         #**************************************************************************************************************************************        
         #self.setLayout(pmtmaster)
@@ -693,7 +694,7 @@ class WaveformGenerator(QWidget):
             except:
                 self.uiDaq_sample_rate = 50000
                 
-        if self.uiDaq_sample_rate != int(self.textboxAA.value()):
+        if self.uiDaq_sample_rate != int(self.SamplingRateTextbox.value()):
             print('ERROR: Sampling rates is different!')
         
         for i in range(len(temp_loaded_container)):
@@ -1035,24 +1036,24 @@ class WaveformGenerator(QWidget):
                                      
     def generate_galvos(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
         
         #Scanning settings
         #if int(self.textbox1A.currentText()) == 1:
-        Value_voltXMin = int(self.textbox1B.value())
-        Value_voltXMax = int(self.textbox1C.value())
-        Value_voltYMin = int(self.textbox1D.value())
-        Value_voltYMax = int(self.textbox1E.value())
-        Value_xPixels = int(self.textbox1F.currentText())
-        Value_yPixels = int(self.textbox1G.currentText())
-        self.averagenum =int(self.textbox1H.value())
-        self.repeatnum = int(self.textbox1K.value())
-        if not self.textbox1I.text():
+        Value_voltXMin = int(self.GalvoVoltXMinTextbox.value())
+        Value_voltXMax = int(self.GalvoVoltXMaxTextbox.value())
+        Value_voltYMin = int(self.GalvoVoltYMinTextbox.value())
+        Value_voltYMax = int(self.GalvoVoltYMaxTextbox.value())
+        Value_xPixels = int(self.GalvoXpixelNumTextbox.currentText())
+        Value_yPixels = int(self.GalvoYpixelNumTextbox.currentText())
+        self.averagenum =int(self.GalvoAvgNumTextbox.value())
+        self.repeatnum = int(self.GalvoRepeatTextbox.value())
+        if not self.GalvoOffsetTextbox.text():
             self.Galvo_samples_offset = 1
             self.offsetsamples_galvo = []
 
         else:
-            self.Galvo_samples_offset = int(self.textbox1I.text())
+            self.Galvo_samples_offset = int(self.GalvoOffsetTextbox.text())
             
             self.offsetsamples_number_galvo = int((self.Galvo_samples_offset/1000)*self.uiDaq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
             self.offsetsamples_galvo = np.zeros(self.offsetsamples_number_galvo) # Be default offsetsamples_number is an integer.    
@@ -1063,11 +1064,11 @@ class WaveformGenerator(QWidget):
         #ScanArrayX = wavegenerator.xValuesSingleSawtooth(sampleRate = Daq_sample_rate, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, xPixels = Value_xPixels, sawtooth = True)
         #Totalscansamples = len(self.samples_1)*self.averagenum # Calculate number of samples to feed to scanner, by default it's one frame 
         self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
-        if not self.textbox1J.text():
+        if not self.GalvoGapTextbox.text():
             gap_sample = 0
             self.gapsamples_number_galvo = 0
         else:
-            gap_sample = int(self.textbox1J.text())
+            gap_sample = int(self.GalvoGapTextbox.text())
             
             self.gapsamples_number_galvo = int((gap_sample/1000)*self.uiDaq_sample_rate) 
 
@@ -1120,23 +1121,23 @@ class WaveformGenerator(QWidget):
 
             
     def generate_galvotrigger(self):
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
         #Scanning settings
         #if int(self.textbox1A.currentText()) == 1:
-        Value_voltXMin = int(self.textbox1B.value())
-        Value_voltXMax = int(self.textbox1C.value())
-        Value_voltYMin = int(self.textbox1D.value())
-        Value_voltYMax = int(self.textbox1E.value())
-        Value_xPixels = int(self.textbox1F.currentText())
-        Value_yPixels = int(self.textbox1G.currentText())
-        self.averagenum =int(self.textbox1H.value())
-        repeatnum = int(self.textbox1K.value())
-        if not self.textbox1I.text():
+        Value_voltXMin = int(self.GalvoVoltXMinTextbox.value())
+        Value_voltXMax = int(self.GalvoVoltXMaxTextbox.value())
+        Value_voltYMin = int(self.GalvoVoltYMinTextbox.value())
+        Value_voltYMax = int(self.GalvoVoltYMaxTextbox.value())
+        Value_xPixels = int(self.GalvoXpixelNumTextbox.currentText())
+        Value_yPixels = int(self.GalvoYpixelNumTextbox.currentText())
+        self.averagenum =int(self.GalvoAvgNumTextbox.value())
+        repeatnum = int(self.GalvoRepeatTextbox.value())
+        if not self.GalvoOffsetTextbox.text():
             self.Galvo_samples_offset = 1
             self.offsetsamples_galvo = []
 
         else:
-            self.Galvo_samples_offset = int(self.textbox1I.text())
+            self.Galvo_samples_offset = int(self.GalvoOffsetTextbox.text())
             
             self.offsetsamples_number_galvo = int((self.Galvo_samples_offset/1000)*self.uiDaq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
             self.offsetsamples_galvo = np.zeros(self.offsetsamples_number_galvo) # Be default offsetsamples_number is an integer.    
@@ -1145,11 +1146,11 @@ class WaveformGenerator(QWidget):
                          voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
                          sawtooth = True)
         self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
-        if not self.textbox1J.text():
+        if not self.GalvoGapTextbox.text():
             gap_sample = 0
             self.gapsamples_number_galvo = 0
         else:
-            gap_sample = int(self.textbox1J.text())
+            gap_sample = int(self.GalvoGapTextbox.text())
             
             self.gapsamples_number_galvo = int((gap_sample/1000)*self.uiDaq_sample_rate)         
         #print(self.Digital_container_feeder[:, 0])
@@ -1205,29 +1206,29 @@ class WaveformGenerator(QWidget):
         
     def generate_640AO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_2 = float(self.textbox2B.text())
-        if not self.textbox2C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_2 = float(self.AnalogFreqTextbox.text())
+        if not self.AnalogOffsetTextbox.text():
             self.uiwaveoffset_2 = 0
         else:
-            self.uiwaveoffset_2 = int(self.textbox2C.text()) # in ms
-        self.uiwaveperiod_2 = int(self.textbox2D.text())
-        self.uiwaveDC_2 = int(self.textbox2F.currentText())
-        if not self.textbox2E.text():
+            self.uiwaveoffset_2 = int(self.AnalogOffsetTextbox.text()) # in ms
+        self.uiwaveperiod_2 = int(self.AnalogDurationTextbox.text())
+        self.uiwaveDC_2 = int(self.AnalogDCTextbox.currentText())
+        if not self.AnalogRepeatTextbox.text():
             self.uiwaverepeat_2 = 1
         else:
-            self.uiwaverepeat_2 = int(self.textbox2E.text())
-        if not self.textbox2G.text():
+            self.uiwaverepeat_2 = int(self.AnalogRepeatTextbox.text())
+        if not self.AnalogGapTextbox.text():
             self.uiwavegap_2 = 0
         else:
-            self.uiwavegap_2 = int(self.textbox2G.text())
-        self.uiwavestartamplitude_2 = float(self.textbox2H.value())
-        if not self.textbox2I.text():
+            self.uiwavegap_2 = int(self.AnalogGapTextbox.text())
+        self.uiwavestartamplitude_2 = float(self.AnalogStartingAmpTextbox.value())
+        if not self.AnalogBaselineTextbox.text():
             self.uiwavebaseline_2 = 0
         else:
-            self.uiwavebaseline_2 = float(self.textbox2I.text())
-        self.uiwavestep_2 = float(self.textbox2J.value())
-        self.uiwavecycles_2 = int(self.textbox2K.value())   
+            self.uiwavebaseline_2 = float(self.AnalogBaselineTextbox.text())
+        self.uiwavestep_2 = float(self.AnalogStepTextbox.value())
+        self.uiwavecycles_2 = int(self.AnalogCyclesTextbox.value())   
         
             
         s = generate_AO_for640(self.uiDaq_sample_rate, self.uiwavefrequency_2, self.uiwaveoffset_2, self.uiwaveperiod_2, self.uiwaveDC_2
@@ -1240,7 +1241,7 @@ class WaveformGenerator(QWidget):
         #plt.plot(xlabelhere_galvo, samples_1)
         self.PlotDataItem_640AO = PlotDataItem(xlabelhere_640, self.finalwave_640, downsample = 10)
         self.PlotDataItem_640AO.setPen('r')
-        self.PlotDataItem_640AO.setDownsampling(ds=(int(self.textboxAA.value())/10), method='mean')
+        self.PlotDataItem_640AO.setDownsampling(ds=(int(self.SamplingRateTextbox.value())/10), method='mean')
         self.pw.addItem(self.PlotDataItem_640AO)
         
         self.textitem_640AO = pg.TextItem(text='640 AO', color=('r'), anchor=(1, 1))
@@ -1250,29 +1251,29 @@ class WaveformGenerator(QWidget):
 
     def generate_488AO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_488AO = float(self.textbox2B.text())
-        if not self.textbox2C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_488AO = float(self.AnalogFreqTextbox.text())
+        if not self.AnalogOffsetTextbox.text():
             self.uiwaveoffset_488AO = 0
         else:
-            self.uiwaveoffset_488AO = int(self.textbox2C.text()) # in ms
-        self.uiwaveperiod_488AO = int(self.textbox2D.text())
-        self.uiwaveDC_488AO = int(self.textbox2F.currentText())
-        if not self.textbox2E.text():
+            self.uiwaveoffset_488AO = int(self.AnalogOffsetTextbox.text()) # in ms
+        self.uiwaveperiod_488AO = int(self.AnalogDurationTextbox.text())
+        self.uiwaveDC_488AO = int(self.AnalogDCTextbox.currentText())
+        if not self.AnalogRepeatTextbox.text():
             self.uiwaverepeat_488AO = 1
         else:
-            self.uiwaverepeat_488AO = int(self.textbox2E.text())
-        if not self.textbox2G.text():
+            self.uiwaverepeat_488AO = int(self.AnalogRepeatTextbox.text())
+        if not self.AnalogGapTextbox.text():
             self.uiwavegap_488AO = 0
         else:
-            self.uiwavegap_488AO = int(self.textbox2G.text())
-        self.uiwavestartamplitude_488AO = float(self.textbox2H.value())
-        if not self.textbox2I.text():
+            self.uiwavegap_488AO = int(self.AnalogGapTextbox.text())
+        self.uiwavestartamplitude_488AO = float(self.AnalogStartingAmpTextbox.value())
+        if not self.AnalogBaselineTextbox.text():
             self.uiwavebaseline_488AO = 0
         else:
-            self.uiwavebaseline_488AO = float(self.textbox2I.text())
-        self.uiwavestep_488AO = float(self.textbox2J.value())
-        self.uiwavecycles_488AO = int(self.textbox2K.value())   
+            self.uiwavebaseline_488AO = float(self.AnalogBaselineTextbox.text())
+        self.uiwavestep_488AO = float(self.AnalogStepTextbox.value())
+        self.uiwavecycles_488AO = int(self.AnalogCyclesTextbox.value())   
                     
         s = generate_AO_for488(self.uiDaq_sample_rate, self.uiwavefrequency_488AO, self.uiwaveoffset_488AO, self.uiwaveperiod_488AO, self.uiwaveDC_488AO
                                , self.uiwaverepeat_488AO, self.uiwavegap_488AO, self.uiwavestartamplitude_488AO, self.uiwavebaseline_488AO, self.uiwavestep_488AO, self.uiwavecycles_488AO)
@@ -1294,29 +1295,29 @@ class WaveformGenerator(QWidget):
         
     def generate_532AO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_532AO = float(self.textbox2B.text())
-        if not self.textbox2C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_532AO = float(self.AnalogFreqTextbox.text())
+        if not self.AnalogOffsetTextbox.text():
             self.uiwaveoffset_532AO = 0
         else:
-            self.uiwaveoffset_532AO = int(self.textbox2C.text()) # in ms
-        self.uiwaveperiod_532AO = int(self.textbox2D.text())
-        self.uiwaveDC_532AO = int(self.textbox2F.currentText())
-        if not self.textbox2E.text():
+            self.uiwaveoffset_532AO = int(self.AnalogOffsetTextbox.text()) # in ms
+        self.uiwaveperiod_532AO = int(self.AnalogDurationTextbox.text())
+        self.uiwaveDC_532AO = int(self.AnalogDCTextbox.currentText())
+        if not self.AnalogRepeatTextbox.text():
             self.uiwaverepeat_532AO = 1
         else:
-            self.uiwaverepeat_532AO = int(self.textbox2E.text())
-        if not self.textbox2G.text():
+            self.uiwaverepeat_532AO = int(self.AnalogRepeatTextbox.text())
+        if not self.AnalogGapTextbox.text():
             self.uiwavegap_532AO = 0
         else:
-            self.uiwavegap_532AO = int(self.textbox2G.text())
-        self.uiwavestartamplitude_532AO = float(self.textbox2H.value())
-        if not self.textbox2I.text():
+            self.uiwavegap_532AO = int(self.AnalogGapTextbox.text())
+        self.uiwavestartamplitude_532AO = float(self.AnalogStartingAmpTextbox.value())
+        if not self.AnalogBaselineTextbox.text():
             self.uiwavebaseline_532AO = 0
         else:
-            self.uiwavebaseline_532AO = float(self.textbox2I.text())
-        self.uiwavestep_532AO = float(self.textbox2J.value())
-        self.uiwavecycles_532AO = int(self.textbox2K.value())   
+            self.uiwavebaseline_532AO = float(self.AnalogBaselineTextbox.text())
+        self.uiwavestep_532AO = float(self.AnalogStepTextbox.value())
+        self.uiwavecycles_532AO = int(self.AnalogCyclesTextbox.value())   
         
         #if int(self.textbox4A.currentText()) == 1:
             
@@ -1338,29 +1339,29 @@ class WaveformGenerator(QWidget):
         
     def generate_patchAO(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_patchAO = float(self.textbox2B.text())
-        if not self.textbox2C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_patchAO = float(self.AnalogFreqTextbox.text())
+        if not self.AnalogOffsetTextbox.text():
             self.uiwaveoffset_patchAO = 0
         else:
-            self.uiwaveoffset_patchAO = int(self.textbox2C.text()) # in ms
-        self.uiwaveperiod_patchAO = int(self.textbox2D.text())
-        self.uiwaveDC_patchAO = int(self.textbox2F.currentText())
-        if not self.textbox2E.text():
+            self.uiwaveoffset_patchAO = int(self.AnalogOffsetTextbox.text()) # in ms
+        self.uiwaveperiod_patchAO = int(self.AnalogDurationTextbox.text())
+        self.uiwaveDC_patchAO = int(self.AnalogDCTextbox.currentText())
+        if not self.AnalogRepeatTextbox.text():
             self.uiwaverepeat_patchAO = 1
         else:
-            self.uiwaverepeat_patchAO = int(self.textbox2E.text())
-        if not self.textbox2G.text():
+            self.uiwaverepeat_patchAO = int(self.AnalogRepeatTextbox.text())
+        if not self.AnalogGapTextbox.text():
             self.uiwavegap_patchAO = 0
         else:
-            self.uiwavegap_patchAO = int(self.textbox2G.text())
-        self.uiwavestartamplitude_patchAO = float(self.textbox2H.value())
-        if not self.textbox2I.text():
+            self.uiwavegap_patchAO = int(self.AnalogGapTextbox.text())
+        self.uiwavestartamplitude_patchAO = float(self.AnalogStartingAmpTextbox.value())
+        if not self.AnalogBaselineTextbox.text():
             self.uiwavebaseline_patchAO = 0
         else:
-            self.uiwavebaseline_patchAO = float(self.textbox2I.text())
-        self.uiwavestep_patchAO = float(self.textbox2J.value())
-        self.uiwavecycles_patchAO = int(self.textbox2K.value())   
+            self.uiwavebaseline_patchAO = float(self.AnalogBaselineTextbox.text())
+        self.uiwavestep_patchAO = float(self.AnalogStepTextbox.value())
+        self.uiwavecycles_patchAO = int(self.AnalogCyclesTextbox.value())   
         
         #if int(self.textbox5A.currentText()) == 1:
             
@@ -1381,32 +1382,32 @@ class WaveformGenerator(QWidget):
         
     #--------------------------------------------------------------------------------- for generating ramp voltage signals------------------------------------------------------------------------------
     def generate_ramp(self, channel):
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_ramp = float(self.textbox2B_ramp.text())
-        if not self.textbox2C_ramp.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_ramp = float(self.AnalogFreqTextbox_ramp.text())
+        if not self.AnalogOffsetTextbox_ramp.text():
             self.uiwaveoffset_ramp = 0
         else:
-            self.uiwaveoffset_ramp = int(self.textbox2C_ramp.text()) # in ms
-        self.uiwaveperiod_ramp = int(self.textbox2D_ramp.text())
-        if not self.textbox2F_ramp.text():
+            self.uiwaveoffset_ramp = int(self.AnalogOffsetTextbox_ramp.text()) # in ms
+        self.uiwaveperiod_ramp = int(self.AnalogDurationTextbox_ramp.text())
+        if not self.AnalogDCTextbox_ramp.text():
             self.uiwavesymmetry_ramp = 0.5
         else:
-            self.uiwavesymmetry_ramp = float(self.textbox2F_ramp.text())
-        if not self.textbox2E_ramp.text():
+            self.uiwavesymmetry_ramp = float(self.AnalogDCTextbox_ramp.text())
+        if not self.AnalogRepeatTextbox_ramp.text():
             self.uiwaverepeat_ramp = 1
         else:
-            self.uiwaverepeat_ramp = int(self.textbox2E_ramp.text())
-        if not self.textbox2G_ramp.text():
+            self.uiwaverepeat_ramp = int(self.AnalogRepeatTextbox_ramp.text())
+        if not self.AnalogGapTextbox_ramp.text():
             self.uiwavegap_ramp = 0
         else:
-            self.uiwavegap_ramp = int(self.textbox2G_ramp.text())
-        self.uiwavestartamplitude_ramp = float(self.textbox2H_ramp.value())
-        if not self.textbox2I_ramp.text():
+            self.uiwavegap_ramp = int(self.AnalogGapTextbox_ramp.text())
+        self.uiwavestartamplitude_ramp = float(self.AnalogStartingAmpTextbox_ramp.value())
+        if not self.AnalogBaselineTextbox_ramp.text():
             self.uiwavebaseline_ramp = 0
         else:
-            self.uiwavebaseline_ramp = float(self.textbox2I_ramp.text())
-        self.uiwavestep_ramp = float(self.textbox2J_ramp.value())
-        self.uiwavecycles_ramp = int(self.textbox2K_ramp.value())   
+            self.uiwavebaseline_ramp = float(self.AnalogBaselineTextbox_ramp.text())
+        self.uiwavestep_ramp = float(self.AnalogStepTextbox_ramp.value())
+        self.uiwavecycles_ramp = int(self.AnalogCyclesTextbox_ramp.value())   
         
         ramp_instance = generate_ramp(self.uiDaq_sample_rate, self.uiwavefrequency_ramp, self.uiwaveoffset_ramp,
                                       self.uiwaveperiod_ramp, self.uiwavesymmetry_ramp, self.uiwaverepeat_ramp, self.uiwavegap_ramp,
@@ -1424,22 +1425,22 @@ class WaveformGenerator(QWidget):
     # --------------------------------------------------------------------------------for generating digital signals------------------------------------------------------------------------------------
     def generate_cameratrigger(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_cameratrigger = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_cameratrigger = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_cameratrigger = 0
         else:
-            self.uiwaveoffset_cameratrigger = int(self.textbox11C.text())
-        self.uiwaveperiod_cameratrigger = int(self.textbox11D.text())
-        self.uiwaveDC_cameratrigger = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_cameratrigger = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_cameratrigger = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_cameratrigger = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_cameratrigger_number = 1
         else:
-            self.uiwaverepeat_cameratrigger_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_cameratrigger_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_cameratrigger = 0
         else:
-            self.uiwavegap_cameratrigger = int(self.textbox11G.text())
+            self.uiwavegap_cameratrigger = int(self.DigGapTextbox.text())
         
         #if int(self.textbox11A.currentText()) == 1:
             
@@ -1467,22 +1468,22 @@ class WaveformGenerator(QWidget):
             
     def generate_640blanking(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_640blanking = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_640blanking = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_640blanking = 0
         else:
-            self.uiwaveoffset_640blanking = int(self.textbox11C.text())
-        self.uiwaveperiod_640blanking = int(self.textbox11D.text())
-        self.uiwaveDC_640blanking = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_640blanking = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_640blanking = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_640blanking = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_640blanking_number = 1
         else:
-            self.uiwaverepeat_640blanking_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_640blanking_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_640blanking = 0
         else:
-            self.uiwavegap_640blanking = int(self.textbox11G.text())
+            self.uiwavegap_640blanking = int(self.DigGapTextbox.text())
         
         #if int(self.textbox22A.currentText()) == 1:
             
@@ -1506,22 +1507,22 @@ class WaveformGenerator(QWidget):
         
     def generate_532blanking(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_532blanking = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_532blanking = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_532blanking = 0
         else:
-            self.uiwaveoffset_532blanking = int(self.textbox11C.text())
-        self.uiwaveperiod_532blanking = int(self.textbox11D.text())
-        self.uiwaveDC_532blanking = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_532blanking = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_532blanking = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_532blanking = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_532blanking_number = 1
         else:
-            self.uiwaverepeat_532blanking_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_532blanking_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_532blanking = 0
         else:
-            self.uiwavegap_532blanking = int(self.textbox11G.text())
+            self.uiwavegap_532blanking = int(self.DigGapTextbox.text())
         
         #if int(self.textbox33A.currentText()) == 1:
             
@@ -1545,22 +1546,22 @@ class WaveformGenerator(QWidget):
         
     def generate_488blanking(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_488blanking = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_488blanking = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_488blanking = 0
         else:
-            self.uiwaveoffset_488blanking = int(self.textbox11C.text())
-        self.uiwaveperiod_488blanking = int(self.textbox11D.text())
-        self.uiwaveDC_488blanking = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_488blanking = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_488blanking = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_488blanking = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_488blanking_number = 1
         else:
-            self.uiwaverepeat_488blanking_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_488blanking_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_488blanking = 0
         else:
-            self.uiwavegap_488blanking = int(self.textbox11G.text())
+            self.uiwavegap_488blanking = int(self.DigGapTextbox.text())
         
         #if int(self.textbox44A.currentText()) == 1:
             
@@ -1584,22 +1585,22 @@ class WaveformGenerator(QWidget):
         
     def generate_blankingall(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_blankingall = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_blankingall = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_blankingall = 0
         else:
-            self.uiwaveoffset_blankingall = int(self.textbox11C.text())
-        self.uiwaveperiod_blankingall = int(self.textbox11D.text())
-        self.uiwaveDC_blankingall = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_blankingall = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_blankingall = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_blankingall = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_blankingall_number = 1
         else:
-            self.uiwaverepeat_blankingall_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_blankingall_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_blankingall = 0
         else:
-            self.uiwavegap_blankingall = int(self.textbox11G.text())
+            self.uiwavegap_blankingall = int(self.DigGapTextbox.text())
         
         #if int(self.textbox55A.currentText()) == 1:
             
@@ -1622,22 +1623,22 @@ class WaveformGenerator(QWidget):
         
     def generate_Perfusion_8(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_Perfusion_8 = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_Perfusion_8 = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_Perfusion_8 = 0
         else:
-            self.uiwaveoffset_Perfusion_8 = int(self.textbox11C.text())
-        self.uiwaveperiod_Perfusion_8 = int(self.textbox11D.text())
-        self.uiwaveDC_Perfusion_8 = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_Perfusion_8 = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_Perfusion_8 = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_Perfusion_8 = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_Perfusion_8_number = 1
         else:
-            self.uiwaverepeat_Perfusion_8_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_Perfusion_8_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_Perfusion_8 = 0
         else:
-            self.uiwavegap_Perfusion_8 = int(self.textbox11G.toPlainText())
+            self.uiwavegap_Perfusion_8 = int(self.DigGapTextbox.toPlainText())
         
         #if int(self.textbox66A.currentText()) == 1:
             
@@ -1660,22 +1661,22 @@ class WaveformGenerator(QWidget):
         
     def generate_Perfusion_7(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_Perfusion_7 = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_Perfusion_7 = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_Perfusion_7 = 0
         else:
-            self.uiwaveoffset_Perfusion_7 = int(self.textbox11C.text())
-        self.uiwaveperiod_Perfusion_7 = int(self.textbox11D.text())
-        self.uiwaveDC_Perfusion_7 = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_Perfusion_7 = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_Perfusion_7 = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_Perfusion_7 = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_Perfusion_7_number = 1
         else:
-            self.uiwaverepeat_Perfusion_7_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_Perfusion_7_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_Perfusion_7 = 0
         else:
-            self.uiwavegap_Perfusion_7 = int(self.textbox11G.toPlainText())
+            self.uiwavegap_Perfusion_7 = int(self.DigGapTextbox.toPlainText())
         
         #if int(self.textbox66A.currentText()) == 1:
             
@@ -1698,22 +1699,22 @@ class WaveformGenerator(QWidget):
         
     def generate_Perfusion_6(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_Perfusion_6 = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_Perfusion_6 = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_Perfusion_6 = 0
         else:
-            self.uiwaveoffset_Perfusion_6 = int(self.textbox11C.text())
-        self.uiwaveperiod_Perfusion_6 = int(self.textbox11D.text())
-        self.uiwaveDC_Perfusion_6 = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_Perfusion_6 = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_Perfusion_6 = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_Perfusion_6 = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_Perfusion_6_number = 1
         else:
-            self.uiwaverepeat_Perfusion_6_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_Perfusion_6_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_Perfusion_6 = 0
         else:
-            self.uiwavegap_Perfusion_6 = int(self.textbox11G.toPlainText())
+            self.uiwavegap_Perfusion_6 = int(self.DigGapTextbox.toPlainText())
         
         #if int(self.textbox66A.currentText()) == 1:
             
@@ -1736,22 +1737,22 @@ class WaveformGenerator(QWidget):
         
     def generate_Perfusion_2(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_Perfusion_2 = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_Perfusion_2 = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_Perfusion_2 = 0
         else:
-            self.uiwaveoffset_Perfusion_2 = int(self.textbox11C.text())
-        self.uiwaveperiod_Perfusion_2 = int(self.textbox11D.text())
-        self.uiwaveDC_Perfusion_2 = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_Perfusion_2 = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_Perfusion_2 = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_Perfusion_2 = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_Perfusion_2_number = 1
         else:
-            self.uiwaverepeat_Perfusion_2_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_Perfusion_2_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_Perfusion_2 = 0
         else:
-            self.uiwavegap_Perfusion_2 = int(self.textbox11G.toPlainText())
+            self.uiwavegap_Perfusion_2 = int(self.DigGapTextbox.toPlainText())
         
         #if int(self.textbox66A.currentText()) == 1:
             
@@ -1774,22 +1775,22 @@ class WaveformGenerator(QWidget):
         
     def generate_2Pshutter(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
-        self.uiwavefrequency_2Pshutter = float(self.textbox11B.text())
-        if not self.textbox11C.text():
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
+        self.uiwavefrequency_2Pshutter = float(self.DigFreqTextbox.text())
+        if not self.DigOffsetTextbox.text():
             self.uiwaveoffset_2Pshutter = 0
         else:
-            self.uiwaveoffset_2Pshutter = int(self.textbox11C.text())
-        self.uiwaveperiod_2Pshutter = int(self.textbox11D.text())
-        self.uiwaveDC_2Pshutter = int(self.textbox11F.currentText())
-        if not self.textbox11E.text():
+            self.uiwaveoffset_2Pshutter = int(self.DigOffsetTextbox.text())
+        self.uiwaveperiod_2Pshutter = int(self.DigDurationTextbox.text())
+        self.uiwaveDC_2Pshutter = int(self.DigDCTextbox.currentText())
+        if not self.DigRepeatTextbox.text():
             self.uiwaverepeat_2Pshutter_number = 1
         else:
-            self.uiwaverepeat_2Pshutter_number = int(self.textbox11E.text())
-        if not self.textbox11G.text():
+            self.uiwaverepeat_2Pshutter_number = int(self.DigRepeatTextbox.text())
+        if not self.DigGapTextbox.text():
             self.uiwavegap_2Pshutter = 0
         else:
-            self.uiwavegap_2Pshutter = int(self.textbox11G.toPlainText())
+            self.uiwavegap_2Pshutter = int(self.DigGapTextbox.toPlainText())
         
         #if int(self.textbox66A.currentText()) == 1:
             
@@ -1812,7 +1813,7 @@ class WaveformGenerator(QWidget):
         
     def generate_photocycle_640(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
         self.uiwavefrequency_photocycle_640 = float(self.textbox_photocycleA.text())
         if not self.textbox_photocycleB.text():
             self.uiwavefrequency_offset_photocycle_640 = 100
@@ -1846,7 +1847,7 @@ class WaveformGenerator(QWidget):
     
     def generate_photocycle_532(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
         self.uiwavefrequency_photocycle_532 = float(self.textbox_photocycleA.text())
         if not self.textbox_photocycleB.text():
             self.uiwavefrequency_offset_photocycle_532 = 100
@@ -1880,7 +1881,7 @@ class WaveformGenerator(QWidget):
     
     def generate_photocycle_488(self):
         
-        self.uiDaq_sample_rate = int(self.textboxAA.value())
+        self.uiDaq_sample_rate = int(self.SamplingRateTextbox.value())
         self.uiwavefrequency_photocycle_488 = float(self.textbox_photocycleA.text())
         if not self.textbox_photocycleB.text():
             self.uiwavefrequency_offset_photocycle_488 = 100
@@ -2007,8 +2008,8 @@ class WaveformGenerator(QWidget):
         
         # set galvos sampele stack apart
         if 'galvos' in self.analog_data_container:
-            self.analog_data_container['galvosx'+'avgnum_'+str(int(self.textbox1H.value()))] = self.generate_galvos()[0, :]
-            self.analog_data_container['galvosy'+'ypixels_'+str(int(self.textbox1G.currentText()))] = self.generate_galvos()[1, :]
+            self.analog_data_container['galvosx'+'avgnum_'+str(int(self.GalvoAvgNumTextbox.value()))] = self.generate_galvos()[0, :]
+            self.analog_data_container['galvosy'+'ypixels_'+str(int(self.GalvoYpixelNumTextbox.currentText()))] = self.generate_galvos()[1, :]
             del self.analog_data_container['galvos']
             
         if 'galvos_contour' in self.analog_data_container:
@@ -2058,13 +2059,13 @@ class WaveformGenerator(QWidget):
             digitalloopnum = digitalloopnum+ 1
         print(self.digitalcontainer_array['Sepcification'])
                 
-        self.xlabelhere_all = np.arange(self.reference_length)/int(self.textboxAA.value())
+        self.xlabelhere_all = np.arange(self.reference_length)/int(self.SamplingRateTextbox.value())
         
         self.pw.clear()
         for i in range(analogloopnum):
                                         
-            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())) and self.analogcontainer_array['Sepcification'][i] != 'galvos_X'+'_contour': #skip the galvoX, as it is too intense
-                if self.analogcontainer_array['Sepcification'][i] == 'galvosy'+'ypixels_'+str(int(self.textbox1G.currentText())) or self.analogcontainer_array['Sepcification'][i] == 'galvos_Y'+'_contour':
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.GalvoAvgNumTextbox.value())) and self.analogcontainer_array['Sepcification'][i] != 'galvos_X'+'_contour': #skip the galvoX, as it is too intense
+                if self.analogcontainer_array['Sepcification'][i] == 'galvosy'+'ypixels_'+str(int(self.GalvoYpixelNumTextbox.currentText())) or self.analogcontainer_array['Sepcification'][i] == 'galvos_Y'+'_contour':
                     self.PlotDataItem_final = PlotDataItem(self.xlabelhere_all, self.analogcontainer_array['Waveform'][i])
                     #use the same color as before, taking advantages of employing same keys in dictionary
                     self.PlotDataItem_final.setPen('w')
@@ -2096,7 +2097,7 @@ class WaveformGenerator(QWidget):
         '''
         plt.figure()
         for i in range(analogloopnum):
-            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())): #skip the galvoX, as it is too intense
+            if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.GalvoAvgNumTextbox.value())): #skip the galvoX, as it is too intense
                 plt.plot(xlabelhere_all, self.analogcontainer_array['Waveform'][i])
         for i in range(digitalloopnum):
             plt.plot(xlabelhere_all, self.digitalcontainer_array['Waveform'][i])
@@ -2106,7 +2107,7 @@ class WaveformGenerator(QWidget):
         # Saving configed waveforms
         if self.textboxsavingwaveforms.isChecked():
             #temp_save_wave = np.empty((len(self.analogcontainer_array['Sepcification'])+len(self.digitalcontainer_array['Sepcification']), 1), dtype=np.object)
-            ciao=[]
+            ciao=[] # Variable name 'ciao' was defined by Nicolo Ceffa.
 
             for i in range(len(self.analogcontainer_array['Sepcification'])):
 
@@ -2122,62 +2123,34 @@ class WaveformGenerator(QWidget):
             #np.append(temp_save_wave, self.analogcontainer_array, axis = 0)
             #np.append(temp_save_wave, self.digitalcontainer_array, axis = 0)
             #print(temp_save_wave)
-            np.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_'+str(self.prefixtextbox.text())+'_'+'Wavefroms_sr_'+ str(int(self.textboxAA.value()))), ciao)
-        
-        '''
-        # Saving configed waveforms, worked in my laptop numpy v1.15.4, spyder 3.3.2
-        if self.textboxsavingwaveforms.isChecked():
-            temp_save_wave = np.empty((len(self.analogcontainer_array['Sepcification'])+len(self.digitalcontainer_array['Sepcification']), 1), dtype=np.object)
-            for i in range(len(self.analogcontainer_array['Sepcification'])):
-                temp_save_wave[i]=self.analogcontainer_array[i]
-            for i in range(len(self.digitalcontainer_array['Sepcification'])):
-                temp_save_wave[i+len(self.analogcontainer_array['Sepcification'])]=self.digitalcontainer_array[i]
-            #np.append(temp_save_wave, self.analogcontainer_array, axis = 0)
-            #np.append(temp_save_wave, self.digitalcontainer_array, axis = 0)
-            np.save(os.path.join(self.savedirectory, 'Wavefroms_sr_'+ str(int(self.textboxAA.value())) + '_' + str(self.prefixtextbox.text()) + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), temp_save_wave)
-       
-        '''
+            np.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_'+str(self.prefixtextbox.text())+'_'+'Wavefroms_sr_'+ str(int(self.SamplingRateTextbox.value()))), ciao)
         
         self.readinchan = []
         
-        if self.textbox111A.isChecked():
+        if self.ReadChanPMTTextbox.isChecked():
             self.readinchan.append('PMT')
-        if self.textbox222A.isChecked():
+        if self.ReadChanVpTextbox.isChecked():
             self.readinchan.append('Vp')
-        if self.textbox333A.isChecked():
+        if self.ReadChanIpTextbox.isChecked():
             self.readinchan.append('Ip')       
         
         print(self.readinchan)
-        self.measurement.emit(self.analogcontainer_array, self.digitalcontainer_array, self.readinchan, int(self.textboxAA.value()))
-        #execute(int(self.textboxAA.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        
+        self.GeneratedWaveformPackage = (int(self.SamplingRateTextbox.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
+        self.WaveformPackage.emit(self.GeneratedWaveformPackage)
+        
+        try:
+            self.GalvoScanInforPackage = (self.readinchan, self.repeatnum, self.PMT_data_index_array, self.averagenum, len(self.samples_1), self.ScanArrayXnum) # Emit a tuple
+            self.GalvoScanInfor.emit(self.GalvoScanInforPackage)
+        except:
+            self.GalvoScanInfor.emit('NoGalvo') # Emit a string
+        #execute(int(self.SamplingRateTextbox.currentText()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
         return self.analogcontainer_array, self.digitalcontainer_array, self.readinchan
     
     def execute_tread(self):
         if self.clock_source.currentText() == 'Dev1 as clock source':
             self.adcollector = execute_analog_readin_optional_digital_thread()
-            self.adcollector.set_waves(int(self.textboxAA.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
-            self.adcollector.collected_data.connect(self.recive_data)
-            
-            self.adcollector.start()
-#            self.adcollector.wait()
-#            self.adcollector.save_as_binary(self.savedirectory)
-            #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
-        elif self.clock_source.currentText() == 'Cam as clock source' :
-            self.adcollector = execute_analog_and_readin_digital_optional_camtrig_thread()
-            self.adcollector.set_waves(int(self.textboxAA.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
-            self.adcollector.collected_data.connect(self.recive_data)
-            
-            self.adcollector.start()
-#            self.adcollector.wait()
-#            self.adcollector.save_as_binary(self.savedirectory)
-            #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
-            
-    def execute_tread_external(self, WaveformTuple):
-        sampling_rate_from_external, analogcontainer_array, digitalcontainer_array, readinchan = self.load_waveforms(WaveformTuple)
-        
-        if self.clock_source.currentText() == 'Dev1 as clock source':
-            self.adcollector = execute_analog_readin_optional_digital_thread()
-            self.adcollector.set_waves(sampling_rate_from_external, analogcontainer_array, digitalcontainer_array, readinchan)
+            self.adcollector.set_waves(int(self.SamplingRateTextbox.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
             self.adcollector.collected_data.connect(self.recive_data)
             self.adcollector.start()
 #            self.adcollector.wait()
@@ -2185,12 +2158,31 @@ class WaveformGenerator(QWidget):
             #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
         elif self.clock_source.currentText() == 'Cam as clock source' :
             self.adcollector = execute_analog_and_readin_digital_optional_camtrig_thread()
-            self.adcollector.set_waves(sampling_rate_from_external, analogcontainer_array, digitalcontainer_array, readinchan)
+            self.adcollector.set_waves(int(self.SamplingRateTextbox.value()), self.analogcontainer_array, self.digitalcontainer_array, self.readinchan)
             self.adcollector.collected_data.connect(self.recive_data)
             self.adcollector.start()
 #            self.adcollector.wait()
 #            self.adcollector.save_as_binary(self.savedirectory)
             #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
+            
+#    def execute_tread_external(self, WaveformTuple, savedirectory):
+#        sampling_rate_from_external, analogcontainer_array, digitalcontainer_array, readinchan = self.load_waveforms(WaveformTuple)
+#        self.external_savedirectory = savedirectory
+#        
+#        if self.clock_source.currentText() == 'Dev1 as clock source':
+#            self.adcollector = execute_analog_readin_optional_digital_thread()
+#            self.adcollector.set_waves(sampling_rate_from_external, analogcontainer_array, digitalcontainer_array, readinchan)
+#            self.adcollector.collected_data.connect(self.recive_data_external)
+#            self.adcollector.start()
+##            self.adcollector.save_as_binary(savedirectory)
+#            #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
+#        elif self.clock_source.currentText() == 'Cam as clock source' :
+#            self.adcollector = execute_analog_and_readin_digital_optional_camtrig_thread()
+#            self.adcollector.set_waves(sampling_rate_from_external, analogcontainer_array, digitalcontainer_array, readinchan)
+#            self.adcollector.collected_data.connect(self.recive_data_external)
+#            self.adcollector.start()
+##            self.adcollector.save_as_binary(savedirectory)
+#            #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
             
     def load_waveforms(self, WaveformTuple):
         self.WaveformSamplingRate = WaveformTuple[0]
@@ -2199,10 +2191,10 @@ class WaveformGenerator(QWidget):
         self.WaveformRecordingChannContainer = WaveformTuple[3]
         
         return self.WaveformSamplingRate, self.WaveformAnalogContainer, self.WaveformDigitalContainer, self.WaveformRecordingChannContainer
-        
+    
     def execute_digital(self):
         
-        execute_digital(int(self.textboxAA.value()), self.digitalcontainer_array)
+        execute_digital(int(self.SamplingRateTextbox.value()), self.digitalcontainer_array)
         
     def recive_data(self, data_waveformreceived):
         self.adcollector.save_as_binary(self.savedirectory)
@@ -2230,14 +2222,14 @@ class WaveformGenerator(QWidget):
                 self.textitem_patch_current = pg.TextItem(('Ip'), color=('w'), anchor=(1, 1))
                 self.textitem_patch_current.setPos(0, 1)
                 self.pw_data.addItem(self.textitem_patch_current) 
-            elif 'PMT' in self.readinchan:
+            elif 'PMT' in self.readinchan:  # repeatnum, PMT_data_index_array, averagenum, ScanArrayXnum
                 self.data_collected_0 = data_waveformreceived[0]*-1
                 for i in range(self.repeatnum):
                     self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
                     Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
                     Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
                     self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
-
+                    
                     # Stack the arrays into a 3d array
                     if i == 0:
                         self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
@@ -2317,10 +2309,64 @@ class WaveformGenerator(QWidget):
                     self.textitem_patch_current = pg.TextItem(('Ip'), color=('w'), anchor=(1, 1))
                     self.textitem_patch_current.setPos(0, 1)
                     self.pw_data.addItem(self.textitem_patch_current)   
+                    
+#    def recive_data_external(self, data_waveformreceived):
+#        
+#        self.channel_number = len(data_waveformreceived)
+#        if self.channel_number == 1:            
+#            if 'Vp' in self.readinchan:
+#                pass
+#            elif 'Ip' in self.readinchan:
+#                pass
+#            elif 'PMT' in self.readinchan:  # repeatnum, PMT_data_index_array, averagenum, ScanArrayXnum
+#                self.data_collected_0 = data_waveformreceived[0]
+#                for i in range(self.repeatnum):
+#                    self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
+#                    Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
+#                    Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
+#                    self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+#                    
+#                    # Stack the arrays into a 3d array
+#                    if i == 0:
+#                        self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
+#                    else:
+#                        self.PMT_image_reconstructed_stack = np.stack(self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed, axis=0)
+#                    
+#                    Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
+#                    Localimg.save(os.path.join(self.external_savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(i)+'.tif')) #save as tif
+#                    
+#                    plt.figure()
+#                    plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
+#                    plt.show()
+#                
+#        elif self.channel_number == 2: 
+#            if 'PMT' not in self.readinchan:
+#                pass
+#            elif 'PMT' in self.readinchan:
+#                self.data_collected_0 = data_waveformreceived[0]
+#                for i in range(self.repeatnum):
+#                    self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
+#                    Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
+#                    Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
+#                    self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+#                    
+#                    # Stack the arrays into a 3d array
+#                    if i == 0:
+#                        self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
+#                    else:
+#                        self.PMT_image_reconstructed_stack = np.stack(self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed, axis=0)
+#                    
+#                    Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
+#                    Localimg.save(os.path.join(self.external_savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+str(i)+'.tif')) #save as tif
+#                    
+#                    plt.figure()
+#                    plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
+#                    plt.show()
+#                    
             
     def startProgressBar(self):
         self.DaqProgressBar_thread = DaqProgressBar()
-        self.TotalTimeProgressBar = round((self.reference_length)/int(self.textboxAA.value()), 6)
+        self.TotalTimeProgressBar = round((self.reference_length)/int(self.SamplingRateTextbox.value()), 6)
         self.DaqProgressBar_thread.setlength(self.TotalTimeProgressBar)
         self.DaqProgressBar_thread.change_value.connect(self.setProgressVal)
         self.DaqProgressBar_thread.start()

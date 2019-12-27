@@ -57,8 +57,7 @@ try:
     import MMCorePy
     
     mmc = MMCorePy.CMMCore()
-    os.chdir(prev_dir)
-    
+    os.chdir(('./'))
     # Success!
     print("Micro-manager was loaded sucessfully!")  
 except:
@@ -79,6 +78,9 @@ class Camera(QThread):
         self.mmc.setCameraDevice(self.name)
         self.mmc.initializeCircularBuffer()
 
+        self.mmc.setProperty(self.name,'EXPOSURE FULL RANGE', 'ENABLE')
+        #this should enable exposure values between
+
         self.initial_picture = cv2.imread('neuron.png', 0)
         self.image = self.initial_picture
 
@@ -93,7 +95,8 @@ class Camera(QThread):
         self.interval = 1 #Does not matter for orca flash 4!
 
         self.mode = "Continuous"
-          
+
+        self.done = False  
     def print_properties(self):
         ''' print all properties. Change the mutable ones with:
             self.mmc.setProperty('device_name', '' property_name'. 'value')
@@ -127,7 +130,7 @@ class Camera(QThread):
     def get_framerate(self):
         exp_time = self.mmc.getExposure()/1000
         Readout_time = float(self.mmc.getProperty('Camera','ReadoutTime'))
-        time = Readout_time/2
+        time = Readout_time
         
         if time > exp_time:
             FPS = int(1/time)
@@ -136,7 +139,8 @@ class Camera(QThread):
         return FPS
 
     def set_exposure_time(self, exptime):
-        self.mmc.setExposure(exptime)
+        exposure_time = exptime #unchanged for miliseconds
+        self.mmc.setExposure(exposure_time)
         
     def imsize(self):
         '''
@@ -164,7 +168,8 @@ class Camera(QThread):
         self.mmc.prepareSequenceAcquisition(self.name)        
         timestr = time.strftime("%m-%d-%Y_%H;%M;%S")
         video_name = "Videos/video_"+"{}".format(timestr)+".tif"               
-        self.frames = 0               
+        self.frames = 0              
+        
         if self.mode == "Continuous":
             print("Starting continuous video")               
             self.mmc.startContinuousSequenceAcquisition(self.interval) 
@@ -258,12 +263,10 @@ class Camera(QThread):
             This mode has been built to check the framerate of the camera 
             without writing out files. Should not be used except for testing.
             '''
-            print("Start recording " + str(self.tot_ims) + " frames.")              
+            print("Start recording " + str(self.tot_ims) + " frames with the tester.")              
             self.mmc.startContinuousSequenceAcquisition(self.interval)  
-            '''
-            The self.interval only works for some camera models. It makes no 
-            difference for the Hamamatsu orca flash 4!
-            '''
+
+                  
             start_time = time.time()
             while self.mmc.getRemainingImageCount() < self.tot_ims - 1:
                 if self.mmc.isBufferOverflowed():
@@ -278,7 +281,8 @@ class Camera(QThread):
             self.rec_time = time.time() - start_time
             self.frames = self.mmc.getRemainingImageCount()                
             print("Done writing " + str(self.frames) + " frames, recorded for " \
-                  + str(round(self.rec_time,1)) + "seconds")         
+                  + str(round(self.rec_time,1)) + "seconds")   
+            self.done = True 
                   
     def stop_recording(self):
         self.requestInterruption()
@@ -369,10 +373,11 @@ if __name__ == "__main__":
         mmc.reset()
         DEVICE = ['Camera', 'HamamatsuHam', 'HamamatsuHam_DCAM']
         cam = Camera(DEVICE)
-        cam.set_buf_size(250)
-        cam.mode = "Test"
-        cam.interval = 1
-        cam.timed_recording(100)
-        time.sleep(15)
+#        cam.set_buf_size(250)
+#        cam.mode = "Test"
+#        cam.interval = 1
+#        cam.timed_recording(100)
+#        time.sleep(15)
+        cam.print_properties()
     test()
 

@@ -176,7 +176,7 @@ class execute_analog_readin_optional_digital_thread(QThread): # Analog channel f
                 self.Dataholder = np.zeros((1, self.Totalscansamplesnumber))
                 master_Task_readin.ai_channels.add_ai_voltage_chan(self.configdictionary['Vp']) # If no read-in channel is added, vp channel is added to keep code alive.
                 
-            print(self.Dataholder.shape)
+#            print(self.Dataholder.shape)
             if 'PMT' in self.readinchannels:
                 master_Task_readin.ai_channels.add_ai_voltage_chan(self.configdictionary['PMT'])
             if 'Vp' in self.readinchannels:

@@ -6,6 +6,7 @@ Created on Fri Jul  5 11:12:44 2019
 """
 
 import numpy as np
+from scipy import signal
 
 class generate_AO_for640():
     def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11):
@@ -50,7 +51,7 @@ class generate_AO_for640():
         self.waverepeated = np.tile(self.waveallcyclewithgap_2, self.waverepeat_2)
         
         self.finalwave_640 = np.append(self.offsetsamples_2, self.waverepeated)    
-        
+        self.finalwave_640 = np.append(self.finalwave_640, 0)
         return self.finalwave_640
     
 class generate_AO_for488():
@@ -96,7 +97,7 @@ class generate_AO_for488():
         self.waverepeated = np.tile(self.waveallcyclewithgap_488, self.waverepeat_488)
         
         self.finalwave_488 = np.append(self.offsetsamples_488, self.waverepeated)    
-        
+        self.finalwave_488 = np.append(self.finalwave_488, 0)        
         return self.finalwave_488
     
 class generate_AO_for532():
@@ -142,7 +143,7 @@ class generate_AO_for532():
         self.waverepeated = np.tile(self.waveallcyclewithgap_532, self.waverepeat_532)
         
         self.finalwave_532 = np.append(self.offsetsamples_532, self.waverepeated)    
-        
+        self.finalwave_532 = np.append(self.finalwave_532, 0)        
         return self.finalwave_532
     
 class generate_AO_forpatch():
@@ -188,7 +189,7 @@ class generate_AO_forpatch():
         self.waverepeated = np.tile(self.waveallcyclewithgap_patch, self.waverepeat_patch)
         
         self.finalwave_patch = np.append(self.offsetsamples_patch, self.waverepeated)    
-        
+        self.finalwave_patch = np.append(self.finalwave_patch, 0)        
         return self.finalwave_patch
     
 class generate_DO_forcameratrigger():
@@ -224,7 +225,8 @@ class generate_DO_forcameratrigger():
         self.waverepeated_cameratrigger = np.tile(self.waveallcyclewithgap_cameratrigger, self.waverepeat_cameratrigger_number)
         
         self.finalwave_cameratrigger = np.append(self.offsetsamples_cameratrigger, self.waverepeated_cameratrigger)
-        
+        self.finalwave_cameratrigger = np.append(self.finalwave_cameratrigger, False)
+   
         return self.finalwave_cameratrigger
     
 class generate_DO_for640blanking():
@@ -260,7 +262,7 @@ class generate_DO_for640blanking():
         self.waverepeated_640blanking = np.tile(self.waveallcyclewithgap_640blanking, self.waverepeat_640blanking_number)
         
         self.finalwave_640blanking = np.append(self.offsetsamples_640blanking, self.waverepeated_640blanking)
-        
+        self.finalwave_640blanking = np.append(self.finalwave_640blanking, False)       
         return self.finalwave_640blanking
     
 class generate_DO_for532blanking():
@@ -296,7 +298,7 @@ class generate_DO_for532blanking():
         self.waverepeated_532blanking = np.tile(self.waveallcyclewithgap_532blanking, self.waverepeat_532blanking_number)
         
         self.finalwave_532blanking = np.append(self.offsetsamples_532blanking, self.waverepeated_532blanking)
-        
+        self.finalwave_532blanking = np.append(self.finalwave_532blanking, False)         
         return self.finalwave_532blanking
     
 class generate_DO_for488blanking():
@@ -332,7 +334,7 @@ class generate_DO_for488blanking():
         self.waverepeated_488blanking = np.tile(self.waveallcyclewithgap_488blanking, self.waverepeat_488blanking_number)
         
         self.finalwave_488blanking = np.append(self.offsetsamples_488blanking, self.waverepeated_488blanking)
-        
+        self.finalwave_488blanking = np.append(self.finalwave_488blanking, False)         
         return self.finalwave_488blanking
     
 class generate_DO_forblankingall():
@@ -368,7 +370,7 @@ class generate_DO_forblankingall():
         self.waverepeated_blankingall = np.tile(self.waveallcyclewithgap_blankingall, self.waverepeat_blankingall_number)
         
         self.finalwave_blankingall = np.append(self.offsetsamples_blankingall, self.waverepeated_blankingall)
-        
+        self.finalwave_blankingall = np.append(self.finalwave_blankingall, False)         
         return self.finalwave_blankingall
     
 class generate_DO_forPerfusion():
@@ -404,7 +406,7 @@ class generate_DO_forPerfusion():
         self.waverepeated_Perfusion = np.tile(self.waveallcyclewithgap_Perfusion, self.waverepeat_Perfusion_number)
         
         self.finalwave_Perfusion = np.append(self.offsetsamples_Perfusion, self.waverepeated_Perfusion)
-        
+        self.finalwave_Perfusion = np.append(self.finalwave_Perfusion, False)         
         return self.finalwave_Perfusion
     
 class generate_DO_for2Pshutter():
@@ -440,5 +442,50 @@ class generate_DO_for2Pshutter():
         self.waverepeated_2Pshutter = np.tile(self.waveallcyclewithgap_2Pshutter, self.waverepeat_2Pshutter_number)
         
         self.finalwave_2Pshutter = np.append(self.offsetsamples_2Pshutter, self.waverepeated_2Pshutter)
-        
+        self.finalwave_2Pshutter = np.append(self.finalwave_2Pshutter, False)         
         return self.finalwave_2Pshutter
+    
+class generate_ramp():
+    def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11):
+        self.Daq_sample_rate = value1
+        self.wavefrequency = value2
+        self.waveoffset = value3
+        self.waveperiod = value4
+        self.wavesymmetry = value5
+        self.waverepeat = value6
+        self.wavegap = value7
+        self.waveheight = value8
+        self.wavebaseline = value9
+        self.wavestep = value10
+        self.wavecycles = value11
+    def generate(self):
+        self.offsetsamples_number_ramp = int(1 + (self.waveoffset/1000)*self.Daq_sample_rate) # By default one 0 is added 
+        self.offsetsamples_ramp = self.wavebaseline * np.ones(self.offsetsamples_number_ramp) # Be default offsetsamples_number is an integer.
+        
+        t = np.linspace(0, (self.waveperiod/1000), self.Daq_sample_rate*(self.waveperiod/1000))
+        triangle_in_1s = self.waveheight/2 * (signal.sawtooth(2 * np.pi * self.wavefrequency * t, self.wavesymmetry))
+        self.sample_singlecycle_ramp = triangle_in_1s + self.waveheight/2 + self.wavebaseline
+        
+        #self.repeatnumberintotal_ramp = int(self.wavefrequency*(self.waveperiod/1000))
+        # In default, pulses * sample_singleperiod_2 = period
+        #self.sample_singlecycle_ramp = np.tile(self.sample_singleperiod_ramp, int(self.repeatnumberintotal_ramp)) # At least 1 rise and fall during one cycle
+        '''
+        self.waveallcycle_ramp = []
+        # Adding steps to cycles
+        for i in range(self.wavecycles):
+            cycle_roof_value = self.wavestep * i
+            self.cycleappend = np.where(self.sample_singlecycle_ramp < self.waveheight, self.wavebaseline, self.waveheight + cycle_roof_value)
+            self.waveallcycle_ramp = np.append(self.waveallcycle_ramp, self.cycleappend)
+        '''
+        if self.wavegap != 0:
+            self.gapsample = self.wavebaseline * np.ones(self.wavegap)
+            self.waveallcyclewithgap_ramp = np.append(self.sample_singlecycle_ramp, self.gapsample)
+        else:
+            self.waveallcyclewithgap_ramp = self.sample_singlecycle_ramp
+            
+        self.waverepeated = np.tile(self.waveallcyclewithgap_ramp, self.waverepeat)
+        
+        self.finalwave_ramp = np.append(self.offsetsamples_ramp, self.waverepeated)    
+        self.finalwave_ramp = np.append(self.finalwave_ramp, 0)         
+        return self.finalwave_ramp
+        

@@ -19,6 +19,15 @@ TO DO:
     
     -When in external triggering mode, while the roi gets opened it tries to get
     a picture. With no triggers incoming, it will keep waiting and crash.
+    
+    -update the circ buffer widget in the main ui when updating the circular 
+    buffer size within the timed window popup. 
+    
+    -possibly create a popup settings menu that gets all available settings
+    instead of hardcoding some! Take this as inspiration maybe 
+    https://github.com/Jhsmit/micromanager-samples/blob/master/mm_print_properties.py
+    
+    
 
 @author: dvanderheijden
 """
@@ -56,15 +65,14 @@ class TimedPopup(QWidget):
 
         self.setWindowTitle("Timed Video")
         self.resize(500, 300)
-        self.camdev = camdev
-        
-        self.cam_in = False
+        self.camdev = camdev #for accesing the camera device (camera backend)
         
         #-----------------Creating line inputs---------------------------------
         durationContainer = QGroupBox()
         durationLayout = QGridLayout()
         
-        durationLayout.addWidget(QLabel("How many frames/seconds would you like to record?"),0,0,1,3)
+        durationLayout.addWidget(QLabel\
+        ("How many frames/seconds would you like to record?"),0,0,1,3)
         
         self.framesnumber = QLineEdit()
         self.framesnumber.setValidator(QIntValidator(0,99999))
@@ -72,7 +80,6 @@ class TimedPopup(QWidget):
         self.framesnumber.returnPressed.connect(self.framesnumber_changed)
         durationLayout.addWidget(QLabel("Recording frames:"),1,0)
         durationLayout.addWidget(self.framesnumber,1,1)
-        
         
         self.secondsnumber = QLineEdit()
         self.dblval = QDoubleValidator()
@@ -141,7 +148,7 @@ class TimedPopup(QWidget):
         self.close()
         
 class CameraROI(QWidget):
-    def __init__(self, view, camdev, *args, **kwargs):
+    def __init__(self, camdev, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         #----------------------------General settings--------------------------  
@@ -150,8 +157,7 @@ class CameraROI(QWidget):
         self.setWindowTitle("Camera ROI")
         self.resize(686, 545)
         
-        self.view = view
-        self.camdev = camdev    
+        self.camdev = camdev #for accesing the camera device (camera backend)
         
         #----------------------------Adding Imageview--------------------------
         
@@ -162,9 +168,9 @@ class CameraROI(QWidget):
         self.roiWidget.ui.normGroup.hide()
         self.roiWidget.ui.roiPlot.hide()
         self.roiWidget.autoLevels()
-
         
         #------------------------------Adding ROI item-------------------------
+        
         current_roi = self.camdev.mmc.getROI()
         '''
         By implementing the current ROI variable I make sure everytime the ROI 
@@ -178,19 +184,27 @@ class CameraROI(QWidget):
         self.roi = pg.RectROI([x,y],[x_size,y_size], pen=(0,9))
         self.roiview = self.roiWidget.getView()
         self.roiview.addItem(self.roi)# add ROIs to main image    
-        self.roi.maxBounds= QRectF(0,0,self.camdev.width,self.camdev.height) #setting the max ROI bounds to be within the camera resolution
+        self.roi.maxBounds= QRectF(0,0,self.camdev.width,self.camdev.height) 
+        #setting the max ROI bounds to be within the camera resolution
         
-        self.roi.sigRegionChanged.connect(self.update_roi_coordinates) #This function ensures the spinboxes show the actual roi coordinates
+        self.roi.sigRegionChanged.connect(self.update_roi_coordinates) 
+        #This function ensures the spinboxes show the actual roi coordinates
 
         #------------------------------Buttons---------------------------------
 
         self.center_roiButton = QPushButton()
         self.center_roiButton.setText("Center ROI")        
-        self.center_roiButton.clicked.connect(lambda: self.set_roi_flag())      
+        self.center_roiButton.clicked.connect(lambda: self.set_roi_flag())
+        '''
+        set_roi_flag checks whether the centering button is pushed and 
+        acts accordingly.
+        '''
         self.center_roiButton.setCheckable(True)
         '''
         The ROI needs to be centered to maximise the framerate of the hamamatsu
-        CMOS.
+        CMOS. When not centered it will count the outermost vertical pixel and
+        treats it as the size of the ROI. See the camera manual for a more 
+        detailed explanation.
         '''
         
         self.set_roiButton = QPushButton()
@@ -296,8 +310,10 @@ class CameraROI(QWidget):
         #-------------------------Initial Settings-----------------------------
         self.center_roiButton.click() #Best if the ROI is centered
         self.get_frame() #Saves the press of a button when opening the ROI
-
+        
+        #######################################################################
         #---------------------------Functions----------------------------------
+        #######################################################################
         
     def set_roi(self):     
         self.roi_x = int(self.roi.pos()[0])
@@ -374,9 +390,13 @@ class CameraROI(QWidget):
         else:
             self.y_position.setReadOnly(False)
             self.roi.sigRegionChanged.disconnect() 
-            #disconnecting once the center_roi button is no longer pressed
+            '''
+            I do not know how to disconnect one specific function, so I 
+            disconnect both and then reconnect the update_roi_coordinates 
+            function.
+            '''
             self.roi.sigRegionChanged.connect(self.update_roi_coordinates) 
-            #not very elegant but it works
+            
 
 class CameraUI(QWidget):
     def __init__(self, *args, **kwargs):
@@ -387,7 +407,7 @@ class CameraUI(QWidget):
         #----------------------------------------------------------------------
         self.setWindowTitle("Camera")
 
-        #------------------------------Camera ui-------------------------                            
+        #------------------------------Camera ui-------------------------------                           
         cameraimageContainer = QGroupBox("Camera View")
         cameraimageLayout = QGridLayout()
                 
@@ -400,26 +420,22 @@ class CameraUI(QWidget):
         #This is the button for displaying a single frame for ROI selection
         self.singleframeButton.clicked.connect(lambda: self.singleframe())
         
-        self.viewButton = QPushButton()
-        self.viewButton.setText("View")
-        self.viewButton.clicked.connect(lambda: self.open_roi_selection())
-        
         self.recordButton = QPushButton()
+        #Button for recording for undefined number of frames!
         self.recordButton.setText("Record")
         self.recordButton.setCheckable(True)
         self.recordButton.clicked.connect(lambda: self.record_enable())
       
         self.timedButton = QPushButton("Timed video") 
-        #This is the option of recording for a preset time period
+        #This is the option of recording for a preset time period/number of frames
         self.timedButton.clicked.connect(lambda: self.timedvideo())
         self.duration = QLineEdit()
         
         self.liveButton = QPushButton() 
-        #Button for recording a video for an indefinite period of time
+        #Button for showing a live feed
         self.liveButton.setCheckable(True)
         self.liveButton.setText("Live")
         self.liveButton.clicked.connect(self.live_enabled) 
-        #Making sure only one video/picture is taken at a time
         self.liveButton.clicked.connect(self.live_feed_enable)
         
         self.roi_selectionButton = QPushButton()
@@ -432,46 +448,65 @@ class CameraUI(QWidget):
         camerasettingsLayout  = QGridLayout()
         
         '''
-        adding comboboxes
+        Adding comboboxes for all camera settings. Most are specific for 
+        the hamamatsu orca flash 4 and will not work when used with other 
+        cameras (such as the democam). In the future maybe better to
+        generate these settings based on available micromanager setting instead
+        of hardcoding!
         '''
 
         self.camBox = QComboBox()
+        '''
+        For connecting to a camera! 
+        '''
         self.camBox.setGeometry(QRect(40, 40, 491, 31))
         self.camBox.setObjectName(("Camera"))
         self.camBox.addItem("Hamamatsu")
         self.camBox.addItem("Democam")
-        
-        self.camBox.activated[str].connect(self.set_cam)
-        
+        self.camBox.activated[str].connect(self.set_cam)        
         camerasettingsLayout.addWidget(self.camBox,0,0)
 
         self.disconnectButton = QPushButton()
+        '''
+        Disconnect from the camera using the close_cam function in the backend 
+        '''
         self.disconnectButton.setText("Disconnect")
         self.disconnectButton.clicked.connect(lambda: self.disconnect())
         camerasettingsLayout.addWidget(self.disconnectButton,1,0)
 
         
         self.trigBox = QComboBox()
+        '''
+        Internal is the camera free running mode,
+        external is external triggering mode. I do not know what software means
+        exactly, it might be a start trigger mode (trigger into free running)
+        but I'll have to see
+        '''
         self.trigBox.setGeometry(QRect(40, 40, 491, 31))
         self.trigBox.setObjectName(("Trigger Source"))
         self.trigBox.addItem("INTERNAL")
         self.trigBox.addItem("EXTERNAL")
         self.trigBox.addItem("SOFTWARE")
         self.trigBox.activated[str].connect(self.set_trigger_method)
-        
         camerasettingsLayout.addWidget(self.trigBox,0,1)
 
-        self.trig_activeBox =  QComboBox()     
+        self.trig_activeBox =  QComboBox()            
+        '''
+        This is for selecting what type of triggering method to use.
+        '''
         self.trig_activeBox.setGeometry(QRect(40, 40, 491, 31))
         self.trig_activeBox.setObjectName(("Trigger Active Edge"))
         self.trig_activeBox.addItem("SYNCREADOUT")
         self.trig_activeBox.addItem("EDGE")
         self.trig_activeBox.addItem("LEVEL")   
         self.trig_activeBox.activated[str].connect(self.set_trigger_active)
-        
         camerasettingsLayout.addWidget(self.trig_activeBox,1,1)
 
         self.binBox = QComboBox()
+        '''
+        Binning effectively lowers the resolution while keeping sensitity high.
+        Could be usefull in some scenarios.
+        '''
         self.binBox.setGeometry(QRect(40, 40, 491, 31))
         self.binBox.setObjectName(("Binning"))
         self.binBox.addItem("1x1")
@@ -481,6 +516,10 @@ class CameraUI(QWidget):
         camerasettingsLayout.addWidget(self.binBox,0,2)
 
         self.circBufferSize = QLineEdit()
+        '''
+        Small widget for setting the circular buffer size! Sets size in GB. 
+        Data stream size depends on the ROI size. 
+        '''
         self.dblval = QDoubleValidator()
         self.dblval.setRange(0,80)
         self.dblval.setDecimals(1)
@@ -491,6 +530,9 @@ class CameraUI(QWidget):
         camerasettingsLayout.addWidget(self.circBufferSize,1,2)
 
         self.exposureBox = QGroupBox ("Exposure Time")
+        '''
+        Small widget for setting the exposure time in miliseconds.
+        '''
         self.exposureLayout = QGridLayout()    
         self.exposure_line = QLineEdit(self)
         self.exposure_line.setFixedWidth(60)      
@@ -520,8 +562,12 @@ class CameraUI(QWidget):
         monitorContainer.setMaximumWidth(200)
         
         self.monitor_timer = QTimer()
-           
         self.monitor_timer.timeout.connect(lambda: self.update_monitor())
+        '''
+        I don't start the monitor_timer during initialisation, because this will
+        create an error. I start it when connecting to a camera!
+        '''
+
         #------------------------------Videoscreen-----------------------------
         '''
         Initiating an imageview object for the main videoscreen. Hiding the pre
@@ -531,10 +577,8 @@ class CameraUI(QWidget):
         self.videoWidget = pg.ImageView()
         self.video_item = self.videoWidget.getImageItem()
         self.video_item.setAutoDownsample(True)
-#        self.video_item.inverseDataTransform()
         self.videoWidget.ui.roiBtn.hide()
         self.videoWidget.ui.menuBtn.hide() 
-#        self.videoWidget.ui.histogram.hide() 
         self.videoWidget.ui.normGroup.hide()
         self.videoWidget.ui.roiPlot.hide()
         self.videoWidget.autoLevels()
@@ -547,10 +591,10 @@ class CameraUI(QWidget):
 
         self.update_timer_live = QTimer()
         self.update_timer_live.timeout.connect(lambda: self.update_view())
-        
-        self.video_timer = QTimer()
-        self.video_timer.setSingleShot(True)
-        
+        '''
+        I toggle the live feed on and off by starting/stopping the 
+        update_timer_live!
+        '''
         #--------------------------setting the camera viewer layout------------
         
         cameraimageLayout.addWidget(self.videoWidget)
@@ -768,7 +812,6 @@ class CameraUI(QWidget):
     
     def set_binning(self,binning):
         self.cam.mmc.setProperty(self.cam.name, 'Binning', binning)        
-
     
     def set_circ_buffersize(self,size):
         mbsize = 1000*size
@@ -850,13 +893,7 @@ class CameraUI(QWidget):
 
 
     def open_roi_selection(self):
-        self.roiWindow = CameraROI(self.cam.image,self.cam)
-        
-        '''
-        I set the roiwindow immeadiately to save time, however this funcion also 
-        sets the ROI. This is why I clear the ROI afterwards.
-        '''
-        
+        self.roiWindow = CameraROI(self.cam)        
         self.roiWindow.setGeometry(QRect(100, 100, 600, 600))
         self.roiWindow.show()
 

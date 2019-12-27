@@ -11,7 +11,7 @@ from nidaqmx.constants import AcquisitionType, TaskMode
 from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalMultiChannelWriter
 from nidaqmx.stream_readers import AnalogSingleChannelReader
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
-from generalDaqerThread import execute_analog_readin_optional_digital_thread
+from generalDaqerThread_Copy import execute_analog_readin_optional_digital_thread
 import matplotlib.pyplot as plt
 from PIL import Image
 from trymageAnalysis_v3 import ImageAnalysis
@@ -20,17 +20,23 @@ import os
 
 class Stagescan():
     def __init__(self, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11, value12, value13, value14, findcontour_thres, contour_dilationpara, cell_region_opening, cell_region_closing, saving_dir):
-        # Settings for stage scan
+        
+        # Settings for sample stage movement
         self.ludlStage = LudlStage("COM6")
         self.UI_row_start_stagescan = value1
         self.UI_row_end_stagescan = value2
         self.UI_column_start_stagescan = value3
         self.UI_column_end_stagescan = value4
         self.UI_step_stagescan = value5
+        
+        # Settings for Daq
         self.samplingrate = value6
         self.analogsignals = value7
+#        self.PMT_data_index_array = PMT_data_index_array
         self.digitalsignals = value8
         self.readinchannels = value9
+        
+        # Settings for image analysis and selection
         self.selected_num = value10
         self.smallestsize = value11
         self.opening_factor = value12
@@ -40,6 +46,7 @@ class Stagescan():
         self.contour_dilationpara = contour_dilationpara
         self.cell_region_opening = cell_region_opening
         self.cell_region_closing = cell_region_closing
+        
         self.saving_dir = saving_dir
         
     def start(self):
@@ -77,9 +84,10 @@ class Stagescan():
                 doit.start()
                 data1 = doit.read()
                 
-                Pic_name =str(i)+str(j)
+                Pic_name =str(i)+'_'+str(j)
                 print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                 # Assume that we are using 5v
+                
                 Data_dict_0[Pic_name] = data1[:, 15:515]#data1[:,:Value_yPixels]*-1
                 Localimg = Image.fromarray(Data_dict_0[Pic_name]) #generate an image object
                 Localimg.save(os.path.join(self.saving_dir, str(RepeatNum)+Pic_name+'out_1st.tif')) #save as tif
@@ -130,7 +138,7 @@ class Stagescan():
                 doit.start()
                 data1 = doit.read()
                 
-                Pic_name = str(i)+str(j)
+                Pic_name = str(i)+'_'+str(j)
                 print('Picture index name:'+str(RepeatNum)+'|'+str(i)+'|'+str(j))
                 Data_dict_1[Pic_name] = data1[:, 15:515]#[:,:Value_yPixels]*-1
                 Localimg = Image.fromarray(Data_dict_1[Pic_name]) #generate an image object
@@ -218,7 +226,7 @@ class Stagescan():
             self.ludlStage.moveAbs(merged_index_samples[i,:].tolist()[0],merged_index_samples[i,:].tolist()[1])
             time.sleep(1)
                 
-            Pic_name_trace = str(merged_index_samples[i,:].tolist()[0])+str(merged_index_samples[i,:].tolist()[1])
+            Pic_name_trace = str(merged_index_samples[i,:].tolist()[0])+'_'+str(merged_index_samples[i,:].tolist()[1])
                 
             S = ImageAnalysis(Data_dict_0[Pic_name_trace], Data_dict_1[Pic_name_trace]) #The same as ImageAnalysis(Data_dict_0[Pic_name], Data_dict_1[Pic_name]), call the same image with same dictionary index.
             v1, v2, mask_1, mask_2, thres = S.applyMask(self.opening_factor, self.closing_factor, self.binary_adaptive_block_size)
