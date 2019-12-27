@@ -19,10 +19,11 @@ import os
 from PIL import Image
 import time
 from configuration import Configuration
-#!!!!!!!!!!!Change start() to run() will cause issues to get scaling coffs!!!!!!!!!!!!!!!!!!!!!!!
+
 
 class execute_analog_readin_optional_digital_thread(QThread): # Analog channel from dev1 is necessary, digital lines are optional.
     collected_data = pyqtSignal(np.ndarray)
+    finishSignal = pyqtSignal()
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.configs = Configuration()
@@ -150,6 +151,11 @@ class execute_analog_readin_optional_digital_thread(QThread): # Analog channel f
             self.if_theres_readin_channel = True
         else:
             self.if_theres_readin_channel = False
+            
+        if self.if_theres_readin_channel == True:
+            self.Dataholder = np.zeros((len(self.readinchannels), self.Totalscansamplesnumber))
+        else:
+            self.Dataholder = np.zeros((1, self.Totalscansamplesnumber))
     
     def run(self):
         # Assume that dev1 is always employed
@@ -288,6 +294,7 @@ class execute_analog_readin_optional_digital_thread(QThread): # Analog channel f
             
             if self.if_theres_readin_channel == True:
                 self.collected_data.emit(self.Dataholder)
+            self.finishSignal.emit()
             print('^^^^^^^^^^^^^^^^^^Daq tasks finish^^^^^^^^^^^^^^^^^^')
             
             
@@ -324,6 +331,8 @@ class execute_analog_readin_optional_digital_thread(QThread): # Analog channel f
 #                self.pmtimage.save(os.path.join(directory, 'PMT'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
                 
     def get_PMT_data(self):
+        if 'PMT' in self.readinchannels: 
+            self.data_PMT = self.Dataholder[0,:]*-1
         return self.data_PMT
     
     def get_ai_dev_scaling_coeff(self):
@@ -564,6 +573,16 @@ class execute_analog_and_readin_digital_optional_camtrig_thread(QThread):
         if self.digitalsignalslinenumber > 1:
            self.holder2 = np.sum(self.holder2, axis = 0) # sum along the columns, for multiple lines
            self.holder2 = np.array([self.holder2]) # here convert the shape from (n,) to (1,n)
+           
+        if len(self.readinchannels) != 0:
+            self.if_theres_readin_channel = True
+        else:
+            self.if_theres_readin_channel = False
+            
+        if self.if_theres_readin_channel == True:
+            self.Dataholder = np.zeros((len(self.readinchannels), self.Totalscansamplesnumber))
+        else:
+            self.Dataholder = np.zeros((1, self.Totalscansamplesnumber))
     
     def run(self):
         # Assume that dev1 is always employed
@@ -587,7 +606,22 @@ class execute_analog_and_readin_digital_optional_camtrig_thread(QThread):
             if 'Ip' in self.readinchannels:
                 master_Task_readin.ai_channels.add_ai_current_chan(self.configdictionary['Ip'])
             
+            #get scaling coefficients
+            self.aichannelnames=master_Task_readin.ai_channels.channel_names
 
+            self.ai_dev_scaling_coeff_vp = []
+            self.ai_dev_scaling_coeff_ip = []
+            if "Vp" in self.readinchannels:
+                self.ai_dev_scaling_coeff_vp = nidaqmx._task_modules.channels.ai_channel.AIChannel(master_Task_readin._handle, self.configdictionary['Vp'])#https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019TuoSAE&l=nl-NL
+                #self.ai_dev_scaling_coeff.ai_dev_scaling_coeff
+                self.ai_dev_scaling_coeff_vp = np.array(self.ai_dev_scaling_coeff_vp.ai_dev_scaling_coeff)
+                
+            if "Ip" in self.readinchannels:
+                self.ai_dev_scaling_coeff_ip = nidaqmx._task_modules.channels.ai_channel.AIChannel(master_Task_readin._handle, self.configdictionary['Ip'])#https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019TuoSAE&l=nl-NL
+                #self.ai_dev_scaling_coeff.ai_dev_scaling_coeff
+                self.ai_dev_scaling_coeff_ip = np.array(self.ai_dev_scaling_coeff_ip.ai_dev_scaling_coeff)           
+            
+            self.ai_dev_scaling_coeff_list = np.append(self.ai_dev_scaling_coeff_vp, self.ai_dev_scaling_coeff_ip)
             
             # setting clock
             # All the clock should refer to camera output trigger
@@ -671,18 +705,18 @@ class execute_analog_and_readin_digital_optional_camtrig_thread(QThread):
                 slave_Task_2_digitallines.wait_until_done()                
             master_Task_readin.wait_until_done()
             
-            if 'PMT' in self.readinchannels:
-                Dataholder_average = np.mean(self.Dataholder[0,:].reshape(self.averagenumber, -1), axis=0)
-                
-                self.ScanArrayXnum = int ((self.Totalscansamplesnumber/self.averagenumber)/self.ypixelnumber)
-                self.data_PMT = np.reshape(Dataholder_average, (self.ypixelnumber, self.ScanArrayXnum))
-                
-                self.data_PMT= self.data_PMT*-1
-                '''
-                plt.figure()
-                plt.imshow(self.data_PMT, cmap = plt.cm.gray)
-                plt.show()
-                '''
+#            if 'PMT' in self.readinchannels:
+#                Dataholder_average = np.mean(self.Dataholder[0,:].reshape(self.averagenumber, -1), axis=0)
+#                
+#                self.ScanArrayXnum = int ((self.Totalscansamplesnumber/self.averagenumber)/self.ypixelnumber)
+#                self.data_PMT = np.reshape(Dataholder_average, (self.ypixelnumber, self.ScanArrayXnum))
+#                
+#                self.data_PMT= self.data_PMT*-1
+#                '''
+#                plt.figure()
+#                plt.imshow(self.data_PMT, cmap = plt.cm.gray)
+#                plt.show()
+#                '''
             slave_Task_1_analog_dev1.stop()
             if self.analogsignal_dev2_number != 0:
                 slave_Task_1_analog_dev2.stop()
@@ -690,25 +724,10 @@ class execute_analog_and_readin_digital_optional_camtrig_thread(QThread):
                 slave_Task_2_digitallines.stop()
             master_Task_readin.stop()
             
-            self.collected_data.emit(self.Dataholder)
+            if self.if_theres_readin_channel == True:
+                self.collected_data.emit(self.Dataholder)
             print('^^^^^^^^^^^^^^^^^^Daq tasks finish^^^^^^^^^^^^^^^^^^')
             
-            #get scaling coefficients
-            self.aichannelnames=master_Task_readin.ai_channels.channel_names
-
-            self.ai_dev_scaling_coeff_vp = []
-            self.ai_dev_scaling_coeff_ip = []
-            if "Vp" in self.readinchannels:
-                self.ai_dev_scaling_coeff_vp = nidaqmx._task_modules.channels.ai_channel.AIChannel(master_Task_readin._handle, self.configdictionary['Vp'])#https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019TuoSAE&l=nl-NL
-                #self.ai_dev_scaling_coeff.ai_dev_scaling_coeff
-                self.ai_dev_scaling_coeff_vp = np.array(self.ai_dev_scaling_coeff_vp.ai_dev_scaling_coeff)
-                
-            if "Ip" in self.readinchannels:
-                self.ai_dev_scaling_coeff_ip = nidaqmx._task_modules.channels.ai_channel.AIChannel(master_Task_readin._handle, self.configdictionary['Ip'])#https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019TuoSAE&l=nl-NL
-                #self.ai_dev_scaling_coeff.ai_dev_scaling_coeff
-                self.ai_dev_scaling_coeff_ip = np.array(self.ai_dev_scaling_coeff_ip.ai_dev_scaling_coeff)           
-            
-            self.ai_dev_scaling_coeff_list = np.append(self.ai_dev_scaling_coeff_vp, self.ai_dev_scaling_coeff_ip)
             
         # set the keys of galvos back for next round
         for i in range(len(self.analogsignals['Sepcification'])):
@@ -719,25 +738,26 @@ class execute_analog_and_readin_digital_optional_camtrig_thread(QThread):
                
     def save_as_binary(self, directory):
         #print(self.ai_dev_scaling_coeff_vp)
-        if 'Vp' in self.readinchannels:
-            
-            if 'PMT' not in self.readinchannels:
-                self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[0,:]))
-                np.save(os.path.join(directory, 'Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_vp_data)
-               
-                if 'Ip' in self.readinchannels:
-                    self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[1,:]))
-                    np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data)                    
-            else:
-                self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[1,:]))
-                np.save(os.path.join(directory, 'Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_vp_data)
+        if self.if_theres_readin_channel == True:
+            if 'Vp' in self.readinchannels:
                 
-                if 'Ip' in self.readinchannels:
-                    self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[2,:]))
-                    np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data) 
-        if 'PMT' in self.readinchannels:     
-                self.pmtimage = Image.fromarray(self.data_PMT) #generate an image object
-                self.pmtimage.save(os.path.join(directory, 'PMT'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
+                if 'PMT' not in self.readinchannels:
+                    self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[0,:]))
+                    np.save(os.path.join(directory, 'Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_vp_data)
+                   
+                    if 'Ip' in self.readinchannels:
+                        self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[1,:]))
+                        np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data)                    
+                else:
+                    self.binaryfile_vp_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_vp), self.Dataholder[1,:]))
+                    np.save(os.path.join(directory, 'Vp'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_vp_data)
+                    
+                    if 'Ip' in self.readinchannels:
+                        self.binaryfile_Ip_data = np.concatenate((np.array([self.Daq_sample_rate]), np.array(self.ai_dev_scaling_coeff_ip), self.Dataholder[2,:]))
+                        np.save(os.path.join(directory, 'Ip'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), self.binaryfile_Ip_data) 
+            if 'PMT' in self.readinchannels:     
+                    self.pmtimage = Image.fromarray(self.data_PMT) #generate an image object
+                    self.pmtimage.save(os.path.join(directory, 'PMT'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.tif')) #save as tif
                 
     def read(self):
         return self.data_PMT
