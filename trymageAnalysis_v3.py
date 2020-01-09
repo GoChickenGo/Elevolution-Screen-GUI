@@ -221,7 +221,7 @@ class ImageAnalysis():
                 dirforcellprp[loopmun] = (self.row_num, self.column_num, filled_mean_bef, contour_mean_bef, regioncircularity, contour_soma_ratio, contour_change_ratio)
                 
                 loopmun = loopmun+1
-            
+        print(loopmun)
         cell_properties = np.zeros(len(region_mean_intensity_list), dtype = dtype)
         for p in range(loopmun):
             cell_properties[p] = dirforcellprp[p]
@@ -338,7 +338,7 @@ class ImageAnalysis():
                 x2 = cell_properties['Mean intensity in contour'][loopmun1]
                 x3 = cell_properties['Circularity'][loopmun1]                
                 #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
-                self.ax_showlabel.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',  '+str(round(x2, 3))+',  '+str(round(x3, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
+                self.ax_showlabel.text((maxc + minc)/2, (maxr + minr)/2, str(round(x1, 3))+',  '+str(round(x2, 3)),fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
                 
                 loopmun1 = loopmun1+1
         #plt.show()       
@@ -373,28 +373,74 @@ class ImageAnalysis():
             # skip small images
             if region.area > smallest_size:         
                 # draw rectangle around segmented coins
-                minr, minc, maxr, maxc = region.bbox
-                rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
-                ax.add_patch(rect)
+
                 #filledimg = region.filled_image
                 x2 = cell_properties['Mean intensity in contour'][loopmun1]
                 x3 = cell_properties['Ranking'][loopmun1]
                 if x3 < num_hits:
+                    minr, minc, maxr, maxc = region.bbox
+                    rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
+                    ax.add_patch(rect)                    
                     #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
                     ax.text((maxc + minc)/2, (maxr + minr)/2, str(round(x2, 3))+ ',  '+str(x3), fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
                     
                     
                     #ax.plot(contours[:, 1], contours[:, 0], linewidth=2)
                 loopmun1 = loopmun1+1
-                
+        print(loopmun1)       
         ax.set_axis_off()
         #plt.tight_layout()
         plt.show()
         
-    def sort_using_weight(self, cell_properties, property_1, property_2, weight_1, weight_2):
+    def showlabel_with_rank_givenAx(self, smallest_size, theMask, original_intensity, cpstart, cpend, cell_properties, thekey_attri, num_hits, ax):
+        self.Labelmask = theMask
+        self.OriginImag = original_intensity
+        self.cp_start = cpstart
+        self.cp_end = cpend
+        #self.threshold = threshold
+        self.thekey_attri= thekey_attri
+        
+        #cell_properties = cell_properties[:num_hits]
+        cell_properties = cell_properties[self.cp_start:self.cp_end+1] # trace back to i,j corresponding locations in cell properties list.
+        cleared = self.Labelmask.copy()
+        clear_border(cleared)
+                # label image regions
+        label_image = label(cleared)
+        #image_label_overlay = label2rgb(label_image, image=image)
+        
+        
+#        fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
+        ax.imshow(label_image)
+        
+        loopmun1 = 0
+        for region in regionprops(label_image,intensity_image=self.OriginImag):
+            # skip small images
+            if region.area > smallest_size:         
+                # draw rectangle around segmented coins
+
+                #filledimg = region.filled_image
+                x2 = cell_properties['Mean intensity in contour'][loopmun1]
+                x3 = cell_properties['Ranking'][loopmun1]
+                if x3 < num_hits:
+                    minr, minc, maxr, maxc = region.bbox
+                    rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
+                    ax.add_patch(rect)                    
+                    #circularity = (4 * math.pi * region.filled_area) / (filledperimeter * filledperimeter) # region.perimeter will count in perimeters from the holes inside
+                    ax.text((maxc + minc)/2, (maxr + minr)/2, str(round(x2, 3))+ ',  '+str(x3), fontsize=8, color='yellow', style='italic')#,bbox={'facecolor':'red', 'alpha':0.3, 'pad':8})
+                    
+                    
+                    #ax.plot(contours[:, 1], contours[:, 0], linewidth=2)
+                loopmun1 = loopmun1+1
+        print(loopmun1)       
+        ax.set_axis_off()
+        #plt.tight_layout()
+#        plt.show()
+        
+    def sort_using_weight(self, cell_properties, property_1, property_2, property_3, weight_1, weight_2, weight_3):
         
         max_p1 = np.amax(cell_properties[property_1])
         max_p2 = np.amax(cell_properties[property_2])
+        max_p3 = np.amax(cell_properties[property_3])
         
         #cell_properties = np.flip(np.sort(cell_properties, order=property_1), 0)
         cell_properties = rfn.append_fields(cell_properties, 'Nomalization according to '+property_1, cell_properties[property_1]/max_p1, usemask=False)
@@ -402,7 +448,9 @@ class ImageAnalysis():
         #cell_properties = np.flip(np.sort(cell_properties, order=property_2), 0)
         cell_properties = rfn.append_fields(cell_properties, 'Nomalization according to '+property_2, cell_properties[property_2]/max_p2, usemask=False)
         
-        weights = cell_properties['Nomalization according to '+property_1]*weight_1 + cell_properties['Nomalization according to '+property_2]*weight_2
+        cell_properties = rfn.append_fields(cell_properties, 'Nomalization according to '+property_3, cell_properties[property_3]/max_p3, usemask=False)
+        
+        weights = cell_properties['Nomalization according to '+property_1]*weight_1 + cell_properties['Nomalization according to '+property_2]*weight_2 + cell_properties['Nomalization according to '+property_3]*weight_3
         
         cell_properties = rfn.append_fields(cell_properties, 'evalution', weights, usemask=False)
         

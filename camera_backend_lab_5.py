@@ -142,6 +142,9 @@ class Camera(QThread):
         exposure_time = exptime #unchanged for miliseconds
         self.mmc.setExposure(exposure_time)
         
+    def get_exposure_time(self):
+        return(self.mmc.getExposure())     
+        
     def imsize(self):
         '''
         returns the image size in bytes, handy for calculating the required 

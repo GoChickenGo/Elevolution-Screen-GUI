@@ -18,14 +18,12 @@ import pyqtgraph as pg
 from IPython import get_ipython
 import sys
 import numpy as np
-import csv
 from code_5nov import generate_AO
 from pmt_thread import pmtimagingTest, pmtimagingTest_contour
-from Stagemovement_Thread import StagemovementThread
+#from Stagemovement_Thread import StagemovementThread
 from Filtermovement_Thread import FiltermovementThread
 from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
-import wavegenerator
 from generalDaqer import execute_analog_readin_optional_digital, execute_digital
 from generalDaqerThread import (execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog,
                                 execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar)
@@ -34,20 +32,20 @@ from adfunctiongenerator import (generate_AO_for640, generate_AO_for488, generat
                                  generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking,
                                  generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter, generate_ramp)
 from pyqtgraph import PlotDataItem, TextItem
-from matlabAnalysis import readbinaryfile, extractV
 import os
+import copy
 import scipy.signal as sg
 from scipy import interpolate
 import time
 from datetime import datetime
-from skimage.io import imread
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from constants import HardwareConstants
 import Waveformer_for_screening
-from EvolutionScanningThread import ScanningExecutionThread # This is the thread file for execution.
+from EvolutionScanningThread import ScanningExecutionThread, ShowTopCellsThread # This is the thread file for execution.
+import FocusCalibrater
 
 class Mainbody(QWidget):
     
@@ -58,7 +56,7 @@ class Mainbody(QWidget):
         os.chdir('./')# Set directory to current folder.
         self.setFont(QFont("Arial"))
         
-        self.setMinimumSize(1000,1200)
+        self.setMinimumSize(1080,1920)
         self.setWindowTitle("McDonnell")
         self.layout = QGridLayout(self)
         
@@ -67,6 +65,9 @@ class Mainbody(QWidget):
         self.RoundCoordsDict = {}
         self.WaveformQueueDict_GalvoInfor = {}
         self.GeneralSettingDict = {}
+        self.FocusCorrectionMatrixDict = {}
+        self.popnexttopimgcounter = 0
+
         
         self.savedirectory = './'
         #**************************************************************************************************************************************
@@ -77,14 +78,16 @@ class Mainbody(QWidget):
         
         self.saving_prefix = ''
         self.savedirectorytextbox = QtWidgets.QLineEdit(self)
+        self.savedirectorytextbox.setFixedWidth(300)
         GeneralSettingContainerLayout.addWidget(self.savedirectorytextbox, 0, 1)
         
         self.prefixtextbox = QtWidgets.QLineEdit(self)
         self.prefixtextbox.setPlaceholderText('Prefix')
+        self.prefixtextbox.setFixedWidth(80)
         GeneralSettingContainerLayout.addWidget(self.prefixtextbox, 0, 2)
         
         self.toolButtonOpenDialog = QtWidgets.QPushButton('Saving directory')
-        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:teal;background-color: pink; border-style: outset;border-radius: 3px;border-width: 2px;font: bold 14px;padding: 1px}"
+        self.toolButtonOpenDialog.setStyleSheet("QPushButton {color:white;background-color: pink; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                                 "QPushButton:pressed {color:yellow;background-color: pink; border-style: outset;border-radius: 3px;border-width: 2px;font: bold 14px;padding: 1px}")
 
         self.toolButtonOpenDialog.setObjectName("toolButtonOpenDialog")
@@ -92,46 +95,188 @@ class Mainbody(QWidget):
         
         GeneralSettingContainerLayout.addWidget(self.toolButtonOpenDialog, 0, 0)
         
-        ButtonExePipeline = QPushButton('Execute', self)
-        ButtonExePipeline.setStyleSheet("QPushButton {color:white;background-color: teal; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+        ButtonConfigurePipeline = QPushButton('Configure', self)
+        ButtonConfigurePipeline.setStyleSheet("QPushButton {color:white;background-color: rgb(184,184,243); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                         "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
-        ButtonExePipeline.clicked.connect(self.ConfigGeneralSettings)        
+        ButtonConfigurePipeline.clicked.connect(self.ConfigGeneralSettings)
+#        ButtonConfigurePipeline.clicked.connect(self.GenerateFocusCorrectionMatrix)
+        
+        ButtonExePipeline = QPushButton('Execute', self)
+        ButtonExePipeline.setStyleSheet("QPushButton {color:white;background-color: rgb(184,184,243); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                        "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+#        ButtonExePipeline.clicked.connect(self.ConfigGeneralSettings)      
         ButtonExePipeline.clicked.connect(self.ExecutePipeline)
         
-        GeneralSettingContainerLayout.addWidget(ButtonExePipeline, 0, 3)
+        ButtonSavePipeline = QPushButton('Save pipeline', self)
+        ButtonSavePipeline.setStyleSheet("QPushButton {color:white;background-color: rgb(82,153,211); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                        "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        ButtonSavePipeline.clicked.connect(self.Savepipeline)
+        
+        # Pipeline import
+        self.LoadPipelineAddressbox = QLineEdit(self)    
+        self.LoadPipelineAddressbox.setFixedWidth(300)
+        GeneralSettingContainerLayout.addWidget(self.LoadPipelineAddressbox, 1, 1)
+        
+        self.BrowsePipelineButton = QPushButton('Browse pipeline', self)
+        self.BrowsePipelineButton.setStyleSheet("QPushButton {color:white;background-color:rgb(143,191,224); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+        
+        GeneralSettingContainerLayout.addWidget(self.BrowsePipelineButton, 1, 0) 
+        
+        self.BrowsePipelineButton.clicked.connect(self.GetPipelineNPFile)
+        
+        self.ImportPipelineButton = QPushButton('Load', self)
+        self.ImportPipelineButton.setStyleSheet("QPushButton {color:white;background-color: rgb(191,216,189); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                                "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+
+        GeneralSettingContainerLayout.addWidget(self.ImportPipelineButton, 1, 3)
+        self.ImportPipelineButton.clicked.connect(self.LoadPipelineFile)
+        
+        GeneralSettingContainerLayout.addWidget(ButtonConfigurePipeline, 0, 3)        
+        GeneralSettingContainerLayout.addWidget(ButtonExePipeline, 0, 4)
+        GeneralSettingContainerLayout.addWidget(ButtonSavePipeline, 0, 5)    
         GeneralSettingContainer.setLayout(GeneralSettingContainerLayout)
         
+        #**************************************************************************************************************************************
+        #-----------------------------------------------------------GUI for Focus correction---------------------------------------------------
+        #**************************************************************************************************************************************
+        FocusCorrectionContainer = QGroupBox("Focus correction")
+        FocusCorrectionContainerLayout = QGridLayout()
+        
+        self.ApplyFocusSetCheckbox = QCheckBox("Apply focus set")
+        self.ApplyFocusSetCheckbox.setStyleSheet('color:blue;font:bold "Times New Roman"')
+        FocusCorrectionContainerLayout.addWidget(self.ApplyFocusSetCheckbox, 0, 0, 1, 1)
+        
+        self.FocusInterStrategy = QComboBox()
+        self.FocusInterStrategy.addItems(['Interpolation', 'Duplicate'])
+        FocusCorrectionContainerLayout.addWidget(self.FocusInterStrategy, 0, 1)
+        
+        FocusCorrectionContainerLayout.addWidget(QLabel("Focus offset:"), 0, 2)
+        self.FocusCorrectionOffsetBox = QDoubleSpinBox(self)
+        self.FocusCorrectionOffsetBox.setDecimals(4)
+        self.FocusCorrectionOffsetBox.setMinimum(-10)
+        self.FocusCorrectionOffsetBox.setMaximum(10)
+        self.FocusCorrectionOffsetBox.setValue(0.000)
+        self.FocusCorrectionOffsetBox.setSingleStep(0.0001)  
+        FocusCorrectionContainerLayout.addWidget(self.FocusCorrectionOffsetBox, 0, 3)
+        
+        self.FocusCalibraterInstance = FocusCalibrater.FocusMatrixFeeder()
+        self.FocusCalibraterInstance.FocusCorrectionFomula.connect(self.CaptureFocusCorrectionMatrix)
+        self.FocusCalibraterInstance.FocusCorrectionForDuplicateMethod.connect(self.CaptureFocusDuplicateMethodMatrix)
+        FocusCorrectionContainerLayout.addWidget(self.FocusCalibraterInstance, 1, 0, 1, 4)
+        
+        FocusCorrectionContainer.setMinimumWidth(475)
+        FocusCorrectionContainer.setLayout(FocusCorrectionContainerLayout)
+
+        #**************************************************************************************************************************************
+        #-----------------------------------------------------------GUI for Billboard display------------------------------------------------------
+        #**************************************************************************************************************************************
+        ImageDisplayContainer = QGroupBox("Billboard")
+        ImageDisplayContainerLayout = QGridLayout()        
+        # a figure instance to plot on
+        self.MatdisplayFigureTopGuys = Figure()
+        self.MatdisplayCanvasTopGuys = FigureCanvas(self.MatdisplayFigureTopGuys)
+
+        ImageDisplayContainerLayout.addWidget(self.MatdisplayCanvasTopGuys, 0, 1, 5, 5)
+        
+        self.TopCoordsLabel = QLabel("Row:      Col:      ")
+        ImageDisplayContainerLayout.addWidget(self.TopCoordsLabel, 0, 6)
+        
+        self.TopGeneralInforLabel = QLabel("  ")
+        ImageDisplayContainerLayout.addWidget(self.TopGeneralInforLabel, 1, 6)        
+        
+        ButtonRankPreviousCoordImg = QPushButton('Previous', self)
+        ButtonRankPreviousCoordImg.setStyleSheet("QPushButton {color:white;background-color: rgb(191,216,189); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+
+        ButtonRankPreviousCoordImg.clicked.connect(lambda: self.PopNextTopCells('previous'))
+        ImageDisplayContainerLayout.addWidget(ButtonRankPreviousCoordImg, 0, 7)
+        
+        ButtonRankNextCoordImg = QPushButton('Next', self)
+        ButtonRankNextCoordImg.setStyleSheet("QPushButton {color:white;background-color: teal; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
+
+        ButtonRankNextCoordImg.clicked.connect(lambda: self.PopNextTopCells('next'))
+        ImageDisplayContainerLayout.addWidget(ButtonRankNextCoordImg, 1, 7)
+        
+        ImageDisplayContainer.setLayout(ImageDisplayContainerLayout)
+        ImageDisplayContainer.setMinimumHeight(400)
+        ImageDisplayContainer.setMinimumWidth(600)
+        #**************************************************************************************************************************************
+        #-----------------------------------------------------------GUI for Selection settings Container---------------------------------------
+        #**************************************************************************************************************************************
+        SelectionsettingContainer = QGroupBox("Selection settings")
+        SelectionsettingLayout = QGridLayout()
+        
+        self.selec_num_box = QSpinBox(self)
+        self.selec_num_box.setMaximum(2000)
+        self.selec_num_box.setValue(10)
+        self.selec_num_box.setSingleStep(1)
+        SelectionsettingLayout.addWidget(self.selec_num_box, 0, 1)
+        SelectionsettingLayout.addWidget(QLabel("Winners number:"), 0, 0)
+        
+        self.ComBoxSelectionFactor_1 = QComboBox()
+        self.ComBoxSelectionFactor_1.addItems(['Mean intensity in contour weight','Contour soma ratio weight','Change weight'])
+        SelectionsettingLayout.addWidget(self.ComBoxSelectionFactor_1, 0, 2)
+        
+        self.WeightBoxSelectionFactor_1 = QDoubleSpinBox(self)
+        self.WeightBoxSelectionFactor_1.setDecimals(4)
+        self.WeightBoxSelectionFactor_1.setMinimum(0)
+        self.WeightBoxSelectionFactor_1.setMaximum(1)
+        self.WeightBoxSelectionFactor_1.setValue(0.5)
+        self.WeightBoxSelectionFactor_1.setSingleStep(0.1)  
+        SelectionsettingLayout.addWidget(self.WeightBoxSelectionFactor_1, 0, 3)
+        
+        self.ComBoxSelectionFactor_2 = QComboBox()
+        self.ComBoxSelectionFactor_2.addItems(['Contour soma ratio weight', 'Mean intensity in contour weight','Change weight'])
+        SelectionsettingLayout.addWidget(self.ComBoxSelectionFactor_2, 0, 4)
+        
+        self.WeightBoxSelectionFactor_2 = QDoubleSpinBox(self)
+        self.WeightBoxSelectionFactor_2.setDecimals(4)
+        self.WeightBoxSelectionFactor_2.setMinimum(0)
+        self.WeightBoxSelectionFactor_2.setMaximum(1)
+        self.WeightBoxSelectionFactor_2.setValue(0.5)
+        self.WeightBoxSelectionFactor_2.setSingleStep(0.1)  
+        SelectionsettingLayout.addWidget(self.WeightBoxSelectionFactor_2, 0, 5)
+        
+        self.ComBoxSelectionFactor_3 = QComboBox()
+        self.ComBoxSelectionFactor_3.addItems(['Change weight', 'Mean intensity in contour weight','Contour soma ratio weight'])
+        SelectionsettingLayout.addWidget(self.ComBoxSelectionFactor_3, 0, 6)
+        
+        self.WeightBoxSelectionFactor_3 = QDoubleSpinBox(self)
+        self.WeightBoxSelectionFactor_3.setDecimals(4)
+        self.WeightBoxSelectionFactor_3.setMinimum(0)
+        self.WeightBoxSelectionFactor_3.setMaximum(1)
+        self.WeightBoxSelectionFactor_3.setValue(0.0)
+        self.WeightBoxSelectionFactor_3.setSingleStep(0.1)  
+        SelectionsettingLayout.addWidget(self.WeightBoxSelectionFactor_3, 0, 7)
+        
+        SelectionsettingContainer.setLayout(SelectionsettingLayout)
+
         #**************************************************************************************************************************************
         #-----------------------------------------------------------GUI for PiplineContainer---------------------------------------------------
         #**************************************************************************************************************************************
         ImageProcessingContainer = QGroupBox("Image processing settings")
         IPLayout = QGridLayout()
         
-        self.selec_num_box = QSpinBox(self)
-        self.selec_num_box.setMaximum(2000)
-        self.selec_num_box.setValue(10)
-        self.selec_num_box.setSingleStep(1)
-        IPLayout.addWidget(self.selec_num_box, 0, 1)
-        IPLayout.addWidget(QLabel("Winners number:"), 0, 0)
-        
         self.IPsizetextbox = QComboBox()
         self.IPsizetextbox.addItems(['200','100'])
-        IPLayout.addWidget(self.IPsizetextbox, 0, 3)
-        IPLayout.addWidget(QLabel("Smallest size:"), 0, 2)
+        IPLayout.addWidget(self.IPsizetextbox, 1, 7)
+        IPLayout.addWidget(QLabel("Smallest size:"), 1, 6)
         
         self.opening_factorBox = QSpinBox(self)
         self.opening_factorBox.setMaximum(2000)
         self.opening_factorBox.setValue(2)
         self.opening_factorBox.setSingleStep(1)
-        IPLayout.addWidget(self.opening_factorBox, 0, 5)
-        IPLayout.addWidget(QLabel("Mask opening factor:"), 0, 4)
+        IPLayout.addWidget(self.opening_factorBox, 2, 5)
+        IPLayout.addWidget(QLabel("Mask opening factor:"), 2, 4)
         
         self.closing_factorBox = QSpinBox(self)
         self.closing_factorBox.setMaximum(2000)
         self.closing_factorBox.setValue(2)
         self.closing_factorBox.setSingleStep(1)
-        IPLayout.addWidget(self.closing_factorBox, 0, 7)
-        IPLayout.addWidget(QLabel("Mask closing factor:"), 0, 6)   
+        IPLayout.addWidget(self.closing_factorBox, 2, 7)
+        IPLayout.addWidget(QLabel("Mask closing factor:"), 2, 6)   
         
         self.binary_adaptive_block_sizeBox = QSpinBox(self)
         self.binary_adaptive_block_sizeBox.setMaximum(2000)
@@ -322,9 +467,12 @@ class Mainbody(QWidget):
         
         PipelineContainer.setLayout(PipelineContainerLayout)
         
-        self.layout.addWidget(GeneralSettingContainer, 1, 0)
-        self.layout.addWidget(ImageProcessingContainer, 2, 0)
-        self.layout.addWidget(PipelineContainer, 3, 0)
+        self.layout.addWidget(GeneralSettingContainer, 1, 0, 1, 2)
+        self.layout.addWidget(FocusCorrectionContainer, 2, 0)
+        self.layout.addWidget(ImageDisplayContainer, 2, 1)
+        self.layout.addWidget(SelectionsettingContainer, 3, 0, 1, 2)
+        self.layout.addWidget(ImageProcessingContainer, 4, 0, 1, 2)
+        self.layout.addWidget(PipelineContainer, 5, 0, 1, 2)
         self.setLayout(self.layout)
         
         #------------------------------------------------------------Waveform package functions--------------------------------------------------------------------------        
@@ -338,7 +486,7 @@ class Mainbody(QWidget):
         self.WaveformQueueDict['WavformPackage_{}'.format(CurrentWaveformPackageSequence)] = self.FreshWaveformPackage
         
         self.WaveformQueueDict_GalvoInfor['GalvoInfor_{}'.format(CurrentWaveformPackageSequence)] = self.FreshWaveformGalvoInfor
-        
+        print('Waveform added.')
     def DeleteFreshWaveform(self): # Empty the waveform container to avoid crosstalk between rounds.
         CurrentWaveformPackageSequence = self.WaveformOrderBox.value()
         del self.WaveformQueueDict['WavformPackage_{}'.format(CurrentWaveformPackageSequence)]
@@ -352,10 +500,13 @@ class Mainbody(QWidget):
     #--------------------------------------------------------------Round package functions------------------------------------------------------------------------        
     def AddFreshRound(self):
         CurrentRoundSequence = self.RoundOrderBox.value()
-        self.RoundQueueDict['RoundPackage_{}'.format(CurrentRoundSequence)] = self.WaveformQueueDict
-        self.RoundQueueDict['GalvoInforPackage_{}'.format(CurrentRoundSequence)] = self.WaveformQueueDict_GalvoInfor
-             
-        print(self.RoundQueueDict.keys())
+        
+        WaveformQueueDict = copy.deepcopy(self.WaveformQueueDict) # Here we make the self.WaveformQueueDict private so that other rounds won't refer to the same variable.
+        WaveformQueueDict_GalvoInfor = copy.deepcopy(self.WaveformQueueDict_GalvoInfor)
+        self.RoundQueueDict['RoundPackage_{}'.format(CurrentRoundSequence)] = WaveformQueueDict
+        self.RoundQueueDict['GalvoInforPackage_{}'.format(CurrentRoundSequence)] = WaveformQueueDict_GalvoInfor
+        
+        print('Round added.')
         
     def GenerateScanCoords(self):
         self.CoordContainer = np.array([])
@@ -387,14 +538,39 @@ class Mainbody(QWidget):
         CurrentRoundSequence = self.RoundOrderBox.value()
         del self.RoundQueueDict['RoundPackage_{}'.format(CurrentRoundSequence)]
         del self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRoundSequence)]
-        print(self.RoundQueueDict.keys())        
+        del self.RoundQueueDict['GalvoInforPackage_{}'.format(CurrentRoundSequence)]
+        print(self.RoundQueueDict.keys())    
     
     def ClearRoundQueue(self):
+        self.WaveformQueueDict = {}
         self.RoundQueueDict = {}
         self.RoundCoordsDict = {}
+        self.WaveformQueueDict_GalvoInfor = {}
+        self.GeneralSettingDict = {}
     #--------------------------------------------------------------Selection functions------------------------------------------------------------------------         
     def ConfigGeneralSettings(self):
         selectnum = int(self.selec_num_box.value())
+        if self.ComBoxSelectionFactor_1.currentText() == 'Mean intensity in contour weight':
+            MeanIntensityContourWeight = self.WeightBoxSelectionFactor_1.value()
+        elif self.ComBoxSelectionFactor_1.currentText() == 'Contour soma ratio weight':
+            ContourSomaRatioWeight = self.WeightBoxSelectionFactor_1.value()
+        elif self.ComBoxSelectionFactor_1.currentText() == 'Change weight':
+            ChangeWeight = self.WeightBoxSelectionFactor_1.value()
+            
+        if self.ComBoxSelectionFactor_2.currentText() == 'Mean intensity in contour weight':
+            MeanIntensityContourWeight = self.WeightBoxSelectionFactor_2.value()
+        elif self.ComBoxSelectionFactor_2.currentText() == 'Contour soma ratio weight':
+            ContourSomaRatioWeight = self.WeightBoxSelectionFactor_2.value()
+        elif self.ComBoxSelectionFactor_2.currentText() == 'Change weight':
+            ChangeWeight = self.WeightBoxSelectionFactor_2.value()
+            
+        if self.ComBoxSelectionFactor_3.currentText() == 'Mean intensity in contour weight':
+            MeanIntensityContourWeight = self.WeightBoxSelectionFactor_3.value()
+        elif self.ComBoxSelectionFactor_3.currentText() == 'Contour soma ratio weight':
+            ContourSomaRatioWeight = self.WeightBoxSelectionFactor_3.value()
+        elif self.ComBoxSelectionFactor_3.currentText() == 'Change weight':
+            ChangeWeight = self.WeightBoxSelectionFactor_3.value()
+        
         BefRoundNum = int(self.BefKCLRoundNumBox.value())        
         AftRoundNum = int(self.AftKCLRoundNumBox.value())        
         smallestsize = int(self.IPsizetextbox.currentText())            
@@ -407,11 +583,109 @@ class Mainbody(QWidget):
         contour_dilation = int(self.contour_dilation_box.value())
         savedirectory = self.savedirectory
         
-        generalnamelist = ['selectnum', 'BefRoundNum', 'AftRoundNum', 'smallestsize', 'openingfactor', 'closingfactor', 'cellopeningfactor', 
-                           'cellclosingfactor', 'binary_adaptive_block_size', 'self_findcontour_thres', 'contour_dilation', 'savedirectory']
+        #--------------------------------------------------------Generate the focus correction matrix-----------------------------------------------------------
+        if self.ApplyFocusSetCheckbox.isChecked():
+            if self.FocusInterStrategy.currentText() == 'Interpolation':
+            
+                for CurrentRound in range(len(self.RoundCoordsDict)):
+                    
+                    if len(self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]) > 2: # If it's more than 1 pos.
+                        #---------------numpy.meshgrid method------------------------
+                        OriginalCoordsPackage = self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]
+                        
+                        step = OriginalCoordsPackage[3] - OriginalCoordsPackage[1]
+                        
+                        OriginalCoordsOdd_Row = OriginalCoordsPackage[::2]
+                        OriginalCoordsEven_Col = OriginalCoordsPackage[1::2]
+                        
+                        row_start = np.amin(OriginalCoordsOdd_Row)
+                        row_end = np.amax(OriginalCoordsOdd_Row)
+                        
+                        column_start = np.amin(OriginalCoordsEven_Col)
+                        column_end = np.amax(OriginalCoordsEven_Col)     
+                        
+                        linspace_num = int((row_end-row_start)/step)+1
+                        X = np.linspace(row_start,row_end,linspace_num)
+                        Y = np.linspace(column_start,column_end,linspace_num)
+        #                ExeColumnIndex, ExeRowIndex = np.meshgrid(X,Y)
+        #                
+        #                self.ExeColumnIndexMeshgrid = ExeColumnIndex.astype(int)
+        #                self.ExeRowIndexMeshgrid = ExeRowIndex.astype(int)
+                        
+                        self.FocusCorrectionMatrix = self.CorrectionFomula(X, Y)
+                        
+                        self.FocusCorrectionMatrix = self.FocusCorrectionMatrix.flatten()
+                        print(self.FocusCorrectionMatrix)
+                        
+                        FocusCorrectionMatrix = copy.deepcopy(self.FocusCorrectionMatrix)
+                        FocusCorrectionMatrix += self.FocusCorrectionOffsetBox.value()
+                        self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrix
+    
+                    else:
+                        self.FocusCorrectionMatrix = self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]
+                        FocusCorrectionMatrix = copy.deepcopy(self.FocusCorrectionMatrix)
+                        
+                        FocusCorrectionMatrix += self.FocusCorrectionOffsetBox.value()
+                        
+                        self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrix
+                        
+                        
+            elif self.FocusInterStrategy.currentText() == 'Duplicate':
+                RawDuplicateRow = self.FocusDuplicateMethodInfor[0,:] # The row index from calibration step
+                RawDuplicateCol = self.FocusDuplicateMethodInfor[1,:]
+                RawDuplicateFocus = self.FocusDuplicateMethodInfor[2,:]
+                sparsestep = RawDuplicateCol[1] - RawDuplicateCol[0]
+                print('sparse step {}'.format(sparsestep))
+                for CurrentRound in range(len(self.RoundCoordsDict)):
+                    
+                    if len(self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]) > 2: # If it's more than 1 pos.
+                        #---------------numpy.meshgrid method------------------------
+                        OriginalCoordsPackage = self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]
+                        
+                        Originalstep = OriginalCoordsPackage[3] - OriginalCoordsPackage[1]
+                        
+                        OriginalCoordsOdd_Row = OriginalCoordsPackage[::2]
+                        OriginalCoordsEven_Col = OriginalCoordsPackage[1::2]
+                        
+                        row_start = np.amin(OriginalCoordsOdd_Row)
+                        row_end = np.amax(OriginalCoordsOdd_Row)
+                        
+                        column_start = np.amin(OriginalCoordsEven_Col)
+                        column_end = np.amax(OriginalCoordsEven_Col)     
+                        
+                        linspace_num = int((row_end-row_start)/Originalstep)+1
+                        X = np.linspace(row_start,row_end,linspace_num)
+                        Y = np.linspace(column_start,column_end,linspace_num)
+                        
+                        FocusCorrectionMatrixContainer, ExeRowIndex = np.meshgrid(X,Y)
+ 
+                        c = int(sparsestep/Originalstep)
+                        print(RawDuplicateFocus)    
+                        print(FocusCorrectionMatrixContainer)
+                        for i in range(len(RawDuplicateRow)):
+                            row = int(RawDuplicateRow[i]/sparsestep)
+                            col = int(RawDuplicateCol[i]/sparsestep)
+
+                            try:    
+                                FocusCorrectionMatrixContainer[row*c:row*c+c,col*c:col*c+c] = RawDuplicateFocus[i]
+                            except:
+                                pass
+                        
+                        FocusCorrectionMatrixContainer = copy.deepcopy(FocusCorrectionMatrixContainer)
+                        FocusCorrectionMatrixContainer += self.FocusCorrectionOffsetBox.value()
+                        FocusCorrectionMatrixContainer = FocusCorrectionMatrixContainer.flatten()
+                        
+                        self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrixContainer               
+                        print(self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)])
+        else:
+            self.FocusCorrectionMatrixDict = []
         
-        generallist = [selectnum, BefRoundNum, AftRoundNum, smallestsize, openingfactor, closingfactor, cellopeningfactor, 
-                       cellclosingfactor, binary_adaptive_block_size, self_findcontour_thres, contour_dilation, savedirectory]
+#        print(self.FocusCorrectionMatrixDict.keys())
+        generalnamelist = ['selectnum', 'Mean intensity in contour weight','Contour soma ratio weight','Change weight', 'BefRoundNum', 'AftRoundNum', 'smallestsize', 'openingfactor', 'closingfactor', 'cellopeningfactor', 
+                           'cellclosingfactor', 'binary_adaptive_block_size', 'self_findcontour_thres', 'contour_dilation', 'savedirectory', 'FocusCorrectionMatrixDict']
+        
+        generallist = [selectnum, MeanIntensityContourWeight, ContourSomaRatioWeight, ChangeWeight, BefRoundNum, AftRoundNum, smallestsize, openingfactor, closingfactor, cellopeningfactor, 
+                       cellclosingfactor, binary_adaptive_block_size, self_findcontour_thres, contour_dilation, savedirectory, self.FocusCorrectionMatrixDict]
         
         for item in range(len(generallist)):
             self.GeneralSettingDict[generalnamelist[item]] = generallist[item]
@@ -420,18 +694,191 @@ class Mainbody(QWidget):
         self.savedirectory = str(QtWidgets.QFileDialog.getExistingDirectory())
         self.savedirectorytextbox.setText(self.savedirectory)
         self.saving_prefix = str(self.prefixtextbox.text())
+        
+        
+    #--------------------------------------------------------------------GenerateFocusCorrectionMatrix-----------------------------------------
+    def CaptureFocusCorrectionMatrix(self, CorrectionFomula):
+        self.CorrectionFomula = CorrectionFomula
+        
+    def CaptureFocusDuplicateMethodMatrix(self, FocusDuplicateMethodInfor):
+        self.FocusDuplicateMethodInfor = FocusDuplicateMethodInfor
+        
         #**************************************************************************************************************************************
         #-----------------------------------------------------------Functions for Execution----------------------------------------------------
         #**************************************************************************************************************************************   
     def ExecutePipeline(self):
         get_ipython().run_line_magic('matplotlib', 'inline') # before start, set spyder back to inline
+        
         self.ExecuteThreadInstance = ScanningExecutionThread(self.RoundQueueDict, self.RoundCoordsDict, self.GeneralSettingDict)
+        self.ExecuteThreadInstance.ScanningResult.connect(self.GetDataForShowingRank)
         self.ExecuteThreadInstance.start()
+        
+    def Savepipeline(self):
+        SavepipelineInstance = []
+        SavepipelineInstance.extend([self.RoundQueueDict, self.RoundCoordsDict, self.GeneralSettingDict])
+        
+        np.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_Pipeline'), SavepipelineInstance)
+        
+        
+    def GetDataForShowingRank(self, RankedAllCellProperties, FinalMergedCoords, IndexLookUpCellPropertiesDict, PMTimageDict):
+        
+        self.RankedAllCellProperties = RankedAllCellProperties
+        self.FinalMergedCoords = FinalMergedCoords # Stage coordinates of the top cells with same ones merged together.
+        self.IndexLookUpCellPropertiesDict = IndexLookUpCellPropertiesDict
+        self.PMTimageDict = PMTimageDict
+        
+        self.TotalCoordsNum = len(self.FinalMergedCoords)
+        
+        self.TopGeneralInforLabel.setText('Number of coords in total: {}'.format(self.TotalCoordsNum))
+
+    def PopNextTopCells(self, direction):       
+        if direction == 'next':
+            if self.popnexttopimgcounter > (self.TotalCoordsNum-1):#Make sure it doesn't go beyond the last coords.
+                self.popnexttopimgcounter -= 1
+            CurrentPosIndex = self.FinalMergedCoords[self.popnexttopimgcounter,:].tolist() # self.popnexttopimgcounter is the order number of each Stage coordinates.
+            
+            self.TopCoordsLabel.setText("Row: {} Col: {}".format(CurrentPosIndex[0], CurrentPosIndex[1]))     
+            self.CurrentImgShowTopCells = self.PMTimageDict['RoundPackage_{}'.format(self.GeneralSettingDict['BefRoundNum'])]['row_{}_column_{}'.format(CurrentPosIndex[0], CurrentPosIndex[1])]
+            self.ShowTopCellsInstance = ShowTopCellsThread(self.GeneralSettingDict, self.RankedAllCellProperties, CurrentPosIndex, self.IndexLookUpCellPropertiesDict, self.CurrentImgShowTopCells, self.MatdisplayFigureTopGuys)
+            self.ShowTopCellsInstance.run()
+    #        self.ax = self.ShowTopCellsInstance.gg()
+    #        self.ax = self.MatdisplayFigureTopGuys.add_subplot(111)
+            self.MatdisplayCanvasTopGuys.draw()
+#            if self.popnexttopimgcounter < (self.TotalCoordsNum-1):
+            self.popnexttopimgcounter += 1 # Alwasy plus 1 to get it ready for next move.
+            
+        elif direction == 'previous':
+            self.popnexttopimgcounter -= 2 
+            if self.popnexttopimgcounter >= 0:
+                CurrentPosIndex = self.FinalMergedCoords[self.popnexttopimgcounter,:].tolist() # self.popnexttopimgcounter is the order number of each Stage coordinates.
+                
+                self.TopCoordsLabel.setText("Row: {} Col: {}".format(CurrentPosIndex[0], CurrentPosIndex[1]))     
+                self.CurrentImgShowTopCells = self.PMTimageDict['RoundPackage_{}'.format(self.GeneralSettingDict['BefRoundNum'])]['row_{}_column_{}'.format(CurrentPosIndex[0], CurrentPosIndex[1])]
+                self.ShowTopCellsInstance = ShowTopCellsThread(self.GeneralSettingDict, self.RankedAllCellProperties, CurrentPosIndex, self.IndexLookUpCellPropertiesDict, self.CurrentImgShowTopCells, self.MatdisplayFigureTopGuys)
+                self.ShowTopCellsInstance.run()
+        #        self.ax = self.ShowTopCellsInstance.gg()
+        #        self.ax = self.MatdisplayFigureTopGuys.add_subplot(111)
+                self.MatdisplayCanvasTopGuys.draw()
+                if self.popnexttopimgcounter < (self.TotalCoordsNum-1):
+                    self.popnexttopimgcounter += 1
+            else:
+                self.popnexttopimgcounter = 0
+        
+    #--------------------------------------------------------Save and load file----------------------------------------------------------------
+    def GetPipelineNPFile(self):
+        self.pipelinenpfileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Single File', 'M:/tnw/ist/do/projects/Neurophotonics/Brinkslab/Data',"(*.npy)")
+        self.LoadPipelineAddressbox.setText(self.pipelinenpfileName)
+        
+    def LoadPipelineFile(self):
+        temp_loaded_container = np.load(self.pipelinenpfileName, allow_pickle=True)
+        self.RoundQueueDict = temp_loaded_container[0]
+        self.RoundCoordsDict = temp_loaded_container[1]
+        self.GeneralSettingDict = temp_loaded_container[2]
+
+        #--------------------------------------------------------Generate the focus correction matrix-----------------------------------------------------------
+        if self.ApplyFocusSetCheckbox.isChecked():
+            if self.FocusInterStrategy.currentText() == 'Interpolation':
+            
+                for CurrentRound in range(len(self.RoundCoordsDict)):
+                    
+                    if len(self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]) > 2: # If it's more than 1 pos.
+                        #---------------numpy.meshgrid method------------------------
+                        OriginalCoordsPackage = self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]
+                        
+                        step = OriginalCoordsPackage[3] - OriginalCoordsPackage[1]
+                        
+                        OriginalCoordsOdd_Row = OriginalCoordsPackage[::2]
+                        OriginalCoordsEven_Col = OriginalCoordsPackage[1::2]
+                        
+                        row_start = np.amin(OriginalCoordsOdd_Row)
+                        row_end = np.amax(OriginalCoordsOdd_Row)
+                        
+                        column_start = np.amin(OriginalCoordsEven_Col)
+                        column_end = np.amax(OriginalCoordsEven_Col)     
+                        
+                        linspace_num = int((row_end-row_start)/step)+1
+                        X = np.linspace(row_start,row_end,linspace_num)
+                        Y = np.linspace(column_start,column_end,linspace_num)
+        #                ExeColumnIndex, ExeRowIndex = np.meshgrid(X,Y)
+        #                
+        #                self.ExeColumnIndexMeshgrid = ExeColumnIndex.astype(int)
+        #                self.ExeRowIndexMeshgrid = ExeRowIndex.astype(int)
+                        
+                        self.FocusCorrectionMatrix = self.CorrectionFomula(X, Y)
+                        
+                        self.FocusCorrectionMatrix = self.FocusCorrectionMatrix.flatten()
+                        print(self.FocusCorrectionMatrix)
+                        
+                        FocusCorrectionMatrix = copy.deepcopy(self.FocusCorrectionMatrix)
+                        FocusCorrectionMatrix += self.FocusCorrectionOffsetBox.value()
+                        self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrix
+    
+                    else:
+                        self.FocusCorrectionMatrix = self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]
+                        FocusCorrectionMatrix = copy.deepcopy(self.FocusCorrectionMatrix)
+                        
+                        FocusCorrectionMatrix += self.FocusCorrectionOffsetBox.value()
+                        
+                        self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrix
+                        
+                        
+            elif self.FocusInterStrategy.currentText() == 'Duplicate':
+                RawDuplicateRow = self.FocusDuplicateMethodInfor[0,:] # The row index from calibration step
+                RawDuplicateCol = self.FocusDuplicateMethodInfor[1,:]
+                RawDuplicateFocus = self.FocusDuplicateMethodInfor[2,:]
+                sparsestep = RawDuplicateCol[1] - RawDuplicateCol[0]
+                print('sparse step {}'.format(sparsestep))
+                for CurrentRound in range(len(self.RoundCoordsDict)):
+                    
+                    if len(self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]) > 2: # If it's more than 1 pos.
+                        #---------------numpy.meshgrid method------------------------
+                        OriginalCoordsPackage = self.RoundCoordsDict['CoordsPackage_{}'.format(CurrentRound+1)]
+                        
+                        Originalstep = OriginalCoordsPackage[3] - OriginalCoordsPackage[1]
+                        
+                        OriginalCoordsOdd_Row = OriginalCoordsPackage[::2]
+                        OriginalCoordsEven_Col = OriginalCoordsPackage[1::2]
+                        
+                        row_start = np.amin(OriginalCoordsOdd_Row)
+                        row_end = np.amax(OriginalCoordsOdd_Row)
+                        
+                        column_start = np.amin(OriginalCoordsEven_Col)
+                        column_end = np.amax(OriginalCoordsEven_Col)     
+                        
+                        linspace_num = int((row_end-row_start)/Originalstep)+1
+                        X = np.linspace(row_start,row_end,linspace_num)
+                        Y = np.linspace(column_start,column_end,linspace_num)
+                        
+                        FocusCorrectionMatrixContainer, ExeRowIndex = np.meshgrid(X,Y)
+ 
+                        c = int(sparsestep/Originalstep)
+                        print(RawDuplicateFocus)    
+                        print(FocusCorrectionMatrixContainer)
+                        for i in range(len(RawDuplicateRow)):
+                            row = int(RawDuplicateRow[i]/sparsestep)
+                            col = int(RawDuplicateCol[i]/sparsestep)
+
+                            try:    
+                                FocusCorrectionMatrixContainer[row*c:row*c+c,col*c:col*c+c] = RawDuplicateFocus[i]
+                            except:
+                                pass
+                        
+                        FocusCorrectionMatrixContainer = copy.deepcopy(FocusCorrectionMatrixContainer)
+                        FocusCorrectionMatrixContainer += self.FocusCorrectionOffsetBox.value()
+                        FocusCorrectionMatrixContainer = FocusCorrectionMatrixContainer.flatten()
+                        
+                        self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrixContainer               
+                        print(self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)])
+        else:
+            self.FocusCorrectionMatrixDict = []
+        
+        self.GeneralSettingDict['FocusCorrectionMatrixDict'] = self.FocusCorrectionMatrixDict # Refresh the focus correction
+        
+        print('Pipeline loaded.')
         
 if __name__ == "__main__":
     def run_app():
         app = QtWidgets.QApplication(sys.argv)
-        pg.setConfigOptions(imageAxisOrder='row-major')
         mainwin = Mainbody()
         mainwin.show()
         app.exec_()

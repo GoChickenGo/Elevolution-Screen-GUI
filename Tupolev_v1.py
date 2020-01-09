@@ -25,7 +25,7 @@ import numpy as np
 import csv
 from code_5nov import generate_AO
 from pmt_thread import pmtimagingTest, pmtimagingTest_contour
-from Stagemovement_Thread import StagemovementThread
+from Stagemovement_Thread import StagemovementRelativeThread
 from Filtermovement_Thread import FiltermovementThread
 from constants import MeasurementConstants
 from generalDaqer import execute_constant_vpatch
@@ -86,7 +86,7 @@ class Mainbody(QWidget):
         #----------------------------------------------------------------------
         #----------------------------------GUI---------------------------------
         #----------------------------------------------------------------------
-        self.setMinimumSize(1650,1200)
+        self.setMinimumSize(1700,1200)
         self.setWindowTitle("Tupolev v1.0")
         self.layout = QGridLayout(self)
         # Setting tabs
@@ -389,6 +389,8 @@ class Mainbody(QWidget):
         #-----------------------------------------------------------GUI for Objective Motor----------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #**************************************************************************************************************************************
+        
+        # Movement based on relative positions.
         ObjMotorcontrolContainer = QGroupBox("Objective motor control")
         self.ObjMotorcontrolLayout = QGridLayout()
         
@@ -408,14 +410,14 @@ class Mainbody(QWidget):
         self.ObjMotor_upwards.setStyleSheet("QPushButton {color:white;background-color: teal; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.ObjMotorcontrolLayout.addWidget(self.ObjMotor_upwards, 2, 2)
-        self.ObjMotor_upwards.clicked.connect(lambda: self.sample_stage_move_upwards())
+        self.ObjMotor_upwards.clicked.connect(lambda: self.Motor_move_upwards())
 #        self.ObjMotor_upwards.setShortcut('w')
         
         self.ObjMotor_down = QPushButton("↓")
         self.ObjMotor_down.setStyleSheet("QPushButton {color:white;background-color: teal; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.ObjMotorcontrolLayout.addWidget(self.ObjMotor_down, 3, 2)
-        self.ObjMotor_down.clicked.connect(lambda: self.sample_stage_move_downwards())
+        self.ObjMotor_down.clicked.connect(lambda: self.Motor_move_downwards())
 #        self.stage_down.setShortcut('s')
         
         self.ObjMotor_target = QDoubleSpinBox(self)
@@ -435,6 +437,15 @@ class Mainbody(QWidget):
                                             "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
         self.ObjMotorcontrolLayout.addWidget(self.ObjMotor_goto, 1, 2)
         self.ObjMotor_goto.clicked.connect(self.MoveMotor)
+        
+        self.ObjMotor_step = QDoubleSpinBox(self)
+        self.ObjMotor_step.setMinimum(-10000)
+        self.ObjMotor_step.setMaximum(10000)
+        self.ObjMotor_step.setDecimals(6)
+        self.ObjMotor_step.setValue(0.001)
+        self.ObjMotor_step.setSingleStep(0.001)        
+        self.ObjMotorcontrolLayout.addWidget(self.ObjMotor_step, 3, 1)
+        self.ObjMotorcontrolLayout.addWidget(QLabel("Step: "), 3, 0)  
         
         ObjMotorcontrolContainer.setLayout(self.ObjMotorcontrolLayout)
         ObjMotorcontrolContainer.setMaximumHeight(300)
@@ -3989,12 +4000,14 @@ class Mainbody(QWidget):
                 self.textitem_patch_current.setPos(0, 1)
                 self.pw_data.addItem(self.textitem_patch_current) 
             elif 'PMT' in self.readinchan:
-                self.data_collected_0 = data_waveformreceived[0]
+                self.data_collected_0 = data_waveformreceived[0]*-1
                 for i in range(self.repeatnum):
                     self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
                     Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
                     Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
                     self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+                    
+                    self.PMT_image_reconstructed = self.PMT_image_reconstructed[:, 50:550]
                     
                     # Stack the arrays into a 3d array
                     if i == 0:
@@ -4033,12 +4046,14 @@ class Mainbody(QWidget):
                 self.textitem_patch_current.setPos(0, 1)
                 self.pw_data.addItem(self.textitem_patch_current) 
             elif 'PMT' in self.readinchan:
-                self.data_collected_0 = data_waveformreceived[0]
+                self.data_collected_0 = data_waveformreceived[0]*-1
                 for i in range(self.repeatnum):
                     self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
                     Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
                     Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
                     self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+                    
+                    self.PMT_image_reconstructed = self.PMT_image_reconstructed[:, 50:550]
                     
                     # Stack the arrays into a 3d array
                     if i == 0:
@@ -4206,7 +4221,7 @@ class Mainbody(QWidget):
         #**************************************************************************************************************************************        
     def sample_stage_move_upwards(self):
         self.sample_move_distance_yRel = int(self.stage_speed.value())
-        stage_movement_thread = StagemovementThread(0, self.sample_move_distance_yRel)
+        stage_movement_thread = StagemovementRelativeThread(0, self.sample_move_distance_yRel)
         stage_movement_thread.current_position.connect(self.update_stage_current_pos)
         stage_movement_thread.start()
         time.sleep(0.5)
@@ -4215,7 +4230,7 @@ class Mainbody(QWidget):
         
     def sample_stage_move_downwards(self):
         self.sample_move_distance_yRel = int(self.stage_speed.value())
-        stage_movement_thread = StagemovementThread(0, -1*self.sample_move_distance_yRel)
+        stage_movement_thread = StagemovementRelativeThread(0, -1*self.sample_move_distance_yRel)
         stage_movement_thread.current_position.connect(self.update_stage_current_pos)
         stage_movement_thread.start()
         time.sleep(0.5)
@@ -4224,7 +4239,7 @@ class Mainbody(QWidget):
 
     def sample_stage_move_leftwards(self):
         self.sample_move_distance_xRel = int(self.stage_speed.value())
-        stage_movement_thread = StagemovementThread(self.sample_move_distance_xRel, 0)
+        stage_movement_thread = StagemovementRelativeThread(self.sample_move_distance_xRel, 0)
         stage_movement_thread.current_position.connect(self.update_stage_current_pos)
         stage_movement_thread.start()
         time.sleep(0.5)
@@ -4233,7 +4248,7 @@ class Mainbody(QWidget):
         
     def sample_stage_move_rightwards(self):
         self.sample_move_distance_xRel = int(self.stage_speed.value())
-        stage_movement_thread = StagemovementThread(-1*self.sample_move_distance_xRel, 0)
+        stage_movement_thread = StagemovementRelativeThread(-1*self.sample_move_distance_xRel, 0)
         stage_movement_thread.current_position.connect(self.update_stage_current_pos)
         stage_movement_thread.start()
         time.sleep(0.5)
@@ -4243,7 +4258,7 @@ class Mainbody(QWidget):
     def sample_stage_move_towards(self):
         self.sample_move_x = int(float(self.stage_goto_x.text()))
         self.sample_move_y = int(float(self.stage_goto_y.text()))
-        stage_movement_thread = StagemovementThread(self.sample_move_x, self.sample_move_y)
+        stage_movement_thread = StagemovementRelativeThread(self.sample_move_x, self.sample_move_y)
         stage_movement_thread.current_position.connect(self.update_stage_current_pos)
         stage_movement_thread.start()
         time.sleep(2)
@@ -4303,6 +4318,9 @@ class Mainbody(QWidget):
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #**************************************************************************************************************************************         
     def ConnectMotor(self):
+        self.ObjMotor_connect.setEnabled(False)
+        self.ObjMotor_disconnect.setEnabled(True)
+        
         self.pi_device_instance = PIMotor()
         self.normalOutputWritten('Objective motor connected.'+'\n')
         
@@ -4318,8 +4336,24 @@ class Mainbody(QWidget):
         self.ObjMotor_target.setValue(self.ObjCurrentPos['1'])        
       
     def DisconnectMotor(self):
+        self.ObjMotor_connect.setEnabled(True)
+        self.ObjMotor_disconnect.setEnabled(False)
+        
         PIMotor.CloseMotorConnection(self.pi_device_instance.pidevice)
         self.normalOutputWritten('Objective motor disconnected.'+'\n')
+        
+    def Motor_move_upwards(self):
+        self.MotorStep = self.ObjMotor_step.value()
+        pos = PIMotor.move(self.pi_device_instance.pidevice, (self.ObjCurrentPos['1'] + self.MotorStep))
+        self.ObjCurrentPos = self.pi_device_instance.pidevice.qPOS(self.pi_device_instance.pidevice.axes)
+        self.ObjMotor_current_pos_Label.setText("Current position: {:.4f}".format(self.ObjCurrentPos['1'])) # Axis here is a string.
+        
+    def Motor_move_downwards(self):
+        self.MotorStep = self.ObjMotor_step.value()
+        pos = PIMotor.move(self.pi_device_instance.pidevice, (self.ObjCurrentPos['1'] - self.MotorStep))
+        self.ObjCurrentPos = self.pi_device_instance.pidevice.qPOS(self.pi_device_instance.pidevice.axes)
+        self.ObjMotor_current_pos_Label.setText("Current position: {:.4f}".format(self.ObjCurrentPos['1'])) # Axis here is a string.
+
 '''-------------------------------------------------------------------------------------Deprecated------------------------------------------------------------------------------------------  
 
 class pmtwindow(pg.GraphicsView):

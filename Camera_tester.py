@@ -155,31 +155,21 @@ if __name__ == "__main__":
             
     def test_varying_roi_framerate():  
         
-        steps = 15
+        steps = 500
         start = 240
         stop = 20
         lenght = np.linspace(start,stop,steps)
         
         results = []
         cam.set_buf_size(5000)
-        time.sleep(1)
-        cam.mode = "framerate_tester"
-        cam.tot_ims = 5000
          
         for n in range(0,steps):
             set_roi_center(lenght[n],lenght[n])
-            time.sleep(1)
-            cam.set_exposure_time(0.01)
-            time.sleep(1)
-            print(lenght[n])
-            cam.start()       
-            while not cam.done:
-                print("sleeping")
-                time.sleep(0.5)                  
-            cam.done = False      
-            results.append([lenght[n],cam.frames,cam.rec_time])
+            cam.set_exposure_time(0.001)
 
-        with open('varying_roi_test_framerate_smaller.csv', 'w') as writeFile:
+            results.append([lenght[n],cam.get_exposure_time(),cam.get_framerate()])
+
+        with open('varying_roi_test_framerate_software.csv', 'w') as writeFile:
             writer = csv.writer(writeFile)
             writer.writerows(results)
                     

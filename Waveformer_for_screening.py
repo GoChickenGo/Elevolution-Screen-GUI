@@ -19,7 +19,6 @@ from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
 import wavegenerator
 from generalDaqerThread import execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog, execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar
-from configuration import Configuration
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import pyqtSignal, QThread
@@ -80,7 +79,7 @@ class WaveformGenerator(QWidget):
         self.AnalogLayout.addWidget(self.waveform_progressbar, 3, 5)      
         
         self.textbox2A = QComboBox()
-        self.textbox2A.addItems(['640 AO', 'galvos', '532 AO', '488 AO', 'V-patch'])
+        self.textbox2A.addItems(['galvos', '640 AO', '532 AO', '488 AO', 'V-patch'])
         self.AnalogLayout.addWidget(self.textbox2A, 3, 0)
         
         self.button2 = QPushButton('Add', self)
@@ -112,7 +111,9 @@ class WaveformGenerator(QWidget):
         self.wavetabs.addTab(self.wavetab2,"Ramp")
         self.wavetabs.addTab(self.wavetab3,"Import")
         self.wavetabs.addTab(self.wavetab4,"Galvo")
-        self.wavetabs.addTab(self.wavetab5,"Photocycle")        
+        self.wavetabs.addTab(self.wavetab5,"Photocycle")    
+        
+        self.wavetabs.setCurrentIndex(3)
         
         #------------------------------------------------------------------------------------------------------------------------------------
         #----------------------------------------------------------Waveform General settings-------------------------------------------------
@@ -121,11 +122,11 @@ class WaveformGenerator(QWidget):
         self.ReadLayout = QGridLayout() #self.AnalogLayout manager
 
         self.textboxBB = QComboBox()
-        self.textboxBB.addItems(['640AO', 'galvos', 'galvos_contour', '488AO', '532AO', 'patchAO','cameratrigger', 'blankingall', '640blanking','532blanking','488blanking', 'Perfusion_8', 'Perfusion_7', 'Perfusion_6', 'Perfusion_2'])
+        self.textboxBB.addItems(['galvos', '640AO', 'galvos_contour', '488AO', '532AO', 'patchAO','cameratrigger', 'blankingall', '640blanking','532blanking','488blanking', 'Perfusion_8', 'Perfusion_7', 'Perfusion_6', 'Perfusion_2'])
         self.ReadLayout.addWidget(self.textboxBB, 0, 1)
         self.ReadLayout.addWidget(QLabel("Reference waveform:"), 0, 0)
 
-        self.button_all = QPushButton('Show waveforms', self)
+        self.button_all = QPushButton('Organize waveforms', self)
         self.button_all.setStyleSheet("QPushButton {color:white;background-color: DeepSkyBlue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                       "QPushButton:pressed {color:black;background-color: DeepSkyBlue; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.ReadLayout.addWidget(self.button_all, 0, 5)
@@ -449,7 +450,7 @@ class WaveformGenerator(QWidget):
         self.GalvoVoltXMinTextbox = QSpinBox(self)
         self.GalvoVoltXMinTextbox.setMinimum(-10)
         self.GalvoVoltXMinTextbox.setMaximum(10)
-        self.GalvoVoltXMinTextbox.setValue(-3)
+        self.GalvoVoltXMinTextbox.setValue(-5)
         self.GalvoVoltXMinTextbox.setSingleStep(1)        
         self.galvo_raster_tablayout.addWidget(self.GalvoVoltXMinTextbox, 0, 1)
         self.galvo_raster_tablayout.addWidget(QLabel("voltXMin"), 0, 0)
@@ -457,7 +458,7 @@ class WaveformGenerator(QWidget):
         self.GalvoVoltXMaxTextbox = QSpinBox(self)
         self.GalvoVoltXMaxTextbox.setMinimum(-10)
         self.GalvoVoltXMaxTextbox.setMaximum(10)
-        self.GalvoVoltXMaxTextbox.setValue(3)
+        self.GalvoVoltXMaxTextbox.setValue(5)
         self.GalvoVoltXMaxTextbox.setSingleStep(1)   
         self.galvo_raster_tablayout.addWidget(self.GalvoVoltXMaxTextbox, 1, 1)
         self.galvo_raster_tablayout.addWidget(QLabel("voltXMax"), 1, 0)
@@ -465,7 +466,7 @@ class WaveformGenerator(QWidget):
         self.GalvoVoltYMinTextbox = QSpinBox(self)
         self.GalvoVoltYMinTextbox.setMinimum(-10)
         self.GalvoVoltYMinTextbox.setMaximum(10)
-        self.GalvoVoltYMinTextbox.setValue(-3)
+        self.GalvoVoltYMinTextbox.setValue(-5)
         self.GalvoVoltYMinTextbox.setSingleStep(1)   
         self.galvo_raster_tablayout.addWidget(self.GalvoVoltYMinTextbox, 0, 3)
         self.galvo_raster_tablayout.addWidget(QLabel("voltYMin"), 0, 2)
@@ -473,7 +474,7 @@ class WaveformGenerator(QWidget):
         self.GalvoVoltYMaxTextbox = QSpinBox(self)
         self.GalvoVoltYMaxTextbox.setMinimum(-10)
         self.GalvoVoltYMaxTextbox.setMaximum(10)
-        self.GalvoVoltYMaxTextbox.setValue(3)
+        self.GalvoVoltYMaxTextbox.setValue(5)
         self.GalvoVoltYMaxTextbox.setSingleStep(1)   
         self.galvo_raster_tablayout.addWidget(self.GalvoVoltYMaxTextbox, 1, 3)
         self.galvo_raster_tablayout.addWidget(QLabel("voltYMax"), 1, 2)

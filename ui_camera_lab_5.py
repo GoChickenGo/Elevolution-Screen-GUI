@@ -536,7 +536,7 @@ class CameraUI(QWidget):
         self.exposureLayout = QGridLayout()    
         self.exposure_line = QLineEdit(self)
         self.exposure_line.setFixedWidth(60)      
-        self.exposure_line.returnPressed.connect(lambda:self.set_exposure_time())
+        self.exposure_line.returnPressed.connect(lambda:self.exposure_changed())
         self.exposureLayout.addWidget(QLabel("Exposure time (ms)"),0,0)
         self.exposureLayout.addWidget(self.exposure_line,0,1)
         self.exposureBox.setMaximumWidth(300)
@@ -817,8 +817,12 @@ class CameraUI(QWidget):
         mbsize = 1000*size
         self.cam.set_buf_size(int(mbsize)) #size in GB
     
-    def set_exposure_time(self):
-        self.cam.set_exposure_time(float(self.exposure_line.text()))
+    def exposure_changed(self):
+        set_time = float(self.exposure_line.text())
+        self.cam.set_exposure_time(set_time)
+        actual_exp_time = self.cam.get_exposure_time()
+        if not set_time == round(actual_exp_time,1):
+            self.exposure_line.setText(str(round(actual_exp_time,1)))
     
     def update_monitor(self):
         if self.cam_in:
