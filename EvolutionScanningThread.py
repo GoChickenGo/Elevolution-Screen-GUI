@@ -18,7 +18,7 @@ from generalDaqerThread import (execute_analog_readin_optional_digital_thread, e
 from trymageAnalysis_v3 import ImageAnalysis
 import numpy.lib.recfunctions as rfn
 from focuser import PIMotor
-
+import math
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class ScanningExecutionThread(QThread):
     
@@ -41,23 +41,32 @@ class ScanningExecutionThread(QThread):
         
     def run(self):
         
-        if len(self.GeneralSettingDict['FocusCorrectionMatrixDict']) > 0:# if focus correction matrix was generated.
-            self.pi_device_instance = PIMotor()
-            print('Objective motor connected.')        
+#        if len(self.GeneralSettingDict['FocusCorrectionMatrixDict']) > 0:# if focus correction matrix was generated.
+        print('----------------------Starting to connect the Objective motor-------------------------')
+        self.pi_device_instance = PIMotor()
+        print('Objective motor connected.')
+        
+        self.ObjCurrentPos = self.pi_device_instance.pidevice.qPOS(self.pi_device_instance.pidevice.axes)
         
         for EachRound in range(int(len(self.RoundQueueDict)/2)): # EachRound is the round sequence number starting from 0, while the actual number used in dictionary is 1.
             print ('----------------------------------------------------------------------------')            
             print('Below is Round {}.'.format(EachRound+1)) # EachRound+1 is the corresponding round number when setting the dictionary starting from round 1.
             
+            #--------------------------------------------------------Unpack the settings for each round---------------------------------------------------------------------------
             CoordOrder = 0      # Counter for n th coordinates, for appending cell properties array.      
             CellPropertiesDict = {}
 #            All_cell_properties = []
             cp_end_index = -1
             self.IndexLookUpCellPropertiesDict = {} #look up dictionary for each cell properties
+            #Unpack the focus stack information.
+            ZStackinfor = self.GeneralSettingDict['FocusStackInfoDict']['RoundPackage_{}'.format(EachRound+1)]
+            self.ZStackNum = int(ZStackinfor[ZStackinfor.index('Focus')+5])
+            self.ZStackStep = float(ZStackinfor[ZStackinfor.index('Being')+5:len(ZStackinfor)])
             
             CoordsNum = int(len(self.RoundCoordsDict['CoordsPackage_{}'.format(EachRound+1)])/2) #Each pos has 2 coords
+            
             for EachCoord in range(CoordsNum):
-                print ('Current index: {}.'.format(self.RoundCoordsDict['CoordsPackage_{}'.format(EachRound+1)][EachCoord*2:EachCoord*2+2]))
+                print ('Round {}. Current index: {}.'.format(EachRound+1, self.RoundCoordsDict['CoordsPackage_{}'.format(EachRound+1)][EachCoord*2:EachCoord*2+2]))
                 
                 #-------------------------------------------Stage movement-----------------------------------------------------
                 RowIndex = int(self.RoundCoordsDict['CoordsPackage_{}'.format(EachRound+1)][EachCoord*2:EachCoord*2+2][0])
@@ -68,7 +77,7 @@ class ScanningExecutionThread(QThread):
                 #-------------------------------------------Adjust focus position----------------------------------------
                 if len(self.GeneralSettingDict['FocusCorrectionMatrixDict']) > 0:
                     FocusPosArray = self.GeneralSettingDict['FocusCorrectionMatrixDict']['RoundPackage_{}'.format(EachRound+1)]
-                    print(FocusPosArray)
+#                    print(FocusPosArray)
                     FocusPos = FocusPosArray[EachCoord]
                     print('Target focus pos: '.format(FocusPos))
                     
@@ -77,37 +86,61 @@ class ScanningExecutionThread(QThread):
                     print("Current position: {:.4f}".format(self.ObjCurrentPos['1']))
                     
                     time.sleep(0.5)
+                    
+                #-------------------------------------------Get the z stack objective positions ready----------------------------------------------------------------------------
+                ZStacklinspaceStart = self.ObjCurrentPos['1'] - math.floor(self.ZStackNum/2)*self.ZStackStep
+                ZStacklinspaceEnd = self.ObjCurrentPos['1'] + (self.ZStackNum - math.floor(self.ZStackNum/2)-1)*self.ZStackStep
+                ZStackPosList = np.linspace(ZStacklinspaceStart, ZStacklinspaceEnd, num = self.ZStackNum)
+                
                 #-------------------------------------------Execute waveform packages------------------------------------
                 self.WaveforpackageNum = int(len(self.RoundQueueDict['RoundPackage_{}'.format(EachRound+1)]))
                 #Execute each individual waveform package
-                for EachWaveform in range(self.WaveforpackageNum):
-                    WaveformPackageToBeExecute = self.RoundQueueDict['RoundPackage_{}'.format(EachRound+1)]['WavformPackage_{}'.format(EachWaveform+1)]
-                    WaveformPackageGalvoInfor = self.RoundQueueDict['GalvoInforPackage_{}'.format(EachRound+1)]['GalvoInfor_{}'.format(EachWaveform+1)]  
-                    self.readinchan = WaveformPackageToBeExecute[3]
-                    self.RoundWaveformIndex = [EachRound+1, EachWaveform+1] # first is current round number, second is current waveform package number.
-                    self.CurrentPosIndex = [RowIndex, ColumnIndex]
+                print('*******************************************Round {}. Current index: {}.**************************************************'.format(EachRound+1, self.RoundCoordsDict['CoordsPackage_{}'.format(EachRound+1)][EachCoord*2:EachCoord*2+2]))
+                for EachZStackPos in range(self.ZStackNum): # Move to Z stack focus 
                     
-                    if WaveformPackageGalvoInfor != 'NoGalvo': # Unpack the information of galvo scanning.
-                        self.readinchan = WaveformPackageGalvoInfor[0]
-                        self.repeatnum = WaveformPackageGalvoInfor[1]
-                        self.PMT_data_index_array = WaveformPackageGalvoInfor[2]
-                        self.averagenum = WaveformPackageGalvoInfor[3]
-                        self.lenSample_1 = WaveformPackageGalvoInfor[4]
-                        self.ScanArrayXnum = WaveformPackageGalvoInfor[5]
+                    if self.ZStackNum > 1:
+                        self.ZStackOrder = EachZStackPos +1 # Here the first one is 1, not starting from 0.
+                        FocusPos = ZStackPosList[EachZStackPos]
+                        print('Target focus pos: {}'.format(FocusPos))
 
-                    if self.clock_source == 'Dev1 as clock source':
-                        self.adcollector = execute_analog_readin_optional_digital_thread()
-                        self.adcollector.set_waves(WaveformPackageToBeExecute[0], WaveformPackageToBeExecute[1], WaveformPackageToBeExecute[2], WaveformPackageToBeExecute[3]) #[0] = sampling rate, [1] = analogcontainer_array, [2] = digitalcontainer_array, [3] = readinchan
-                        self.adcollector.collected_data.connect(self.ProcessData)
-                        self.adcollector.run()
-                        #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
-                    elif self.clock_source == 'Cam as clock source' :
-                        self.adcollector = execute_analog_and_readin_digital_optional_camtrig_thread()
-                        self.adcollector.set_waves(WaveformPackageToBeExecute[0], WaveformPackageToBeExecute[1], WaveformPackageToBeExecute[2], WaveformPackageToBeExecute[3])
-                        self.adcollector.collected_data.connect(self.ProcessData)
-                        self.adcollector.run()
+                        pos = PIMotor.move(self.pi_device_instance.pidevice, FocusPos)
+                        self.ObjCurrentPosInStack = self.pi_device_instance.pidevice.qPOS(self.pi_device_instance.pidevice.axes)
+                        print("Current position: {:.4f}".format(self.ObjCurrentPosInStack['1']))
+                        
+                        time.sleep(0.3)
+                    else:
+                        self.ZStackOrder = 1
+                    
+                    for EachWaveform in range(self.WaveforpackageNum):
+                        WaveformPackageToBeExecute = self.RoundQueueDict['RoundPackage_{}'.format(EachRound+1)]['WaveformPackage_{}'.format(EachWaveform+1)]
+                        WaveformPackageGalvoInfor = self.RoundQueueDict['GalvoInforPackage_{}'.format(EachRound+1)]['GalvoInfor_{}'.format(EachWaveform+1)]  
+                        self.readinchan = WaveformPackageToBeExecute[3]
+                        self.RoundWaveformIndex = [EachRound+1, EachWaveform+1] # first is current round number, second is current waveform package number.
+                        self.CurrentPosIndex = [RowIndex, ColumnIndex]
+                        
+                        if WaveformPackageGalvoInfor != 'NoGalvo': # Unpack the information of galvo scanning.
+                            self.readinchan = WaveformPackageGalvoInfor[0]
+                            self.repeatnum = WaveformPackageGalvoInfor[1]
+                            self.PMT_data_index_array = WaveformPackageGalvoInfor[2]
+                            self.averagenum = WaveformPackageGalvoInfor[3]
+                            self.lenSample_1 = WaveformPackageGalvoInfor[4]
+                            self.ScanArrayXnum = WaveformPackageGalvoInfor[5]
+    
+                        if self.clock_source == 'Dev1 as clock source':
+                            self.adcollector = execute_analog_readin_optional_digital_thread()
+                            self.adcollector.set_waves(WaveformPackageToBeExecute[0], WaveformPackageToBeExecute[1], WaveformPackageToBeExecute[2], WaveformPackageToBeExecute[3]) #[0] = sampling rate, [1] = analogcontainer_array, [2] = digitalcontainer_array, [3] = readinchan
+                            self.adcollector.collected_data.connect(self.ProcessData)
+                            self.adcollector.run()
+                            #self.ai_dev_scaling_coeff = self.adcollector.get_ai_dev_scaling_coeff()
+                        elif self.clock_source == 'Cam as clock source' :
+                            self.adcollector = execute_analog_and_readin_digital_optional_camtrig_thread()
+                            self.adcollector.set_waves(WaveformPackageToBeExecute[0], WaveformPackageToBeExecute[1], WaveformPackageToBeExecute[2], WaveformPackageToBeExecute[3])
+                            self.adcollector.collected_data.connect(self.ProcessData)
+                            self.adcollector.run()
+                    time.sleep(0.5) # Wait for receiving data to be done.
                 time.sleep(0.3)
-
+                print('*************************************************************************************************************************')
+                
                 # Image anaylsis part.
                 if  EachRound+1 == self.GeneralSettingDict['AftRoundNum']: # When it's the round for after Kcl assay image acquisition.
                     
@@ -115,8 +148,8 @@ class ScanningExecutionThread(QThread):
                     print('Image analysis start.')                    
                     #------------------------------------------------------------------ Image processing ----------------------------------------------------------------------
                     #Pull the Bef and Aft image from the dictionary
-                    ImageBef = self.PMTimageDict['RoundPackage_{}'.format(self.GeneralSettingDict['BefRoundNum'])]['row_{}_column_{}'.format(RowIndex, ColumnIndex)]
-                    ImageAft = self.PMTimageDict['RoundPackage_{}'.format(self.GeneralSettingDict['AftRoundNum'])]['row_{}_column_{}'.format(RowIndex, ColumnIndex)]            
+                    ImageBef = self.PMTimageDict['RoundPackage_{}'.format(self.GeneralSettingDict['BefRoundNum'])]['row_{}_column_{}_stack1'.format(RowIndex, ColumnIndex)]
+                    ImageAft = self.PMTimageDict['RoundPackage_{}'.format(self.GeneralSettingDict['AftRoundNum'])]['row_{}_column_{}_stack1'.format(RowIndex, ColumnIndex)]            
                     print(ImageAft.shape) # NOT ready for 3d stack
                     
                     try:
@@ -155,7 +188,10 @@ class ScanningExecutionThread(QThread):
             if  EachRound+1 == self.GeneralSettingDict['AftRoundNum']: # When it's the round for after Kcl assay image acquisition.
                 self.RankedAllCellProperties, self.FinalMergedCoords = self.SortingPropertiesArray(self.AllCellPropertiesDict)
         
-        self.ScanningResult.emit(self.RankedAllCellProperties, self.FinalMergedCoords, self.IndexLookUpCellPropertiesDict, self.PMTimageDict)
+        try:
+            self.ScanningResult.emit(self.RankedAllCellProperties, self.FinalMergedCoords, self.IndexLookUpCellPropertiesDict, self.PMTimageDict)
+        except:
+            print('Failed to generate cell properties ranking.')
         
         try:
             PIMotor.CloseMotorConnection(self.pi_device_instance.pidevice)
@@ -176,11 +212,17 @@ class ScanningExecutionThread(QThread):
             elif 'PMT' in self.readinchan:  # repeatnum, PMT_data_index_array, averagenum, ScanArrayXnum
 
                 self.data_collected_0 = data_waveformreceived[0]*-1
+                self.data_collected_0 = self.data_collected_0[0:len(self.data_collected_0)-1]
+                print(len(self.data_collected_0))                
                 for imageSequence in range(self.repeatnum):
                     
                     try:
                         self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == imageSequence+1)]
+#                        if imageSequence == int(self.repeatnum)-1:
+#                            self.PMT_image_reconstructed_array = self.PMT_image_reconstructed_array[0:len(self.PMT_image_reconstructed_array)-1] # Extra one sample at the end.
+#                        print(self.PMT_image_reconstructed_array.shape)
                         Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
+#                        print(Dataholder_average.shape)
                         Value_yPixels = int(self.lenSample_1/self.ScanArrayXnum)
                         self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
                         
@@ -193,7 +235,7 @@ class ScanningExecutionThread(QThread):
                             self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
                         
                         Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
-                        Localimg.save(os.path.join(self.scansavedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(imageSequence)+'.tif')) #save as tif
+                        Localimg.save(os.path.join(self.scansavedirectory, 'Round'+str(self.RoundWaveformIndex[0])+'R'+str(self.CurrentPosIndex[0])+'C'+str(self.CurrentPosIndex[1])+'_PMT_'+str(imageSequence)+'Zpos'+str(self.ZStackOrder)+'.tif')) #save as tif
                         
                         plt.figure()
                         plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
@@ -206,33 +248,38 @@ class ScanningExecutionThread(QThread):
                 pass
             elif 'PMT' in self.readinchan:
 
-                    self.data_collected_0 = data_waveformreceived[0]*-1
-                    for imageSequence in range(self.repeatnum):
-                        try:
-                            self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == imageSequence+1)]
-                            Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
-                            Value_yPixels = int(self.lenSample_1/self.ScanArrayXnum)
-                            self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
-                            
-                            self.PMT_image_reconstructed = self.PMT_image_reconstructed[:, 50:550]
-                            
-                            # Stack the arrays into a 3d array
-                            if imageSequence == 0:
-                                self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
-                            else:
-                                self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
-                            
-                            Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
-                            Localimg.save(os.path.join(self.scansavedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(imageSequence)+'.tif')) #save as tif
-                            
-                            plt.figure()
-                            plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
-                            plt.show()
-                        except:
-                            print('No.{} image failed to generate.'.format(imageSequence))
+                self.data_collected_0 = data_waveformreceived[0]*-1
+                self.data_collected_0 = self.data_collected_0[0:len(self.data_collected_0)-1]
+                print(len(self.data_collected_0)) 
+                for imageSequence in range(self.repeatnum):
+                    try:
+                        self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == imageSequence+1)]
+                        if imageSequence == int(self.repeatnum)-1:
+                            self.PMT_image_reconstructed_array = self.PMT_image_reconstructed_array[0:len(self.PMT_image_reconstructed_array)-1] # Extra one sample at the end.
+
+                        Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
+                        Value_yPixels = int(self.lenSample_1/self.ScanArrayXnum)
+                        self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+                        
+                        self.PMT_image_reconstructed = self.PMT_image_reconstructed[:, 50:550]
+                        
+                        # Stack the arrays into a 3d array
+                        if imageSequence == 0:
+                            self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
+                        else:
+                            self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
+                        
+                        Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
+                        Localimg.save(os.path.join(self.scansavedirectory, 'Round'+str(self.RoundWaveformIndex[0])+'R'+str(self.CurrentPosIndex[0])+'C'+str(self.CurrentPosIndex[1])+'_PMT_'+str(imageSequence)+'Zpos'+str(self.ZStackOrder)+'.tif')) #save as tif
+                        
+                        plt.figure()
+                        plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
+                        plt.show()
+                    except:
+                        print('No.{} image failed to generate.'.format(imageSequence))
 
                   
-        self.PMTimageDict['RoundPackage_{}'.format(self.RoundWaveformIndex[0])]['row_{}_column_{}'.format(self.CurrentPosIndex[0], self.CurrentPosIndex[1])] = self.PMT_image_reconstructed_stack
+        self.PMTimageDict['RoundPackage_{}'.format(self.RoundWaveformIndex[0])]['row_{}_column_{}_stack{}'.format(self.CurrentPosIndex[0], self.CurrentPosIndex[1], self.ZStackOrder)] = self.PMT_image_reconstructed_stack
         print('ProcessData executed.')
         
     #-----------------------------------------------------------------Sorting the cells------------------------------------------------------------------------------------------------------------

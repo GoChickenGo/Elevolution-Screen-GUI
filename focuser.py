@@ -71,7 +71,7 @@ class PIMotor:
         for axis in pidevice.axes:
             print('position of axis {} = {:.4f}'.format(axis, positions[axis]))
             
-        print('done')
+        print('Obj movement done')
     #            pidevice.CloseConnection()
     
     def GetCurrentPos(pidevice):

@@ -192,7 +192,7 @@ class ImageAnalysis():
                 
                 contour_soma_ratio = contour_mean_bef/soma_mean_bef
                 contour_change_ratio = contour_mean_aft/contour_mean_bef
-                '''
+
                 plt.figure()
                 plt.imshow(self.contour_mask_of_intensity_bef, cmap = plt.cm.gray)       
                 plt.show()
@@ -212,7 +212,7 @@ class ImageAnalysis():
                 plt.figure()
                 plt.imshow(soma_origin_image_intensity, cmap = plt.cm.gray)       
                 plt.show()                
-                '''
+
                 #print(region_mean_intensity)
                 region_mean_intensity_list.append(filled_mean_bef)# Mean intensity of filled image
                 
@@ -221,7 +221,7 @@ class ImageAnalysis():
                 dirforcellprp[loopmun] = (self.row_num, self.column_num, filled_mean_bef, contour_mean_bef, regioncircularity, contour_soma_ratio, contour_change_ratio)
                 
                 loopmun = loopmun+1
-        print(loopmun)
+        print('Total region number: {}'.format(loopmun))
         cell_properties = np.zeros(len(region_mean_intensity_list), dtype = dtype)
         for p in range(loopmun):
             cell_properties[p] = dirforcellprp[p]

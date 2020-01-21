@@ -25,6 +25,7 @@ from datetime import datetime
 from focuser import PIMotor
 from Stagemovement_Thread import StagemovementAbsoluteThread
 from scipy import interpolate
+import PMTWidget
 
 class FocusMatrixFeeder(QWidget):
     FocusCorrectionFomula = pyqtSignal(object)
@@ -175,8 +176,12 @@ class FocusMatrixFeeder(QWidget):
         self.layout.addWidget(MotorMoveContainer, 2, 4, 3, 3)
         
     #--------------------------------------------------------------------------------------------------------------------------------------------
+        self.OpenPMTWidgetButton = QPushButton('PMT Widget', self)
+        self.layout.addWidget(self.OpenPMTWidgetButton, 4, 0)
+        self.OpenPMTWidgetButton.clicked.connect(self.openPMTWidget)        
+    
         self.SetFocusPos4CurrentCoordsButton = QPushButton('Set Focus', self)
-        self.layout.addWidget(self.SetFocusPos4CurrentCoordsButton, 4, 0)
+        self.layout.addWidget(self.SetFocusPos4CurrentCoordsButton, 4, 1)
         self.SetFocusPos4CurrentCoordsButton.clicked.connect(self.SetFocusPos)
         
 #        self.SetAndMoveNextCoordsButton = QPushButton('Set and Next pos.', self)
@@ -237,19 +242,21 @@ class FocusMatrixFeeder(QWidget):
 #            print(self.FeederCoordContainer)
             
             #---------------numpy.meshgrid method------------------------
-            linspace_num = int((row_end-row_start)/step)+1
-            X = np.linspace(row_start,row_end-1,linspace_num)
-            Y = np.linspace(column_start,column_end-1,linspace_num)
-            ColumnIndex, RowIndex = np.meshgrid(X,Y)
+            linspace_num_x = int((row_end-row_start)/step)+1
+            linspace_num_y = int((column_end-column_start)/step)+1
+            X = np.linspace(row_start,row_end-1,linspace_num_x)
+            Y = np.linspace(column_start,column_end-1,linspace_num_y)
+            RowIndex, ColumnIndex = np.meshgrid(X,Y)
             
             self.ColumnIndexMeshgrid = ColumnIndex.astype(int)
             self.RowIndexMeshgrid = RowIndex.astype(int)
             
-            self.FocusCalibrationContainer = 3.278*np.ones((len(X), len(Y)))
+            self.FocusCalibrationContainer = 3.278*np.ones((len(Y), len(X)))
 #            self.FocusCalibrationContainer[2,1] = 1.2
             
+            print(self.RowIndexMeshgrid)
             print(self.ColumnIndexMeshgrid)
-#            print(self.FocusCalibrationContainer)
+            print(self.FocusCalibrationContainer)
     #---------------------------------------------------------------Functions for StageMove------------------------------------------------------    
     def MoveToDefinedCoords(self):
         self.TargetRowIndex = int(self.StageMoveRowIndexSpinbox.value())
@@ -347,10 +354,10 @@ class FocusMatrixFeeder(QWidget):
 
     #-------------------------------------------------------------Set motor pos as part of focus calibration----------------------------------------------------
     def SetFocusPos(self): 
-        self.CalibrationContainerRowIndex = np.where(self.RowIndexMeshgrid[:,0] == self.TargetRowIndex)[0][0]
-        self.CalibrationContainerColIndex = np.where(self.ColumnIndexMeshgrid[0,:] == self.TargetColIndex)[0][0]        
-        
-        self.FocusCalibrationContainer[self.CalibrationContainerRowIndex, self.CalibrationContainerColIndex] = self.ObjCurrentPos['1']
+        self.CalibrationContainerRowIndex = np.where(self.RowIndexMeshgrid[0,:] == self.TargetRowIndex)[0][0]
+        self.CalibrationContainerColIndex = np.where(self.ColumnIndexMeshgrid[:,0] == self.TargetColIndex)[0][0]        
+        # Row index is actually the column index in python.
+        self.FocusCalibrationContainer[self.CalibrationContainerColIndex, self.CalibrationContainerRowIndex] = self.ObjCurrentPos['1']
         
         print(self.FocusCalibrationContainer)
         
@@ -359,9 +366,14 @@ class FocusMatrixFeeder(QWidget):
         self.CorrectionMatrixFomula = interpolate.interp2d(self.ColumnIndexMeshgrid,self.RowIndexMeshgrid,self.FocusCalibrationContainer,kind='cubic') #https://stackoverflow.com/questions/33259896/python-interpolation-2d-array-for-huge-arrays
         self.FocusCorrectionFomula.emit(self.CorrectionMatrixFomula)
         
-        self.CorrectionForDuplicateMethod = np.vstack((self.FeederCoordContainer[::2],self.FeederCoordContainer[1::2], self.FocusCalibrationContainer.flatten()))
+        self.CorrectionForDuplicateMethod = np.vstack((self.FeederCoordContainer[::2],self.FeederCoordContainer[1::2], self.FocusCalibrationContainer.flatten('F')))#‘F’ means to flatten in column-major (Fortran- style) order.
         self.FocusCorrectionForDuplicateMethod.emit(self.CorrectionForDuplicateMethod)
         print(self.CorrectionForDuplicateMethod[2,:])
+        
+    def openPMTWidget(self):
+        self.pmtWindow = PMTWidget.PMTWidgetUI()
+        
+        self.pmtWindow.show()
 
 if __name__ == "__main__":
     def run_app():

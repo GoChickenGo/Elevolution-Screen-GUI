@@ -1089,18 +1089,19 @@ class WaveformGenerator(QWidget):
         self.repeated_samples_2_yaxis = np.tile(self.repeated_samples_2_yaxis, self.repeatnum)  
         
         for i in range(self.repeatnum): # Array value where sits the second PMT image will be 2, etc.
-            if i != 0:
-                self.PMT_data_index_array = np.append(self.PMT_data_index_array, self.PMT_data_index_array*(i+1))
+            if i == 0:
+                self.PMT_data_index_array_repeated = self.PMT_data_index_array
             else:
-                pass
+                self.PMT_data_index_array_repeated = np.append(self.PMT_data_index_array_repeated, self.PMT_data_index_array*(i+1))
+
 
         self.repeated_samples_1 = np.append(self.offsetsamples_galvo, self.repeated_samples_1)
         self.repeated_samples_1 = np.append(self.repeated_samples_1 ,0)                        # Add 0 to clear up Daq
         self.repeated_samples_2_yaxis = np.append(self.offsetsamples_galvo, self.repeated_samples_2_yaxis)
         self.repeated_samples_2_yaxis = np.append(self.repeated_samples_2_yaxis ,0)
         
-        self.PMT_data_index_array = np.append(self.offsetsamples_galvo, self.PMT_data_index_array)
-        self.PMT_data_index_array = np.append(self.PMT_data_index_array ,0)    
+        self.PMT_data_index_array_repeated = np.append(self.offsetsamples_galvo, self.PMT_data_index_array_repeated)
+        self.PMT_data_index_array_repeated = np.append(self.PMT_data_index_array_repeated ,0)    
         
         self.Galvo_samples = np.vstack((self.repeated_samples_1,self.repeated_samples_2_yaxis))
         
@@ -2232,6 +2233,7 @@ class WaveformGenerator(QWidget):
                 self.pw_data.addItem(self.textitem_patch_current) 
             elif 'PMT' in self.readinchan:
                 self.data_collected_0 = data_waveformreceived[0]*-1
+                self.data_collected_0 = self.data_collected_0[0:len(self.data_collected_0)-1]
                 for i in range(self.repeatnum):
                     self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
                     Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
@@ -2276,6 +2278,7 @@ class WaveformGenerator(QWidget):
                 self.pw_data.addItem(self.textitem_patch_current) 
             elif 'PMT' in self.readinchan:
                 self.data_collected_0 = data_waveformreceived[0]*-1
+                self.data_collected_0 = self.data_collected_0[0:len(self.data_collected_0)-1]
                 for i in range(self.repeatnum):
                     self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array == i+1)]
                     Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)

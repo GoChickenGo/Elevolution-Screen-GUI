@@ -12,7 +12,7 @@ from nidaqmx.constants import AcquisitionType, TaskMode
 Daq_sample_rate = 50000
 
 with nidaqmx.Task() as master_task:
-    master_task.ao_channels.add_ao_voltage_chan("/Dev1/ao0")
+    master_task.ao_channels.add_ao_voltage_chan("/Dev1/ao1")
     
     master_task.timing.cfg_samp_clk_timing(
         Daq_sample_rate, sample_mode=AcquisitionType.FINITE, samps_per_chan=100000) # set up clock

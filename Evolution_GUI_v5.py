@@ -66,6 +66,7 @@ class Mainbody(QWidget):
         self.WaveformQueueDict_GalvoInfor = {}
         self.GeneralSettingDict = {}
         self.FocusCorrectionMatrixDict = {}
+        self.FocusStackInfoDict = {}
         self.popnexttopimgcounter = 0
 
         
@@ -125,6 +126,8 @@ class Mainbody(QWidget):
         
         self.BrowsePipelineButton.clicked.connect(self.GetPipelineNPFile)
         
+        GeneralSettingContainerLayout.addWidget(QLabel('Configure focus correction first.'), 1, 2)
+        
         self.ImportPipelineButton = QPushButton('Load', self)
         self.ImportPipelineButton.setStyleSheet("QPushButton {color:white;background-color: rgb(191,216,189); border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                                 "QPushButton:pressed {color:red;background-color: white; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")        
@@ -165,7 +168,7 @@ class Mainbody(QWidget):
         self.FocusCalibraterInstance.FocusCorrectionForDuplicateMethod.connect(self.CaptureFocusDuplicateMethodMatrix)
         FocusCorrectionContainerLayout.addWidget(self.FocusCalibraterInstance, 1, 0, 1, 4)
         
-        FocusCorrectionContainer.setMinimumWidth(475)
+        FocusCorrectionContainer.setMinimumWidth(469)
         FocusCorrectionContainer.setLayout(FocusCorrectionContainerLayout)
 
         #**************************************************************************************************************************************
@@ -198,6 +201,13 @@ class Mainbody(QWidget):
 
         ButtonRankNextCoordImg.clicked.connect(lambda: self.PopNextTopCells('next'))
         ImageDisplayContainerLayout.addWidget(ButtonRankNextCoordImg, 1, 7)
+        
+        self.ConsoleTextDisplay = QTextEdit()
+        self.ConsoleTextDisplay.setFontItalic(True)
+        self.ConsoleTextDisplay.setPlaceholderText('Notice board from console.')
+        self.ConsoleTextDisplay.setMaximumHeight(200)
+        ImageDisplayContainerLayout.addWidget(self.ConsoleTextDisplay, 3, 6, 2, 2)
+        
         
         ImageDisplayContainer.setLayout(ImageDisplayContainerLayout)
         ImageDisplayContainer.setMinimumHeight(400)
@@ -460,6 +470,23 @@ class Mainbody(QWidget):
         ScanSettingLayout.addWidget(self.ScanstepTextbox, 1, 1)
         ScanSettingLayout.addWidget(QLabel("Step size:"), 1, 0)
         
+        self.FocusStackNumTextbox = QSpinBox(self)
+        self.FocusStackNumTextbox.setMinimum(1)
+        self.FocusStackNumTextbox.setMaximum(20000)
+        self.FocusStackNumTextbox.setValue(1)
+        self.FocusStackNumTextbox.setSingleStep(1)
+        ScanSettingLayout.addWidget(self.FocusStackNumTextbox, 1, 5)
+        ScanSettingLayout.addWidget(QLabel("Focus stack number:"), 1, 4)
+        
+        self.FocusStackStepTextbox = QDoubleSpinBox(self)
+        self.FocusStackStepTextbox.setMinimum(0)
+        self.FocusStackStepTextbox.setMaximum(10000)
+        self.FocusStackStepTextbox.setDecimals(6)
+        self.FocusStackStepTextbox.setValue(0.001)
+        self.FocusStackStepTextbox.setSingleStep(0.001)  
+        ScanSettingLayout.addWidget(self.FocusStackStepTextbox, 1, 7)
+        ScanSettingLayout.addWidget(QLabel("Focus stack step(mm):"), 1, 6)   
+        
         ScanContainer.setLayout(ScanSettingLayout)
         
         PipelineContainerLayout.addWidget(ScanContainer, 2, 0, 1, 10)       
@@ -483,13 +510,14 @@ class Mainbody(QWidget):
     
     def AddFreshWaveform(self): # Add waveform package for single round.
         CurrentWaveformPackageSequence = self.WaveformOrderBox.value()
-        self.WaveformQueueDict['WavformPackage_{}'.format(CurrentWaveformPackageSequence)] = self.FreshWaveformPackage
+        self.WaveformQueueDict['WaveformPackage_{}'.format(CurrentWaveformPackageSequence)] = self.FreshWaveformPackage
         
         self.WaveformQueueDict_GalvoInfor['GalvoInfor_{}'.format(CurrentWaveformPackageSequence)] = self.FreshWaveformGalvoInfor
+        self.normalOutputWritten('Waveform{} added.\n'.format(CurrentWaveformPackageSequence))
         print('Waveform added.')
     def DeleteFreshWaveform(self): # Empty the waveform container to avoid crosstalk between rounds.
         CurrentWaveformPackageSequence = self.WaveformOrderBox.value()
-        del self.WaveformQueueDict['WavformPackage_{}'.format(CurrentWaveformPackageSequence)]
+        del self.WaveformQueueDict['WaveformPackage_{}'.format(CurrentWaveformPackageSequence)]
         
         del self.WaveformQueueDict_GalvoInfor['GalvoInfor_{}'.format(CurrentWaveformPackageSequence)]
         
@@ -504,8 +532,15 @@ class Mainbody(QWidget):
         WaveformQueueDict = copy.deepcopy(self.WaveformQueueDict) # Here we make the self.WaveformQueueDict private so that other rounds won't refer to the same variable.
         WaveformQueueDict_GalvoInfor = copy.deepcopy(self.WaveformQueueDict_GalvoInfor)
         self.RoundQueueDict['RoundPackage_{}'.format(CurrentRoundSequence)] = WaveformQueueDict
-        self.RoundQueueDict['GalvoInforPackage_{}'.format(CurrentRoundSequence)] = WaveformQueueDict_GalvoInfor
+        self.RoundQueueDict['GalvoInforPackage_{}'.format(CurrentRoundSequence)] = WaveformQueueDict_GalvoInfor # Information we need to restore pmt scanning images.
         
+        #Configure information for Z-stack
+        ZstackNumber = self.FocusStackNumTextbox.value()
+        ZstackStep = self.FocusStackStepTextbox.value()
+        
+        self.FocusStackInfoDict['RoundPackage_{}'.format(CurrentRoundSequence)] = 'NumberOfFocus{}WithIncrementBeing{}'.format(ZstackNumber, ZstackStep)
+        
+        self.normalOutputWritten('Round{} added.\n'.format(CurrentRoundSequence))
         print('Round added.')
         
     def GenerateScanCoords(self):
@@ -547,6 +582,10 @@ class Mainbody(QWidget):
         self.RoundCoordsDict = {}
         self.WaveformQueueDict_GalvoInfor = {}
         self.GeneralSettingDict = {}
+        self.FocusStackInfoDict = {}
+        
+        self.normalOutputWritten('Rounds cleared.\n')
+        print('Rounds cleared.')
     #--------------------------------------------------------------Selection functions------------------------------------------------------------------------         
     def ConfigGeneralSettings(self):
         selectnum = int(self.selec_num_box.value())
@@ -631,7 +670,7 @@ class Mainbody(QWidget):
                         
                         
             elif self.FocusInterStrategy.currentText() == 'Duplicate':
-                RawDuplicateRow = self.FocusDuplicateMethodInfor[0,:] # The row index from calibration step
+                RawDuplicateRow = self.FocusDuplicateMethodInfor[0,:] # The row index from calibration step (Corresponding to column index in python array)
                 RawDuplicateCol = self.FocusDuplicateMethodInfor[1,:]
                 RawDuplicateFocus = self.FocusDuplicateMethodInfor[2,:]
                 sparsestep = RawDuplicateCol[1] - RawDuplicateCol[0]
@@ -653,27 +692,32 @@ class Mainbody(QWidget):
                         column_start = np.amin(OriginalCoordsEven_Col)
                         column_end = np.amax(OriginalCoordsEven_Col)     
                         
-                        linspace_num = int((row_end-row_start)/Originalstep)+1
-                        X = np.linspace(row_start,row_end,linspace_num)
-                        Y = np.linspace(column_start,column_end,linspace_num)
+                        linspace_num_x = int((row_end-row_start)/Originalstep)+1
+                        linspace_num_y = int((column_end-column_start)/Originalstep)+1
+                        X = np.linspace(row_start,row_end,linspace_num_x)
+                        Y = np.linspace(column_start,column_end,linspace_num_y)
                         
-                        FocusCorrectionMatrixContainer, ExeRowIndex = np.meshgrid(X,Y)
+                        ExeRowIndex, ExeColIndex = np.meshgrid(X,Y)
+                        
+                        FocusCorrectionMatrixContainer = RawDuplicateFocus[0]*np.ones((len(Y), len(X)))
  
                         c = int(sparsestep/Originalstep)
-                        print(RawDuplicateFocus)    
-                        print(FocusCorrectionMatrixContainer)
+                        print('RawDuplicateFocus'+str(RawDuplicateFocus))
+#                        print(FocusCorrectionMatrixContainer)
                         for i in range(len(RawDuplicateRow)):
                             row = int(RawDuplicateRow[i]/sparsestep)
                             col = int(RawDuplicateCol[i]/sparsestep)
-
+                            
+                            print('row{},col{}'.format(row, col))
+                            
                             try:    
-                                FocusCorrectionMatrixContainer[row*c:row*c+c,col*c:col*c+c] = RawDuplicateFocus[i]
+                                FocusCorrectionMatrixContainer[col*c:col*c+c, row*c:row*c+c] = RawDuplicateFocus[i]
                             except:
-                                pass
+                                pass# Last row should stay the same
                         
                         FocusCorrectionMatrixContainer = copy.deepcopy(FocusCorrectionMatrixContainer)
                         FocusCorrectionMatrixContainer += self.FocusCorrectionOffsetBox.value()
-                        FocusCorrectionMatrixContainer = FocusCorrectionMatrixContainer.flatten()
+#                        FocusCorrectionMatrixContainer = FocusCorrectionMatrixContainer.flatten()
                         
                         self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrixContainer               
                         print(self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)])
@@ -682,14 +726,16 @@ class Mainbody(QWidget):
         
 #        print(self.FocusCorrectionMatrixDict.keys())
         generalnamelist = ['selectnum', 'Mean intensity in contour weight','Contour soma ratio weight','Change weight', 'BefRoundNum', 'AftRoundNum', 'smallestsize', 'openingfactor', 'closingfactor', 'cellopeningfactor', 
-                           'cellclosingfactor', 'binary_adaptive_block_size', 'self_findcontour_thres', 'contour_dilation', 'savedirectory', 'FocusCorrectionMatrixDict']
+                           'cellclosingfactor', 'binary_adaptive_block_size', 'self_findcontour_thres', 'contour_dilation', 'savedirectory', 'FocusCorrectionMatrixDict', 'FocusStackInfoDict']
         
         generallist = [selectnum, MeanIntensityContourWeight, ContourSomaRatioWeight, ChangeWeight, BefRoundNum, AftRoundNum, smallestsize, openingfactor, closingfactor, cellopeningfactor, 
-                       cellclosingfactor, binary_adaptive_block_size, self_findcontour_thres, contour_dilation, savedirectory, self.FocusCorrectionMatrixDict]
+                       cellclosingfactor, binary_adaptive_block_size, self_findcontour_thres, contour_dilation, savedirectory, self.FocusCorrectionMatrixDict, self.FocusStackInfoDict]
         
         for item in range(len(generallist)):
             self.GeneralSettingDict[generalnamelist[item]] = generallist[item]
-            
+        print(self.GeneralSettingDict['FocusStackInfoDict'])
+        self.normalOutputWritten('Rounds configured.\n')
+        
     def _open_file_dialog(self):
         self.savedirectory = str(QtWidgets.QFileDialog.getExistingDirectory())
         self.savedirectorytextbox.setText(self.savedirectory)
@@ -823,7 +869,7 @@ class Mainbody(QWidget):
                         
                         
             elif self.FocusInterStrategy.currentText() == 'Duplicate':
-                RawDuplicateRow = self.FocusDuplicateMethodInfor[0,:] # The row index from calibration step
+                RawDuplicateRow = self.FocusDuplicateMethodInfor[0,:] # The row index from calibration step (Corresponding to column index in python array)
                 RawDuplicateCol = self.FocusDuplicateMethodInfor[1,:]
                 RawDuplicateFocus = self.FocusDuplicateMethodInfor[2,:]
                 sparsestep = RawDuplicateCol[1] - RawDuplicateCol[0]
@@ -845,27 +891,32 @@ class Mainbody(QWidget):
                         column_start = np.amin(OriginalCoordsEven_Col)
                         column_end = np.amax(OriginalCoordsEven_Col)     
                         
-                        linspace_num = int((row_end-row_start)/Originalstep)+1
-                        X = np.linspace(row_start,row_end,linspace_num)
-                        Y = np.linspace(column_start,column_end,linspace_num)
+                        linspace_num_x = int((row_end-row_start)/Originalstep)+1
+                        linspace_num_y = int((column_end-column_start)/Originalstep)+1
+                        X = np.linspace(row_start,row_end,linspace_num_x)
+                        Y = np.linspace(column_start,column_end,linspace_num_y)
                         
-                        FocusCorrectionMatrixContainer, ExeRowIndex = np.meshgrid(X,Y)
+                        ExeRowIndex, ExeColIndex = np.meshgrid(X,Y)
+                        
+                        FocusCorrectionMatrixContainer = RawDuplicateFocus[0]*np.ones((len(Y), len(X)))
  
                         c = int(sparsestep/Originalstep)
-                        print(RawDuplicateFocus)    
-                        print(FocusCorrectionMatrixContainer)
+                        print('RawDuplicateFocus'+str(RawDuplicateFocus))
+#                        print(FocusCorrectionMatrixContainer)
                         for i in range(len(RawDuplicateRow)):
                             row = int(RawDuplicateRow[i]/sparsestep)
                             col = int(RawDuplicateCol[i]/sparsestep)
-
+                            
+                            print('row{},col{}'.format(row, col))
+                            
                             try:    
-                                FocusCorrectionMatrixContainer[row*c:row*c+c,col*c:col*c+c] = RawDuplicateFocus[i]
+                                FocusCorrectionMatrixContainer[col*c:col*c+c, row*c:row*c+c] = RawDuplicateFocus[i]
                             except:
-                                pass
+                                pass# Last row should stay the same
                         
                         FocusCorrectionMatrixContainer = copy.deepcopy(FocusCorrectionMatrixContainer)
                         FocusCorrectionMatrixContainer += self.FocusCorrectionOffsetBox.value()
-                        FocusCorrectionMatrixContainer = FocusCorrectionMatrixContainer.flatten()
+#                        FocusCorrectionMatrixContainer = FocusCorrectionMatrixContainer.flatten()
                         
                         self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)] = FocusCorrectionMatrixContainer               
                         print(self.FocusCorrectionMatrixDict['RoundPackage_{}'.format(CurrentRound+1)])
@@ -873,8 +924,20 @@ class Mainbody(QWidget):
             self.FocusCorrectionMatrixDict = []
         
         self.GeneralSettingDict['FocusCorrectionMatrixDict'] = self.FocusCorrectionMatrixDict # Refresh the focus correction
+        self.GeneralSettingDict['savedirectory'] = self.savedirectory
         
+        self.normalOutputWritten('Pipeline loaded.\n')
         print('Pipeline loaded.')
+        
+    #---------------------------------------------------------------functions for console display------------------------------------------------------------        
+    def normalOutputWritten(self, text):
+        """Append text to the QTextEdit."""
+        # Maybe QTextEdit.append() works as well, but this is how I do it:
+        cursor = self.ConsoleTextDisplay.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertText(text)
+        self.ConsoleTextDisplay.setTextCursor(cursor)
+        self.ConsoleTextDisplay.ensureCursorVisible()  
         
 if __name__ == "__main__":
     def run_app():
