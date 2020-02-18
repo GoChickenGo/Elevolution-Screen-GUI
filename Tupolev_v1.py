@@ -23,25 +23,26 @@ from IPython import get_ipython
 import sys
 import numpy as np
 import csv
-from code_5nov import generate_AO
+from NIDAQ.code_5nov import generate_AO
 from pmt_thread import pmtimagingTest, pmtimagingTest_contour
-from Stagemovement_Thread import StagemovementRelativeThread
-from Filtermovement_Thread import FiltermovementThread
-from constants import MeasurementConstants
-from generalDaqer import execute_constant_vpatch
-import wavegenerator
-from generalDaqer import execute_analog_readin_optional_digital, execute_digital
-from generalDaqerThread import (execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog,
+from SampleStageControl.Stagemovement_Thread import StagemovementRelativeThread
+from ThorlabsFilterSlider.Filtermovement_Thread import FiltermovementThread
+from NIDAQ.constants import MeasurementConstants
+from Oldversions.generalDaqer import execute_constant_vpatch
+import NIDAQ.wavegenerator
+from Oldversions.generalDaqer import execute_analog_readin_optional_digital, execute_digital
+from NIDAQ.generalDaqerThread import (execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog,
                                 execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar)
 from PIL import Image
-from adfunctiongenerator import (generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking,
+from NIDAQ.adfunctiongenerator import (generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking,
                                  generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking,
                                  generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter, generate_ramp)
 from pyqtgraph import PlotDataItem, TextItem
-from matlabAnalysis import readbinaryfile, extractV
+from ImageAnalysis.matlabAnalysis import readbinaryfile, extractV
 import os
 import scipy.signal as sg
-import ui_patchclamp_sealtest  
+import PatchClamp.ui_patchclamp_sealtest
+import NIDAQ.Waveformer_for_screening
 from scipy import interpolate
 import time
 from datetime import datetime
@@ -50,10 +51,10 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from constants import HardwareConstants
+from NIDAQ.constants import HardwareConstants
 import pyqtgraph.console
-from focuser import PIMotor
-import ui_camera_lab_5
+from PI_ObjectiveMotor.focuser import PIMotor
+import ui_camera_lab
 
 #Setting graph settings
 #"""
@@ -92,8 +93,8 @@ class Mainbody(QWidget):
         # Setting tabs
         self.tabs = QTabWidget()
         self.tab1 = QWidget()
-        self.tab2 = QWidget()
-        self.tab3 = ui_patchclamp_sealtest.PatchclampSealTestUI()
+        self.tab2 = NIDAQ.Waveformer_for_screening.WaveformGenerator()
+        self.tab3 = PatchClamp.ui_patchclamp_sealtest.PatchclampSealTestUI()
         #self.tab4 = ui_camera_lab_5.CameraUI()
         self.tab5 = QWidget()
         
@@ -654,6 +655,8 @@ class Mainbody(QWidget):
         pmtmaster.addWidget(controlContainer,2,0,1,2)
         
         self.tab1.setLayout(pmtmaster)
+        
+        '''
         #**************************************************************************************************************************************
         #--------------------------------------------------------------------------------------------------------------------------------------
         #-----------------------------------------------------------GUI for Waveform tab-------------------------------------------------------
@@ -716,7 +719,7 @@ class Mainbody(QWidget):
         self.wavetabs.addTab(self.wavetab3,"Import")
         self.wavetabs.addTab(self.wavetab4,"Galvo")
         self.wavetabs.addTab(self.wavetab5,"Photocycle")        
-        
+      
         #------------------------------------------------------------------------------------------------------------------------------------
         #----------------------------------------------------------Waveform General settings-------------------------------------------------
         #------------------------------------------------------------------------------------------------------------------------------------
@@ -1121,6 +1124,7 @@ class Mainbody(QWidget):
 
         self.galvotablayout.addWidget(self.galvos_tabs,0,0)
         '''
+        '''
         self.button1 = QPushButton('SHOW WAVE', self)
         self.galvotablayout.addWidget(self.button1, 1, 11)
         
@@ -1136,6 +1140,7 @@ class Mainbody(QWidget):
         
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger)        
         self.button_triggerforcam.clicked.connect(self.generate_galvotrigger_graphy)
+        '''
         '''
         self.wavetab4.setLayout(self.galvotablayout)
         
@@ -1254,7 +1259,8 @@ class Mainbody(QWidget):
         master_waveform.addWidget(ReadContainer, 0, 0)
         master_waveform.addWidget(self.pw, 3, 0)
         master_waveform.addWidget(self.pw_data, 4, 0)
-        self.tab2.setLayout(master_waveform)        
+        self.tab2.setLayout(master_waveform)
+        '''
         #**************************************************************************************************************************************        
         #self.setLayout(pmtmaster)
         self.layout.addWidget(self.tabs, 0, 1, 8, 4)
@@ -2025,9 +2031,9 @@ class Mainbody(QWidget):
      
     def export_trace(self):
         if self.switch_export_trace.currentText() == 'Cam trace':
-            np.save(os.path.join(self.savedirectory,'Cam_trace 1511_trialstep033'), self.camsignalsum)
+            np.save(os.path.join(self.savedirectory,'Cam_trace'), self.camsignalsum)
         elif self.switch_export_trace.currentText() == 'Weighted trace':
-            np.save(os.path.join(self.savedirectory,'Weighted_trace 1511_trialstep033'), self.weighttrace_data)
+            np.save(os.path.join(self.savedirectory,'Weighted_trace'), self.weighttrace_data)
         
     def clearplots(self):
         self.pw_patch_voltage.clear()
@@ -2420,7 +2426,7 @@ class Mainbody(QWidget):
         stops and the device gets freed."""
         self.stopMeasurement()
     '''
-
+    '''
         #--------------------------------------------------------------------------------------------------------------------------------------
         #--------------------------------------------------------------------------------------------------------------------------------------
         #**************************************************************************************************************************************
@@ -3698,8 +3704,10 @@ class Mainbody(QWidget):
 #        self.switch_galvos=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=self.switch_cameratrigger=self.switch_galvotrigger=self.switch_blankingall=self.switch_640blanking=self.switch_532blanking=self.switch_488blanking=self.switch_Perfusion_8=0        
     
     '''
+    '''
     -----------------------------------------------------------------------Integrating all the waveforms, getting them ready for Daq--------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    ''' 
+    '''
+    '''
     def show_all(self):
 
         self.switch_galvos=self.switch_galvos_contour=self.switch_640AO=self.switch_488AO=self.switch_532AO=self.switch_patchAO=\
@@ -3869,6 +3877,7 @@ class Mainbody(QWidget):
             self.pw.addItem(self.textitem_final)
             i += 1
         '''
+    '''
         plt.figure()
         for i in range(analogloopnum):
             if self.analogcontainer_array['Sepcification'][i] != 'galvosx'+'avgnum_'+str(int(self.textbox1H.value())): #skip the galvoX, as it is too intense
@@ -3877,7 +3886,8 @@ class Mainbody(QWidget):
             plt.plot(xlabelhere_all, self.digitalcontainer_array['Waveform'][i])
         plt.text(0.1, 1.1, 'Time lasted:'+str(xlabelhere_all[-1])+'s', fontsize=12)
         plt.show()
-        '''
+    '''
+    '''
         # Saving configed waveforms
         if self.textboxsavingwaveforms.isChecked():
             #temp_save_wave = np.empty((len(self.analogcontainer_array['Sepcification'])+len(self.digitalcontainer_array['Sepcification']), 1), dtype=np.object)
@@ -3899,7 +3909,8 @@ class Mainbody(QWidget):
             #print(temp_save_wave)
             np.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_'+str(self.prefixtextbox.text())+'_'+'Wavefroms_sr_'+ str(int(self.textboxAA.value()))), ciao)
         
-        '''
+    '''
+    '''
         # Saving configed waveforms, worked in my laptop numpy v1.15.4, spyder 3.3.2
         if self.textboxsavingwaveforms.isChecked():
             temp_save_wave = np.empty((len(self.analogcontainer_array['Sepcification'])+len(self.digitalcontainer_array['Sepcification']), 1), dtype=np.object)
@@ -3910,8 +3921,8 @@ class Mainbody(QWidget):
             #np.append(temp_save_wave, self.analogcontainer_array, axis = 0)
             #np.append(temp_save_wave, self.digitalcontainer_array, axis = 0)
             np.save(os.path.join(self.savedirectory, 'Wavefroms_sr_'+ str(int(self.textboxAA.value())) + '_' + str(self.prefixtextbox.text()) + '_' +datetime.now().strftime('%Y-%m-%d_%H-%M-%S')), temp_save_wave)
-       
-        '''
+    '''
+    '''
         
         self.readinchan = []
         
@@ -4107,6 +4118,7 @@ class Mainbody(QWidget):
     def stopMeasurement_daqer(self):
         """Stop """
         self.adcollector.aboutToQuitHandler()
+    '''
         #**************************************************************************************************************************************        
         #**************************************************************************************************************************************
         
@@ -4291,7 +4303,7 @@ class Mainbody(QWidget):
         #--------------------------------------------------------------------------------------------------------------------------------------          
         #************************************************************************************************************************************** 
     def open_camera(self):
-        self.camWindow = ui_camera_lab_5.CameraUI()
+        self.camWindow = ui_camera_lab.CameraUI()
         
         '''
         I set the roiwindow immeadiately to save time, however this funcion also 

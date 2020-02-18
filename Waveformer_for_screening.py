@@ -13,24 +13,25 @@ Created on Fri Dec 13 23:04:00 2019
 
 from __future__ import division
 import sys
+sys.path.append('../')
 import numpy as np
 from matplotlib import pyplot as plt
 from IPython import get_ipython
 from matplotlib.ticker import FormatStrFormatter
-import wavegenerator
-from generalDaqerThread import execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog, execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar
+import NIDAQ.wavegenerator
+from NIDAQ.generalDaqerThread import execute_analog_readin_optional_digital_thread, execute_tread_singlesample_analog, execute_tread_singlesample_digital, execute_analog_and_readin_digital_optional_camtrig_thread, DaqProgressBar
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import pyqtSignal, QThread
 from PyQt5.QtWidgets import QWidget,QLineEdit, QLabel, QGridLayout, QPushButton, QVBoxLayout, QProgressBar, QHBoxLayout, QComboBox, QMessageBox, QPlainTextEdit, QGroupBox, QTabWidget, QCheckBox, QDoubleSpinBox, QSpinBox
-from adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter, generate_ramp
+from NIDAQ.adfunctiongenerator import generate_AO_for640, generate_AO_for488, generate_DO_forcameratrigger, generate_DO_for640blanking, generate_AO_for532, generate_AO_forpatch, generate_DO_forblankingall, generate_DO_for532blanking, generate_DO_for488blanking, generate_DO_forPerfusion, generate_DO_for2Pshutter, generate_ramp
 import pyqtgraph as pg
 from pyqtgraph import PlotDataItem, TextItem
 import os
 from PIL import Image
-from code_5nov import generate_AO
+from NIDAQ.code_5nov import generate_AO
 from datetime import datetime
-from generalDaqer import execute_digital
+from Oldversions.generalDaqer import execute_digital
 
 class WaveformGenerator(QWidget):
     WaveformPackage = pyqtSignal(object)
@@ -62,7 +63,7 @@ class WaveformGenerator(QWidget):
         self.AnalogLayout = QGridLayout() #self.AnalogLayout manager
         
         
-        self.button_execute = QPushButton('EXECUTE AD', self)
+        self.button_execute = QPushButton('EXECUTE !', self)
         self.button_execute.setStyleSheet("QPushButton {color:white;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
                                           "QPushButton:pressed {color:black;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
         self.AnalogLayout.addWidget(self.button_execute, 3, 3)
@@ -584,10 +585,11 @@ class WaveformGenerator(QWidget):
         self.DigitalLayout.addWidget(self.button3, 0, 1)
         self.button3.clicked.connect(self.chosen_wave_digital)
         #---------------------------------------------------------------------------------------------------------------------------        
-        self.button_execute_digital = QPushButton('EXECUTE DIGITAL', self)
-        self.button_execute_digital.setStyleSheet("QPushButton {color:white;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
-                                                  "QPushButton:pressed {color:black;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
-        self.DigitalLayout.addWidget(self.button_execute_digital, 0, 3)
+        #---------------!!!!!!!!!!!!!!!!! now 'EXECUTE DIGITAL' button is depreceted----------------------------------------------
+#        self.button_execute_digital = QPushButton('EXECUTE DIGITAL', self)
+#        self.button_execute_digital.setStyleSheet("QPushButton {color:white;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
+#                                                  "QPushButton:pressed {color:black;background-color: BlueViolet; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}")
+#        self.DigitalLayout.addWidget(self.button_execute_digital, 0, 3)
         
         self.button_del_digital = QPushButton('Delete', self)
         self.button_del_digital.setStyleSheet("QPushButton {color:white;background-color: Crimson; border-style: outset;border-radius: 10px;border-width: 2px;font: bold 14px;padding: 6px}"
@@ -595,7 +597,7 @@ class WaveformGenerator(QWidget):
   
         self.DigitalLayout.addWidget(self.button_del_digital, 0, 2)
         
-        self.button_execute_digital.clicked.connect(self.execute_digital)
+#        self.button_execute_digital.clicked.connect(self.execute_digital)
         #self.button_execute_digital.clicked.connect(self.startProgressBar)
         self.button_del_digital.clicked.connect(self.del_chosen_wave_digital)
         # ------------------------------------------------------Wave settings------------------------------------------
@@ -1059,7 +1061,7 @@ class WaveformGenerator(QWidget):
             self.offsetsamples_number_galvo = int((self.Galvo_samples_offset/1000)*self.uiDaq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
             self.offsetsamples_galvo = np.zeros(self.offsetsamples_number_galvo) # Be default offsetsamples_number is an integer.    
         #Generate galvo samples            
-        self.samples_1, self.samples_2= wavegenerator.waveRecPic(sampleRate = self.uiDaq_sample_rate, imAngle = 0, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, 
+        self.samples_1, self.samples_2= NIDAQ.wavegenerator.waveRecPic(sampleRate = self.uiDaq_sample_rate, imAngle = 0, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, 
                          voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
                          sawtooth = True)
         #ScanArrayX = wavegenerator.xValuesSingleSawtooth(sampleRate = Daq_sample_rate, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, xPixels = Value_xPixels, sawtooth = True)
@@ -1090,12 +1092,12 @@ class WaveformGenerator(QWidget):
         self.repeated_samples_1 = np.tile(self.repeated_samples_1, self.repeatnum)
         self.repeated_samples_2_yaxis = np.tile(self.repeated_samples_2_yaxis, self.repeatnum)  
         
+        # self.PMT_data_index_array_repeated is created to help locate pmt data at different pre-set average or repeat scanning scheme.
         for i in range(self.repeatnum): # Array value where sits the second PMT image will be 2, etc.
             if i == 0:
                 self.PMT_data_index_array_repeated = self.PMT_data_index_array
             else:
                 self.PMT_data_index_array_repeated = np.append(self.PMT_data_index_array_repeated, self.PMT_data_index_array*(i+1))
-
 
         self.repeated_samples_1 = np.append(self.offsetsamples_galvo, self.repeated_samples_1)
         self.repeated_samples_1 = np.append(self.repeated_samples_1 ,0)                        # Add 0 to clear up Daq
@@ -1144,7 +1146,7 @@ class WaveformGenerator(QWidget):
             self.offsetsamples_number_galvo = int((self.Galvo_samples_offset/1000)*self.uiDaq_sample_rate) # By default one 0 is added so that we have a rising edge at the beginning.
             self.offsetsamples_galvo = np.zeros(self.offsetsamples_number_galvo) # Be default offsetsamples_number is an integer.    
         #Generate galvo samples            
-        self.samples_1, self.samples_2= wavegenerator.waveRecPic(sampleRate = self.uiDaq_sample_rate, imAngle = 0, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, 
+        self.samples_1, self.samples_2= NIDAQ.wavegenerator.waveRecPic(sampleRate = self.uiDaq_sample_rate, imAngle = 0, voltXMin = Value_voltXMin, voltXMax = Value_voltXMax, 
                          voltYMin = Value_voltYMin, voltYMax = Value_voltYMax, xPixels = Value_xPixels, yPixels = Value_yPixels, 
                          sawtooth = True)
         self.ScanArrayXnum = int (len(self.samples_1)/Value_yPixels) # number of samples of each individual line of x scanning
@@ -2227,24 +2229,29 @@ class WaveformGenerator(QWidget):
             elif 'PMT' in self.readinchan:  # repeatnum, PMT_data_index_array, averagenum, ScanArrayXnum
                 self.data_collected_0 = data_waveformreceived[0]*-1
                 self.data_collected_0 = self.data_collected_0[0:len(self.data_collected_0)-1]
-                for i in range(self.repeatnum):
-                    self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array_repeated == i+1)]
-                    Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
-                    Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
-                    self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
-                    
-                    # Stack the arrays into a 3d array
-                    if i == 0:
-                        self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
-                    else:
-                        self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
-                    
-                    Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
-                    Localimg.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+str(i)+'.tif')) #save as tif
-                    
-                    plt.figure()
-                    plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
-                    plt.show()
+                
+                # pmt data could come from raster scanning mode or from contour scanning mode.
+                try:
+                    for i in range(self.repeatnum):
+                        self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array_repeated == i+1)]
+                        Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
+                        Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
+                        self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+                        
+                        # Stack the arrays into a 3d array
+                        if i == 0:
+                            self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
+                        else:
+                            self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
+                        
+                        Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
+                        Localimg.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+str(i)+'.tif')) #save as tif
+                        
+                        plt.figure()
+                        plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
+                        plt.show()
+                except:
+                    np.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+'contourscanning'), self.data_collected_0)
                 
         elif self.channel_number == 2: 
             if 'PMT' not in self.readinchan:
@@ -2272,24 +2279,28 @@ class WaveformGenerator(QWidget):
             elif 'PMT' in self.readinchan:
                 self.data_collected_0 = data_waveformreceived[0]*-1
                 self.data_collected_0 = self.data_collected_0[0:len(self.data_collected_0)-1]
-                for i in range(self.repeatnum):
-                    self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array_repeated == i+1)]
-                    Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
-                    Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
-                    self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
-                    
-                    # Stack the arrays into a 3d array
-                    if i == 0:
-                        self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
-                    else:
-                        self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
-                    
-                    Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
-                    Localimg.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+str(i)+'.tif')) #save as tif
-                    
-                    plt.figure()
-                    plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
-                    plt.show()
+                
+                try:
+                    for i in range(self.repeatnum):
+                        self.PMT_image_reconstructed_array = self.data_collected_0[np.where(self.PMT_data_index_array_repeated == i+1)]
+                        Dataholder_average = np.mean(self.PMT_image_reconstructed_array.reshape(self.averagenum, -1), axis=0)
+                        Value_yPixels = int(len(self.samples_1)/self.ScanArrayXnum)
+                        self.PMT_image_reconstructed = np.reshape(Dataholder_average, (Value_yPixels, self.ScanArrayXnum))
+                        
+                        # Stack the arrays into a 3d array
+                        if i == 0:
+                            self.PMT_image_reconstructed_stack = self.PMT_image_reconstructed
+                        else:
+                            self.PMT_image_reconstructed_stack = np.concatenate((self.PMT_image_reconstructed_stack, self.PMT_image_reconstructed), axis=0)
+                        
+                        Localimg = Image.fromarray(self.PMT_image_reconstructed) #generate an image object
+                        Localimg.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+str(i)+'.tif')) #save as tif
+                        
+                        plt.figure()
+                        plt.imshow(self.PMT_image_reconstructed, cmap = plt.cm.gray)
+                        plt.show()
+                except:
+                    np.save(os.path.join(self.savedirectory, datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'_PMT_'+str(self.prefixtextbox.text())+'_'+'contourscanning'), self.data_collected_0)
                     
                 if 'Vp' in self.readinchan:
                     self.data_collected_1 = data_waveformreceived[1]
