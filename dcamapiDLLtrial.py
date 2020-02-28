@@ -30,6 +30,7 @@ import time
 # DCAM4 API.
 DCAMERR_ERROR = 0
 DCAMERR_NOERROR = 1
+DCAMERR_SUCCESS = 2
 
 DCAMPROP_ATTR_HASVALUETEXT = int("0x10000000", 0)
 DCAMPROP_ATTR_READABLE = int("0x00010000", 0)
@@ -57,6 +58,10 @@ DCAMWAIT_RECEVENT_MISSED = int("0x00000200", 0)
 DCAMWAIT_RECEVENT_STOPPED = int("0x00000400", 0)
 DCAMWAIT_TIMEOUT_INFINITE = int("0x80000000", 0)
 
+#DCAMWAIT_RECEVENT_WRITEFAULT = 100
+#DCAMWAIT_RECEVENT_WARNING = 101
+#DCAMWAIT_RECEVENT_SKIPPED = 102
+
 DCAM_DEFAULT_ARG = 0
 
 DCAM_IDSTR_MODEL = int("0x04000104", 0)
@@ -67,7 +72,8 @@ DCAMCAP_START_SEQUENCE = -1
 DCAMCAP_START_SNAP = 0
 
 DCAMBUF_ATTACHKIND_FRAME = 0
-
+DCAMBUF_ATTACHKIND_TIMESTAMP = 1
+DCAMBUF_ATTACHKIND_FRAMESTAMP = 2
 # Hamamatsu structures.
 
 ## DCAMAPI_INIT
@@ -359,16 +365,20 @@ class HamamatsuCamera(object):
         Check return value of the dcam function call.
         Throw an error if not as expected?
         """
+#        if fn_return != DCAMERR_SUCCESS:
+            
+#            print(fn_return)
+        
         #if (fn_return != DCAMERR_NOERROR) and (fn_return != DCAMERR_ERROR):
         #    raise DCAMException("dcam error: " + fn_name + " returned " + str(fn_return))
-        if (fn_return == DCAMERR_ERROR):
-            c_buf_len = 80
-            c_buf = ctypes.create_string_buffer(c_buf_len)
-            c_error = dcam.dcam_getlasterror(self.camera_handle, # Can't find dcam.dcam_getlasterror
-                                             c_buf,
-                                             ctypes.c_int32(c_buf_len))
-#            raise DCAMException("dcam error " + str(fn_name) + " " + str(c_buf.value))
-            print ("dcam error", fn_name, c_buf.value)
+#        if (fn_return == DCAMERR_ERROR):
+#            c_buf_len = 80
+#            c_buf = ctypes.create_string_buffer(c_buf_len)
+#            c_error = dcam.dcam_getlasterror(self.camera_handle, # Can't find dcam.dcam_getlasterror
+#                                             c_buf,
+#                                             ctypes.c_int32(c_buf_len))
+##            raise DCAMException("dcam error " + str(fn_name) + " " + str(c_buf.value))
+#            print ("dcam error", fn_name, c_buf.value)
         return fn_return
 
     def getCameraProperties(self):
@@ -641,6 +651,7 @@ class HamamatsuCamera(object):
 
         # Wait for a new frame if the camera is acquiring.
         if captureStatus.value == DCAMCAP_STATUS_BUSY:
+#            print('DCAMCAP_STATUS_BUSY')
             paramstart = DCAMWAIT_START(
                     0, 
                     0, 
@@ -746,6 +757,43 @@ class HamamatsuCamera(object):
             self.setPropertyValue("subarray_mode", "OFF")
         else:
             self.setPropertyValue("subarray_mode", "ON")
+            print('Set subarray_mode ON.')
+
+            params = ["internal_frame_rate",
+                      "timing_readout_time",
+                      "exposure_time",
+                      "subarray_hsize",
+                      "subarray_mode",
+                      "image_height",
+                      "image_width",
+                      "image_framebytes",
+#                          "buffer_framebytes", # return byte size of a frame buffer that should be allocated 
+                      # when you use dcambuf_attach() function
+#                          "buffer_rowbytes",
+#                          "buffer_top_offset_bytes",
+                      "subarray_hsize",
+                      "subarray_vsize",
+#                          "binning",
+#                          "record_fixedbytes_perfile", # return additional data size per a file.
+#                          "record_fixedbytes_persession",
+#                          "record_fixedbytes_perframe",
+                      "buffer_framebytes", # return byte size of a frame buffer that should be allocated 
+                      # when you use dcambuf_attach() function
+                      "buffer_rowbytes",# return row byte size of user attached buffer
+                      "buffer_top_offset_bytes",
+                      "image_top_offset_bytes",
+                      "record_fixed_bytes_per_file", # return additional data size per a file.
+                      "record_fixed_bytes_per_session",
+                      "record_fixed_bytes_per_frame"
+                      ]
+            print('----------------------Settings-----------------------')
+            for param in params:
+                if param == 'buffer_framebytes':
+                    print('A frame buffer that should be allocated: {} MB.'.format(rcam.getPropertyValue(param)[0]/1048576))
+                else:
+                    print(param, self.getPropertyValue(param)[0])
+            print('-----------------------------------------------------')
+            
 
     def setACQMode(self, mode, number_frames = None):
         '''
@@ -756,7 +804,7 @@ class HamamatsuCamera(object):
         of frames to acquire.
         '''
 
-        self.stopAcquisition()
+#        self.stopAcquisition()
 
         if self.acquisition_mode is "fixed_length" or \
                 self.acquisition_mode is "run_till_abort":
@@ -984,18 +1032,16 @@ class HamamatsuCameraRE(HamamatsuCamera):
     def __init__(self, path, ext, **kwds):
         super().__init__(**kwds)
 
-        self.hcam_data = []
+        self.RECcam_data = []
         self.hcam_ptr = False
         self.old_frame_bytes = -1
+        self.additional_bytes_per_frame = 0
 
         self.setPropertyValue("output_trigger_kind[0]", 2)
         
         self.recording_path = path
         self.recording_extension = ext
-        
-#        path_string_buf = ctypes.create_string_buffer(b'M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\Equipment\\Hamamatsu Orca Flash\\test')
-#        ext_string_buf = ctypes.create_string_buffer(b'tif') #create_unicode_buffer
-        
+        self.USE_USERMETADATA = False
         # Set up record handle
         pararecord = DCAMREC_OPEN()
 #        pararecord = DCAMREC_OPEN(0, 0, None, 
@@ -1007,49 +1053,72 @@ class HamamatsuCameraRE(HamamatsuCamera):
         pararecord.ext = self.recording_extension
         pararecord.maxframepersession = 2000
         
+        if self.USE_USERMETADATA == True:
+            pararecord.userdatasize = 64 #Set this to the maximum bytes of binary user meta data for each frame.
+            pararecord.userdatasize_session = 128 # Set this to the maximum bytes of binary user meta data for each session.
+            pararecord.userdatasize_file = 256 # Set this to the maximum bytes of binary user meta data for the file.
+            pararecord.usertextsize = 64 # Set this to the maximum bytes of user text meta data for each frame.
+            pararecord.usertextsize_session = 128 # Set this to the maximum bytes of user text meta data for each session.
+            pararecord.usertextsize_file = 256 # Set this to the maximum bytes of user text meta data for the file.
+        else:
+            pararecord.userdatasize = 0 #Set this to the maximum bytes of binary user meta data for each frame.
+            pararecord.userdatasize_session = 0 # Set this to the maximum bytes of binary user meta data for each session.
+            pararecord.userdatasize_file = 0 # Set this to the maximum bytes of binary user meta data for the file.
+            pararecord.usertextsize = 0 # Set this to the maximum bytes of user text meta data for each frame.
+            pararecord.usertextsize_session = 0 # Set this to the maximum bytes of user text meta data for each session.
+            pararecord.usertextsize_file = 0 # Set this to the maximum bytes of user text meta data for the file.
+
         # Dependent on the path is defined using ASCII or UNICODE character the function is called either as dcamrec_opeaA() for ASCII 
         # or as dcamrec_openW() as wide (unicode ) caracter version. 
         self.checkStatus(dcam.dcamrec_openW(ctypes.byref(pararecord)), 
                          "dcamrec_open") 
         self.record_handle = ctypes.c_void_p(pararecord.hrec)
-        
-        print(pararecord.path)
-
-    def getFrames(self):
-        """
-        Gets all of the available frames.
-        
-        This will block waiting for new frames even if there new frames 
-        available when it is called.
-        
-        FIXME: It does not always seem to block? The length of frames can
-               be zero. Are frames getting dropped? Some sort of race condition?
-        """
-        frames = []
-        for n in self.newFrames(): # self.newFrames typically looks like a list with integers like [0] and [1] in next frame.
-            frames.append(self.hcam_data[n])
-            
-        return [frames, [self.frame_x, self.frame_y]]
+    
     
     def checkRecStatus(self):
         '''
         Gets the current recording status.
         '''
         pararec_status = DCAMREC_STATUS()
+        pararec_status.size = ctypes.sizeof(pararec_status)        
+        
         self.checkStatus(dcam.dcamrec_status(self.record_handle,
                                 ctypes.byref(pararec_status)),
                          "dcamrec_status")
-            
-        print('Recording flag is: '+str(pararec_status.flags))
-
+        
+#        self.recording_status = str(pararec_status.flags)
+#        self.recording_totalframecount = pararec_status.totalframecount
+#        self.recording_currentframe_index = pararec_status.currentframe_index
+#            
+#        print('Recording flag is: '+self.recording_status)
+#        print('Total frame count in the file: '+str(self.recording_totalframecount))
         return pararec_status 
+    
+    def CalculateMaxFileSize(self):
+        self.RecordParaDict = {}
+        #---------------Get property values-----------------
+#        print('**************')
+        params = ["buffer_rowbytes",
+                  "image_width",                  
+                  "image_height",
+                  "subarray_hpos",
+                  "subarray_vpos",
+                  "record_fixed_bytes_per_file", # return additional data size per a file.
+                  "record_fixed_bytes_per_session",
+                  "record_fixed_bytes_per_frame"                  
+                  ]
+        
+        for paramter in params:
+            self.RecordParaDict[paramter] = self.getPropertyValue(paramter)[0]
+            print(self.RecordParaDict[paramter])
+#        print('**************')
 
     def startAcquisition(self):
         """
         Allocate as many frames as will fit in 2GB of memory and start data acquisition.
         """
-        self.captureSetup()
-
+        self.captureSetup()#self.frame_bytes is set here
+        
         # Allocate new image buffers if necessary. This will allocate
         # as many frames as can fit in 2GB of memory, or 2000 frames,
         # which ever is smaller. The problem is that if the frame size
@@ -1067,21 +1136,63 @@ class HamamatsuCameraRE(HamamatsuCamera):
                 self.number_image_buffers = self.number_frames
             else:
                 self.number_image_buffers = n_buffers
-
-            # Allocate new image buffers.
-            print('Number of image buffers: {}'.format(int(self.number_image_buffers)))
-            ptr_array = ctypes.c_void_p * self.number_image_buffers # Create pointers to use.
-            self.hcam_ptr = ptr_array() # The array of pointers of attached buffers.
-            self.hcam_data = []
-            for i in range(self.number_image_buffers):
-                hc_data = HCamData(self.frame_bytes) # For each frame we allocate a buffer.
-                self.hcam_ptr[i] = hc_data.getDataPtr() # Configure each frame memory pointer.
-                self.hcam_data.append(hc_data)
-
-            self.old_frame_bytes = self.frame_bytes
+        elif self.acquisition_mode is "fixed_length":
+            self.number_image_buffers = int(2.0*self.getPropertyValue("internal_frame_rate")[0])
             
-            print('Buffer assigned: {} Gigabybtes.'.format(self.number_image_buffers*self.frame_bytes/1024/1024/1024))
+        print('Number of image buffers: {}'.format(int(self.number_image_buffers)))
         
+            
+        #--------------------------------Allocate new host software buffer to receive capturing buffers.--------------------------------------------------------
+#        ptr_array = ctypes.c_void_p * self.number_image_buffers # Create pointers to use.
+#        self.hcam_ptr = ptr_array() # The array of pointers of attached buffers.
+#        self.RECcam_data = []
+#        for i in range(self.number_image_buffers):
+#            # Allocate buffer for each frame.
+#            # ??? originally buffer size for each frame is int(self.frame_bytes/2)-----seems to be related to numpy.empty buffer occupied mechanism
+#            #!!!!!!!!!!!! self.additional_bytes_per_frame is actually not ADDITIONAL size but sth bigger than the frame size.
+#            # Here DCAM only dumps frame info into DCAMBUF_ATTACHKIND_FRAME buffer, NO metada, part that is bigger than a frame needed is wasted.
+#            # There are meta data assigned for each file, session, and frame.
+#            Record_buffer_np_array = numpy.ascontiguousarray(numpy.empty(int((self.frame_bytes)/2), dtype=numpy.uint16))
+#            self.hcam_ptr[i] = Record_buffer_np_array.ctypes.data
+#            self.RECcam_data.append(Record_buffer_np_array)
+            
+            #!!!!!!!!After recording, RECcam_data is a list with each element being the np array of each frame plus additional bytes in buffer behind.
+            
+#                hc_data = HCamData(self.frame_bytes) # For each frame we allocate a buffer.
+#                self.hcam_ptr[i] = hc_data.getDataPtr() # Configure each frame memory pointer.
+#                self.RECcam_data.append(hc_data)
+
+        self.old_frame_bytes = self.frame_bytes
+            
+#        print('Buffer assigned: {} Megabybtes.'.format(self.number_image_buffers*(self.frame_bytes)/1024/1024))
+        '''
+        #-----------------------------------------Allocate new buffers for TIMESTAMP.--------------------------------------------------------
+        self.timestamp_bytes = 256
+        timestamp_ptr_array = ctypes.c_void_p * self.number_image_buffers # Create pointers to use.
+        self.rcam_timestamp_ptr = timestamp_ptr_array() # The array of pointers of attached buffers.
+        for i in range(self.number_image_buffers):
+            # Allocate buffer for each frame.
+            # ??? originally buffer size for each frame is int(self.frame_bytes/2)-----seems to be related to numpy.empty buffer occupied mechanism
+            #!!!!!!!!!!!! self.additional_bytes_per_frame is actually not ADDITIONAL size but sth bigger than the frame size.
+            # Here DCAM only dumps frame info into DCAMBUF_ATTACHKIND_FRAME buffer, NO metada, part that is bigger than a frame needed is wasted.
+            # There are meta data assigned for each file, session, and frame.
+            timestamp_buffer_np_array = numpy.ascontiguousarray(numpy.empty(int((self.timestamp_bytes)/2), dtype=numpy.uint16))
+            self.rcam_timestamp_ptr[i] = timestamp_buffer_np_array.ctypes.data    
+        
+        #-----------------------------------------Allocate new buffers for FRAMESTAMP.--------------------------------------------------------
+        self.framestamp_bytes = 108
+        framestamp_ptr_array = ctypes.c_void_p * self.number_image_buffers # Create pointers to use.
+        self.rcam_framestamp_ptr = framestamp_ptr_array() # The array of pointers of attached buffers.
+        for i in range(self.number_image_buffers):
+            # Allocate buffer for each frame.
+            # ??? originally buffer size for each frame is int(self.frame_bytes/2)-----seems to be related to numpy.empty buffer occupied mechanism
+            #!!!!!!!!!!!! self.additional_bytes_per_frame is actually not ADDITIONAL size but sth bigger than the frame size.
+            # Here DCAM only dumps frame info into DCAMBUF_ATTACHKIND_FRAME buffer, NO metada, part that is bigger than a frame needed is wasted.
+            # There are meta data assigned for each file, session, and frame.
+            framestamp_buffer_np_array = numpy.ascontiguousarray(numpy.empty(int((self.framestamp_bytes)/2), dtype=numpy.uint16))
+            self.rcam_framestamp_ptr[i] = framestamp_buffer_np_array.ctypes.data 
+        '''
+                
         # Attach image buffers.
         #
         # We need to attach & release for each acquisition otherwise
@@ -1094,63 +1205,195 @@ class HamamatsuCameraRE(HamamatsuCamera):
         # --DCAMBUF_ATTACHKIND_FRAME: Attach pointer array of user buffer to copy image.
         # --DCAMBUF_ATTACHKIND_TIMESTAMP: Attach pointer array of user buffer to copy timestamp.
         # --DCAMBUF_ATTACHKIND_FRAMESTAMP: Attach pointer array of user buffer to copy framestamp
-        
-        paramattach = DCAMBUF_ATTACH(0, DCAMBUF_ATTACHKIND_FRAME,
+        '''
+        paramattach_frame = DCAMBUF_ATTACH(0, DCAMBUF_ATTACHKIND_FRAME,
                 self.hcam_ptr, self.number_image_buffers) # self.hcam_ptr: Set to the array of pointers of attached buffers.
-        paramattach.size = ctypes.sizeof(paramattach)
+        paramattach_frame.size = ctypes.sizeof(paramattach_frame)
         
+        
+        paramattach_timestamp = DCAMBUF_ATTACH(0, DCAMBUF_ATTACHKIND_TIMESTAMP,
+                self.rcam_timestamp_ptr, self.number_image_buffers) # self.hcam_ptr: Set to the array of pointers of attached buffers.
+        paramattach_timestamp.size = ctypes.sizeof(paramattach_timestamp)
+        
+        paramattach_framestamp = DCAMBUF_ATTACH(0, DCAMBUF_ATTACHKIND_FRAMESTAMP,
+                self.rcam_framestamp_ptr, self.number_image_buffers) # self.hcam_ptr: Set to the array of pointers of attached buffers.
+        paramattach_framestamp.size = ctypes.sizeof(paramattach_framestamp)
+        '''
         # The dcambuf_attach() function assigns allocated memory as the capturing buffer for the host software.
         # DCAM will transfer the image data directly from the device to these buffers.
         
         
         # To start recording, the dcamcap_record() function should be called during READY state.
-        
-
-        
-        if self.acquisition_mode is "run_till_abort":
-            # Attach the buffer.
-            self.checkStatus(dcam.dcambuf_attach(self.camera_handle,
-                                    paramattach),
-                             "dcam_attachbuffer")
-            # Prepares for the recording of images into storage during capturing. 
-            self.checkStatus(dcam.dcamcap_record(self.camera_handle,
-                                    self.record_handle),
-                             "dcamcap_record") 
-
-            recordStatus = self.checkRecStatus()
-            # Starts image capturing and recording.
-            if recordStatus.flags == 0:
-                
-                self.checkStatus(dcam.dcamcap_start(self.camera_handle,
-                                        DCAMCAP_START_SEQUENCE),
-                                 "dcamcap_start")
-            
-                self.AcquisitionStartTime = time.time()
-                print("Acquisition starts at {} s.".format(self.AcquisitionStartTime))
-            
-            elif recordStatus.flags == DCAMCAP_STATUS_BUSY:
-                print('DCAMCAP_STATUS_BUSY')
+# =============================================================================
+#         if self.acquisition_mode is "run_till_abort":
+#             # Attach the buffer.
+#             '''
+#             self.checkStatus(dcam.dcambuf_attach(self.camera_handle,
+#                                     paramattach_frame),
+#                              "dcam_attachbuffer")
+#             '''
+#             self.checkStatus(dcam.dcambuf_alloc(self.camera_handle,
+#                           ctypes.c_int32(self.number_image_buffers)),
+#                  "dcambuf_alloc")
+#             # Prepares for the recording of images into storage during capturing. 
+#             self.checkStatus(dcam.dcamcap_record(self.camera_handle,
+#                                     self.record_handle),
+#                              "dcamcap_record") 
+# 
+#             recordStatus = self.checkRecStatus()
+#             # Starts image capturing and recording.
+#             if recordStatus.flags == 0:
+#                 
+#                 self.checkStatus(dcam.dcamcap_start(self.camera_handle,
+#                                         DCAMCAP_START_SEQUENCE),
+#                                  "dcamcap_start")
+#             
+#                 self.AcquisitionStartTime = time.time()
+#                 print("Acquisition starts at {} s.".format(self.AcquisitionStartTime))
+#             
+#             elif recordStatus.flags == DCAMCAP_STATUS_BUSY:
+#                 print('DCAMCAP_STATUS_BUSY')
+# =============================================================================
             
         if self.acquisition_mode is "fixed_length":
-            
-            paramattach.buffercount = self.number_frames
+            '''
+            paramattach_frame.buffercount = self.number_frames
+            #--------------Attach frame buffers---------------------
             self.checkStatus(dcam.dcambuf_attach(self.camera_handle,
-                                    paramattach),
+                                    paramattach_frame),
                              "dcambuf_attach")
-        
+#            #--------------Attach timestamp buffers-----------------
+#            self.checkStatus(dcam.dcambuf_attach(self.camera_handle,
+#                                    paramattach_timestamp),
+#                             "dcambuf_attach")
+#            #--------------Attach FRAMESTAMP buffers----------------
+#            self.checkStatus(dcam.dcambuf_attach(self.camera_handle,
+#                                    paramattach_framestamp),
+#                             "dcambuf_attach")            
+            '''
+            # -------------------------------Allocate buffer------------------------------------
+            self.checkStatus(dcam.dcambuf_alloc(self.camera_handle,
+                          ctypes.c_int32(self.number_image_buffers)),
+                 "dcambuf_alloc")
+            
             self.checkStatus(dcam.dcamcap_record(self.camera_handle,
                                     self.record_handle),
                              "dcamcap_record")
             
-            recordStatus = self.checkRecStatus()
-            if recordStatus.flags == 0:
-        
+#            recordStatus = self.checkRecStatus()
+
+            if True:
+#                print('try to start below...')
+                
                 self.checkStatus(dcam.dcamcap_start(self.camera_handle,
                                         DCAMCAP_START_SNAP),
                                  "dcamcap_start")
                 
                 self.AcquisitionStartTime = time.time()
                 print("Acquisition starts at {} s.".format(self.AcquisitionStartTime))
+                
+                #-------------------------Wait until record event has stopped----------------------------------------
+                paramRecWaitStart = DCAMWAIT_START(
+                                            0, 
+                                            0, 
+                                            DCAMWAIT_RECEVENT_STOPPED | DCAMWAIT_RECEVENT_MISSED, 
+                                            10)
+                paramRecWaitStart.size = ctypes.sizeof(paramRecWaitStart)
+                
+#                dcam.dcamwait_start(self.wait_handle, ctypes.byref(paramRecWaitStart))        
+                
+                RECStop = False
+                while RECStop != True:
+                    # Keep checking if capture event is stopped.
+        #                    self.checkStatus(fn_return = dcam.dcamwait_start(self.wait_handle,
+        #                                    ctypes.byref(paramRecWaitStart)),
+        #                                     "dcamwait_start")  
+                    fn_return = dcam.dcamwait_start(self.wait_handle,
+                                    ctypes.byref(paramRecWaitStart))
+#                    print(fn_return)
+                    
+                    pararec_status = self.checkRecStatus()
+                    print('latest index: {}'.format(pararec_status.currentframe_index))
+                    print(pararec_status.flags)
+                    print('missing frame count: {}'.format(pararec_status.missingframe_count))
+                    RecStatusCheckTime = time.time()
+                    print('Total frame count in the file: {}; Time past: {}'.format(pararec_status.totalframecount, (RecStatusCheckTime - self.AcquisitionStartTime)))
+        #            if paramRecWaitStart.eventhappened == DCAMWAIT_RECEVENT_STOPPED:
+                    if pararec_status.flags == 0:
+                        RECStop = True
+                #-------------------------
+                
+#                #-------------------------Wait-start capture----------------------------------------
+#                paramCapWaitStart = DCAMWAIT_START(
+#                                            0, 
+#                                            0, 
+#                                            DCAMWAIT_CAPEVENT_STOPPED,# | DCAMWAIT_RECEVENT_MISSED, 
+#                                            100)
+#                paramCapWaitStart.size = ctypes.sizeof(paramCapWaitStart)
+#                
+#                bStop = False
+#                while bStop != True:
+#                    # Keep checking if capture event is stopped.
+##                    self.checkStatus(fn_return = dcam.dcamwait_start(self.wait_handle,
+##                                    ctypes.byref(paramRecWaitStart)),
+##                                     "dcamwait_start")  
+#                    fn_return = dcam.dcamwait_start(self.wait_handle,
+#                                    ctypes.byref(paramCapWaitStart))
+#                    print(fn_return)
+#                    
+#                    if paramCapWaitStart.eventhappened == DCAMWAIT_CAPEVENT_STOPPED:
+##                    if fn_return == 1:
+#                        bStop = True    
+                        
+#                    pararec_status = self.checkRecStatus()
+#                    print('latest index: {}'.format(self.recording_currentframe_index))
+                        
+
+#                #-------------------------Wait until record event has stopped----------------------------------------
+#                paramRecWaitStart = DCAMWAIT_START(
+#                                            0, 
+#                                            0, 
+#                                            DCAMWAIT_RECEVENT_STOPPED,# | DCAMWAIT_RECEVENT_MISSED, 
+#                                            100)
+#                paramRecWaitStart.size = ctypes.sizeof(paramRecWaitStart)
+#                
+##                dcam.dcamwait_start(self.wait_handle, ctypes.byref(paramRecWaitStart))        
+#                
+#                RECStop = False
+#                while RECStop != True:
+#                    # Keep checking if capture event is stopped.
+#        #                    self.checkStatus(fn_return = dcam.dcamwait_start(self.wait_handle,
+#        #                                    ctypes.byref(paramRecWaitStart)),
+#        #                                     "dcamwait_start")  
+#                    fn_return = dcam.dcamwait_start(self.wait_handle,
+#                                    ctypes.byref(paramRecWaitStart))
+#                    print(fn_return)
+#                    
+#        #            if paramRecWaitStart.eventhappened == DCAMWAIT_RECEVENT_STOPPED:
+#                    if fn_return == 1:
+#                        RECStop = True
+#                #-------------------------
+                # -------------------------------dcambuf_copyframe---------------------------------
+                # copies image data from capturing buffer to a buffer provided by the host software.  
+#                for i in range(self.number_image_buffers):
+#                    for n in self.newFrames(): # n should start from 0.
+##                        print(n)
+#                        paramlock_copyframe = DCAMBUF_FRAME()
+#                                
+#                        paramlock_copyframe.iFrame = n
+#                        paramlock_copyframe.size = ctypes.sizeof(paramlock_copyframe)	
+#                        paramlock_copyframe.buf = self.hcam_ptr[n]
+#                        paramlock_copyframe.rowbytes = RecordParaDict["buffer_rowbytes"]
+#                        paramlock_copyframe.width = RecordParaDict["image_width"]
+#                        paramlock_copyframe.height = RecordParaDict["image_height"]
+#                        paramlock_copyframe.left = RecordParaDict["subarray_hpos"]
+#                        paramlock_copyframe.width = RecordParaDict["subarray_vpos"]
+#            
+#                        # Copy the frame in the camera buffer.
+#                        self.checkStatus(dcam.dcambuf_copyframe(self.camera_handle,
+#                                                            ctypes.byref(paramlock_copyframe)),
+#                                         "dcambuf_lockframe")
+                    
                 
             elif recordStatus.flags == DCAMCAP_STATUS_BUSY:
                 print('DCAMCAP_STATUS_BUSY')
@@ -1163,24 +1406,53 @@ class HamamatsuCameraRE(HamamatsuCamera):
         """
         Stop data acquisition and release the memory associates with the frames.
         """
+        # Wait until capture event stopped.
+#        paramstart = DCAMWAIT_START(
+#                0, 
+#                0, 
+#                DCAMWAIT_RECEVENT_STOPPED,# | DCAMWAIT_RECEVENT_MISSED, 
+#                2000)
+#        paramstart.size = ctypes.sizeof(paramstart)
+#        self.checkStatus(dcam.dcamwait_start(self.wait_handle,
+#                                        ctypes.byref(paramstart)),
+#                         "dcamwait_start")
+        self.AcquisitionStopTime = time.time()  
+        print('Capture for {} s.'.format(self.AcquisitionStopTime - self.AcquisitionStartTime))
 
 
         # Stop acquisition.
+        # The dcamcap_stop() function terminates capture started by the dcamcap_start() function. 
+        # If the capturing has already been terminated, this function will do nothing. 
+        # If the device is recording, that process will also be terminated.
+        #you need to stop the recording with dcamcap_stop() before dcamrec_close(). 
         self.checkStatus(dcam.dcamcap_stop(self.camera_handle),
                          "dcamcap_stop")
+        
+        
         
         # The dcamrec_close() function flushes all of the data including the meta data
         self.checkStatus(dcam.dcamrec_close(self.record_handle),
                          "dcamrec_close")
+        print('dcamrec_close.')
 
+#        time.sleep(5)
+
+#            elif paramRecWaitStart.eventhappened == DCAMWAIT_RECEVENT_MISSED:
+#                print('frame missing.')
+                
         # Release image buffers.
-        if (self.hcam_ptr):
-            self.checkStatus(dcam.dcambuf_release(self.camera_handle,
-                                                DCAMBUF_ATTACHKIND_FRAME),
-                         "dcambuf_release")
+        print('dcambuf_release')
+        self.checkStatus(dcam.dcambuf_release(self.camera_handle, DCAMBUF_ATTACHKIND_FRAME),"dcambuf_release")
+#                                            DCAMBUF_ATTACHKIND_FRAME | DCAMBUF_ATTACHKIND_TIMESTAMP | DCAMBUF_ATTACHKIND_FRAMESTAMP),
+#                     "dcambuf_release")
 
-        print("max camera backlog was:", self.max_backlog)
-        self.max_backlog = 0
+#        print("max camera backlog was:", self.max_backlog)
+#        self.max_backlog = 0
+        
+        self.checkStatus(dcam.dcamwait_close(self.wait_handle),
+                         "dcamwait_close")
+        self.checkStatus(dcam.dcamdev_close(self.camera_handle),
+                         "dcamdev_close")
 #
 # Testing.
 #
@@ -1188,7 +1460,7 @@ if (__name__ == "__main__"):
 
     import time
     import random
-    
+    import numpy as np
     #
     # Initialization
     # Load dcamapi.dll version 19.12.641.5901
@@ -1217,7 +1489,7 @@ if (__name__ == "__main__"):
             
             # List support properties.
             # Property names are converted. For example, internal_frame_rate = DCAM_IDPROP_INTERNALFRAMERATE in API reference.
-            if False:
+            if True:
                 print("Supported properties:")
                 props = hcam.getProperties()
                 for i, id_name in enumerate(sorted(props.keys())):
@@ -1325,73 +1597,110 @@ if (__name__ == "__main__"):
                     hcam.stopAcquisition()
                             
             hcam.shutdown()
-            
+        
+        #--------------------------------------------------------------------------------------------------------------------------------
         elif Streaming_to_disk == True:
             
-            rcam = HamamatsuCameraRE(path = 'M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\Equipment\\Hamamatsu Orca Flash\\test',
-                                     ext = 'tif',
+            rcam = HamamatsuCameraRE(path = 'M:\\tnw\\ist\\do\\projects\\Neurophotonics\\Brinkslab\\People\\Xin Meng\\Code\\Python_test\\HamamatsuCam\\test',
+                                     ext = 'dcimg',
                                      camera_id = 0)
+            
+            # List support properties.
+            # Property names are converted. For example, internal_frame_rate = DCAM_IDPROP_INTERNALFRAMERATE in API reference.
+            if False:
+                print("Supported properties:")
+                props = rcam.getProperties()
+                for i, id_name in enumerate(sorted(props.keys())):
+                    [p_value, p_type] = rcam.getPropertyValue(id_name)
+                    p_rw = rcam.getPropertyRW(id_name)
+                    read_write = ""
+                    if (p_rw[0]):
+                        read_write += "read"
+                    if (p_rw[1]):
+                        read_write += ", write"
+                    print("  ", i, ")", id_name, " = ", p_value, " type is:", p_type, ",", read_write)
+                    text_values = rcam.getPropertyText(id_name)
+                    if (len(text_values) > 0):
+                        print("          option / value")
+                        for key in sorted(text_values, key = text_values.get):
+                            print("         ", key, "/", text_values[key])            
             
             # Test setting & getting some parameters.
             if True:
+                #// set subarray mode off. This setting is not mandatory, but you have to control the setting order of offset and size when mode is on.
+                rcam.setPropertyValue("subarray_mode", "OFF")
+                rcam.setPropertyValue("subarray_hpos", 512)  # This property allows you to specify the LEFT position of capturing area. 
+                rcam.setPropertyValue("subarray_vpos", 768)  # This property allows you to specify the top position of capturing area. 
+                rcam.setPropertyValue("subarray_hsize", 128)
+                rcam.setPropertyValue("subarray_vsize", 512)
                 
-                #print(hcam.setPropertyValue("subarray_hsize", 2048))
-                #print(hcam.setPropertyValue("subarray_vsize", 2048))
-                print(rcam.setPropertyValue("subarray_hpos", 512))  # This property allows you to specify the LEFT position of capturing area. 
-                print(rcam.setPropertyValue("subarray_vpos", 960))  # This property allows you to specify the top position of capturing area. 
-                print(rcam.setPropertyValue("subarray_hsize", 128))
-                print(rcam.setPropertyValue("subarray_vsize", 128))
+#                rcam.setSubArrayMode()            
                 
-                rcam.setSubArrayMode()            
-                
-                print(rcam.setPropertyValue("exposure_time", 0.0006))
+                rcam.setPropertyValue("exposure_time", 0.002)
     
-                print(rcam.setPropertyValue("binning", "1x1"))
-                print(rcam.setPropertyValue("readout_speed", 2))
+                rcam.setPropertyValue("binning", "1x1")
+                rcam.setPropertyValue("readout_speed", 2)
         
     
                 #hcam.startAcquisition()
                 #hcam.stopAcquisition()
     
-                params = ["internal_frame_rate",
-                          "timing_readout_time",
-                          "exposure_time",
-                          "subarray_hsize",
-                          "subarray_mode"]
-    
-                #                      "image_height",
-                #                      "image_width",
-                #                      "image_framebytes",
-                #                      "buffer_framebytes",
-                #                      "buffer_rowbytes",
-                #                      "buffer_top_offset_bytes",
-                #                      "subarray_hsize",
-                #                      "subarray_vsize",
-                #                      "binning"]
-                for param in params:
-                    print(param, rcam.getPropertyValue(param)[0])
-                    
-            recStatus = rcam.checkRecStatus()
+#                params = ["internal_frame_rate",
+#                          "timing_readout_time",
+#                          "exposure_time",
+#                          "subarray_hsize",
+#                          "subarray_mode",
+#                          "image_height",
+#                          "image_width",
+#                          "image_framebytes",
+##                          "buffer_framebytes", # return byte size of a frame buffer that should be allocated 
+#                          # when you use dcambuf_attach() function
+##                          "buffer_rowbytes",
+##                          "buffer_top_offset_bytes",
+#                          "subarray_hsize",
+#                          "subarray_vsize"
+##                          "binning",
+##                          "record_fixedbytes_perfile", # return additional data size per a file.
+##                          "record_fixedbytes_persession",
+##                          "record_fixedbytes_perframe",
+#                          ]
+#                print('----------------------Settings bef subarraymode-----------------------')
+#                for param in params:
+#                    print(param, rcam.getPropertyValue(param)[0])
+#                print('-----------------------------------------------------')
+#            recStatus = rcam.checkRecStatus()
                     
             # Test 'run_till_abort' acquisition.
             if True:
                 print("----------------Testing fixed length acquisition-------------------")
-                rcam.setACQMode("fixed_length", number_frames = 1603)
-                
-                time.sleep(1)
+                rcam.setACQMode("fixed_length", number_frames = 200*3)
+                print('Acquisition_mode is: '+str(rcam.acquisition_mode))
+#                time.sleep(1)
+
                 
                 rcam.startAcquisition()
-                time.sleep(1)
-                AcquisitionEndTime = time.time()
+#                time.sleep(3)
+#                rcam.checkRecStatus() # If this is called during recording, it sort of block it, resulting in smaller file size??
+#                AcquisitionEndTime = time.time()
 #                print("Frames acquired: " + str(cnt))
-                print('Total time is: {} s.'.format(AcquisitionEndTime-rcam.AcquisitionStartTime))
+#                print('Total time is: {} s.'.format(AcquisitionEndTime-rcam.AcquisitionStartTime))
 #                print('Estimated fps: {} hz.'.format(int(cnt/(AcquisitionEndTime-hcam.AcquisitionStartTime))))
-                recordStatus = rcam.checkRecStatus()
-                print('maxframecount_per_session: '+str(recordStatus.maxframecount_per_session))
-                time.sleep(5)
+#                recordStatus = rcam.checkRecStatus()
+#                print('Total frame count in the file: '+str(recordStatus.totalframecount))
+#                time.sleep(20)
                 rcam.stopAcquisition()
-
-            rcam.shutdown()
+#                time.sleep(10)
+                # The resulting file size should be 75.3 MB from HoKaWo(128*512, 600 frames)
+#                time.sleep(2)# Release buffer time??--Doesn't work.
+#                RECcam_data = rcam.RECcam_data
+#            rcam.shutdown()
+            
+            # Access the binary data
+            # Seems start from 576 it's the frist pixel value.
+#            xbash = np.fromfile(r'M:\tnw\ist\do\projects\Neurophotonics\Brinkslab\Equipment\Hamamatsu Orca Flash\test.tif', dtype='uint16')
+#            print(xbash[576])
+#            print(xbash[72])
+    dcam.dcamapi_uninit()
 #
 # The MIT License
 #
